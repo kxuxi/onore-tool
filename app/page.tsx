@@ -53,12 +53,17 @@ export default function HomePage() {
     kind: "success" | "error";
     message: string;
   } | null>(null);
+  // 初期読み込みの失敗表示・再試行用。reloadKey を変えると取得 useEffect が再実行される。
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const detail = detailStack[detailStack.length - 1] ?? null;
 
-  // 初回マウント時にサーバー（共有DB）から読み込み
+  // 初回マウント時・再試行時にサーバー（共有DB）から読み込み
   useEffect(() => {
     let active = true;
+    setLoadError(false);
+    setHydrated(false);
     fetchState()
       .then((state) => {
         if (!active) return;
@@ -67,6 +72,7 @@ export default function HomePage() {
       })
       .catch(() => {
         if (!active) return;
+        setLoadError(true);
         setToast({ kind: "error", message: "データの読み込みに失敗しました" });
       })
       .finally(() => {
@@ -75,7 +81,10 @@ export default function HomePage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [reloadKey]);
+
+  // 読み込み失敗時の再試行（取得 useEffect を再実行する）。
+  const reload = useCallback(() => setReloadKey((k) => k + 1), []);
 
   // 国カラー設定をローカルから読み込み
   useEffect(() => {
@@ -287,8 +296,7 @@ export default function HomePage() {
             <span />
           </button>
           <h1>
-            己鯖 武将DBツール
-            <span className="sub">v1</span>
+            ONORE ANALYTICS
           </h1>
         </div>
       </header>
@@ -326,14 +334,26 @@ export default function HomePage() {
         </aside>
 
         <main className="main">
-          {hydrated ? (
-            detailView ?? content
-          ) : (
+          {!hydrated ? (
             <div className="panel">
               <p className="muted" style={{ margin: 0 }}>
                 読み込み中…
               </p>
             </div>
+          ) : loadError ? (
+            <div className="panel">
+              <h2 style={{ marginTop: 0 }}>データを読み込めませんでした</h2>
+              <p className="muted" style={{ marginTop: 0 }}>
+                サーバー（共有DB）への接続に失敗しました。時間をおいて再度お試しください。
+              </p>
+              <div className="row">
+                <button type="button" className="btn btn-primary" onClick={reload}>
+                  再読み込み
+                </button>
+              </div>
+            </div>
+          ) : (
+            detailView ?? content
           )}
         </main>
       </div>
