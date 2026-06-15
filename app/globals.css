@@ -1384,10 +1384,33 @@ mark.hl {
 .tag.faction { color: #ff9ecb; border-color: #57273f; background: #2a1822; }
 .tag.warn { color: var(--danger); border-color: #5a2a2a; background: #2a1818; }
 
+/* クリックできるタグ（図鑑から個別ページへ遷移）。見た目は tag のまま。 */
+.tag-btn {
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+}
+
+.tag-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .tag-list {
   display: inline-flex;
   flex-wrap: wrap;
   gap: 4px;
+}
+
+/* 装備ページ：よく使う兵種のピル一覧 */
+.equip-units {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.equip-units .pill-btn .muted {
+  margin-left: 4px;
 }
 
 /* ---------- Status badges (被弾表) ---------- */

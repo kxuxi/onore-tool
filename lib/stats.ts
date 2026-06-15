@@ -1049,3 +1049,42 @@ export function itemStats(log: BattleRecord[]): EquipStat[] {
   return collectEquipStats(log, (s) => s.equip1);
 }
 
+/** 装備枠。weapon=武器(装備2) / item=品物(装備1)。 */
+export type EquipSlot = "weapon" | "item";
+
+/** 装備枠に対応する取り出し関数を返す。 */
+function equipPick(slot: EquipSlot): (side: BattleSide) => string | undefined {
+  return slot === "weapon" ? (s) => s.equip2 : (s) => s.equip1;
+}
+
+/** 片側が指定の装備（武器/品物）を装備しているか。 */
+function equipMatches(
+  side: BattleSide,
+  slot: EquipSlot,
+  target: string
+): boolean {
+  const raw = equipPick(slot)(side);
+  if (!raw) return false;
+  return normalizeDisplayToken(raw) === target;
+}
+
+/**
+ * 指定の装備（武器=装備2 / 品物=装備1）が使われた戦闘を新しい順で集める。
+ * 同じ戦闘で両側が装備していれば 2 件になる（兵種ページと同じ方針）。
+ */
+export function collectEquipBattles(
+  log: BattleRecord[],
+  equipName: string,
+  slot: EquipSlot
+): BattleOutcome[] {
+  const target = equipName.trim();
+  const out: BattleOutcome[] = [];
+  for (const { record, card } of dedupedCards(log)) {
+    if (equipMatches(card.left, slot, target))
+      out.push(makeOutcome(record, card, "left"));
+    if (equipMatches(card.right, slot, target))
+      out.push(makeOutcome(record, card, "right"));
+  }
+  return sortByTimeDesc(out);
+}
+

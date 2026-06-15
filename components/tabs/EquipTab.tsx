@@ -11,6 +11,8 @@ export type EquipVariant = "weapon" | "item";
 interface Props {
   log: BattleRecord[];
   onSelectWarlord: (name: string) => void;
+  /** 装備名をクリックしたときに個別ページを開く。 */
+  onSelectEquip: (name: string) => void;
   /** 武器図鑑 / 品物図鑑のどちらを表示するか。 */
   variant: EquipVariant;
 }
@@ -66,7 +68,7 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
 /** 勝率の信頼度を確保するための最低使用回数の選択肢。 */
 const MIN_USE_OPTIONS = [1, 10, 50, 100];
 
-export function EquipTab({ log, onSelectWarlord, variant }: Props) {
+export function EquipTab({ log, onSelectWarlord, onSelectEquip, variant }: Props) {
   const copy = VARIANT_COPY[variant];
   const [keyword, setKeyword] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("battles");
@@ -212,7 +214,14 @@ export function EquipTab({ log, onSelectWarlord, variant }: Props) {
               {view.map((e) => (
                 <tr key={e.name}>
                   <td className="cell-title">
-                    <span className="tag unit">{e.name}</span>
+                    <button
+                      type="button"
+                      className="tag unit tag-btn"
+                      onClick={() => onSelectEquip(e.name)}
+                      title={`${e.name} の詳細を見る`}
+                    >
+                      {e.name}
+                    </button>
                   </td>
                   <td data-label="使用回数">{e.battles}</td>
                   <td data-label="勝率">

@@ -11,6 +11,7 @@ import { FactionTab } from "@/components/tabs/FactionTab";
 import { SwiTab } from "@/components/tabs/SwiTab";
 import { WarlordDetail } from "@/components/detail/WarlordDetail";
 import { UnitDetail } from "@/components/detail/UnitDetail";
+import { EquipDetail } from "@/components/detail/EquipDetail";
 import { fetchState, registerState } from "@/lib/api";
 import { parseBattleEntries } from "@/lib/parser";
 import {
@@ -34,14 +35,25 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "factions", label: "国カラー" },
 ];
 
-/** 武将ページ / 兵種ページの表示状態 */
-type DetailView = { kind: "warlord" | "unit"; name: string };
+/** 武将 / 兵種 / 武器 / 品物 ページの表示状態 */
+type DetailView = {
+  kind: "warlord" | "unit" | "weapon" | "item";
+  name: string;
+};
+
+/** 詳細ページの種類ごとの共有URLクエリのキー。 */
+const DETAIL_PARAM: Record<DetailView["kind"], string> = {
+  warlord: "w",
+  unit: "u",
+  weapon: "wp",
+  item: "it",
+};
 
 /** タブ・詳細ページの状態を共有用 URL クエリへ変換する。 */
 function buildShareQuery(tab: TabKey, detail: DetailView | null): string {
   const params = new URLSearchParams();
   if (tab !== "history") params.set("tab", tab);
-  if (detail) params.set(detail.kind === "warlord" ? "w" : "u", detail.name);
+  if (detail) params.set(DETAIL_PARAM[detail.kind], detail.name);
   const qs = params.toString();
   return qs ? `?${qs}` : "";
 }
@@ -130,8 +142,12 @@ export default function HomePage() {
     if (tabKey && TABS.some((x) => x.key === tabKey)) setTab(tabKey as TabKey);
     const w = params.get("w");
     const u = params.get("u");
+    const wp = params.get("wp");
+    const it = params.get("it");
     if (w) setDetailStack([{ kind: "warlord", name: w }]);
     else if (u) setDetailStack([{ kind: "unit", name: u }]);
+    else if (wp) setDetailStack([{ kind: "weapon", name: wp }]);
+    else if (it) setDetailStack([{ kind: "item", name: it }]);
   }, []);
 
   // タブ・詳細ページの変化を URL へ反映（履歴は汚さず replaceState）。
@@ -329,6 +345,21 @@ export default function HomePage() {
     [isMobile]
   );
 
+  // 武器ページ / 品物ページを開く。
+  const selectEquip = useCallback(
+    (name: string, slot: "weapon" | "item") => {
+      const n = name.trim();
+      if (!n) return;
+      setDetailStack((s) => {
+        const top = s[s.length - 1];
+        if (top && top.kind === slot && top.name === n) return s;
+        return [...s, { kind: slot, name: n }];
+      });
+      if (isMobile) setSidebarOpen(false);
+    },
+    [isMobile]
+  );
+
   const backDetail = useCallback(() => {
     setDetailStack((s) => s.slice(0, -1));
   }, []);
@@ -361,6 +392,7 @@ export default function HomePage() {
             variant="weapon"
             log={battleLog}
             onSelectWarlord={selectWarlord}
+            onSelectEquip={(name) => selectEquip(name, "weapon")}
           />
         );
       case "items":
@@ -369,6 +401,7 @@ export default function HomePage() {
             variant="item"
             log={battleLog}
             onSelectWarlord={selectWarlord}
+            onSelectEquip={(name) => selectEquip(name, "item")}
           />
         );
       case "factions":
@@ -391,28 +424,45 @@ export default function HomePage() {
     handleChangeFactionColors,
     selectWarlord,
     selectUnit,
+    selectEquip,
   ]);
 
-  const detailView = detail ? (
-    detail.kind === "warlord" ? (
-      <WarlordDetail
-        name={detail.name}
-        db={db}
-        log={battleLog}
-        onSelectWarlord={selectWarlord}
-        onSelectUnit={selectUnit}
-        onBack={backDetail}
-      />
-    ) : (
-      <UnitDetail
-        name={detail.name}
-        log={battleLog}
-        onSelectWarlord={selectWarlord}
-        onSelectUnit={selectUnit}
-        onBack={backDetail}
-      />
-    )
-  ) : null;
+  let detailView: React.ReactNode = null;
+  if (detail) {
+    if (detail.kind === "warlord") {
+      detailView = (
+        <WarlordDetail
+          name={detail.name}
+          db={db}
+          log={battleLog}
+          onSelectWarlord={selectWarlord}
+          onSelectUnit={selectUnit}
+          onBack={backDetail}
+        />
+      );
+    } else if (detail.kind === "unit") {
+      detailView = (
+        <UnitDetail
+          name={detail.name}
+          log={battleLog}
+          onSelectWarlord={selectWarlord}
+          onSelectUnit={selectUnit}
+          onBack={backDetail}
+        />
+      );
+    } else {
+      detailView = (
+        <EquipDetail
+          name={detail.name}
+          slot={detail.kind}
+          log={battleLog}
+          onSelectWarlord={selectWarlord}
+          onSelectUnit={selectUnit}
+          onBack={backDetail}
+        />
+      );
+    }
+  }
 
   return (
     <div className={"app" + (sidebarOpen ? " sidebar-open" : "")}>
