@@ -3,11 +3,16 @@
 import { useMemo, useState } from "react";
 import type { WarlordMap } from "@/lib/types";
 import { copyText } from "@/lib/clipboard";
+import { parseWarlordStats } from "@/lib/warlordStats";
 import { SearchIcon, FilterIcon, CloseIcon } from "@/components/icons";
 
 interface Props {
   db: WarlordMap;
   onSelectWarlord: (name: string) => void;
+  /** ランキングから解析した能力値を取り込む。更新/新規件数を返す。 */
+  onImportStats: (
+    stats: ReturnType<typeof parseWarlordStats>["stats"]
+  ) => Promise<{ updated: number; created: number }>;
 }
 
 /** 並び替えできる列キー（updatedAt は既定の更新日時順）。 */
@@ -32,7 +37,7 @@ function formatUpdatedAt(ms: number): string {
   });
 }
 
-export function DbTab({ db, onSelectWarlord }: Props) {
+export function DbTab({ db, onSelectWarlord, onImportStats }: Props) {
   const [keyword, setKeyword] = useState("");
   const [faction, setFaction] = useState("");
   const [type, setType] = useState("");
@@ -42,6 +47,12 @@ export function DbTab({ db, onSelectWarlord }: Props) {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [copied, setCopied] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importMsg, setImportMsg] = useState<
+    { kind: "ok" | "error"; text: string } | null
+  >(null);
 
   const all = useMemo(() => Object.values(db), [db]);
 
@@ -128,6 +139,36 @@ export function DbTab({ db, onSelectWarlord }: Props) {
     setUnit("");
   };
 
+  // ランキング表を貼り付けて能力値を取り込む。
+  const handleImport = async () => {
+    if (importing) return;
+    const { stats, parsed, skipped } = parseWarlordStats(importText);
+    if (parsed === 0) {
+      setImportMsg({
+        kind: "error",
+        text:
+          "取り込める行がありませんでした。ランキング表をタブ区切りのままコピーして貼り付けてください。",
+      });
+      return;
+    }
+    setImporting(true);
+    setImportMsg(null);
+    try {
+      const { updated, created } = await onImportStats(stats);
+      const parts = [`${updated}件更新`, `${created}件新規`];
+      if (skipped > 0) parts.push(`${skipped}行スキップ`);
+      setImportMsg({ kind: "ok", text: `取り込み完了：${parts.join(" / ")}` });
+      setImportText("");
+    } catch (e) {
+      setImportMsg({
+        kind: "error",
+        text: e instanceof Error ? e.message : "取り込みに失敗しました",
+      });
+    } finally {
+      setImporting(false);
+    }
+  };
+
   // 絞り込み中の一覧をタブ区切り（TSV）でクリップボードへコピーする。
   const handleCopyTsv = async () => {
     if (filtered.length === 0) return;
@@ -155,6 +196,52 @@ export function DbTab({ db, onSelectWarlord }: Props) {
   return (
     <section className="panel">
       <h2>DB確認</h2>
+
+      <div className="import-block">
+        <button
+          type="button"
+          className={"btn import-toggle" + (showImport ? " active" : "")}
+          onClick={() => setShowImport((v) => !v)}
+          aria-expanded={showImport}
+        >
+          <span>ステータス取り込み</span>
+        </button>
+        {showImport && (
+          <div className="import-body">
+            <p className="import-hint">
+              武将ランキング表をコピーして、そのまま貼り付けてください。武力・知力・統率力・政治力・計略・自己PR を各武将ページへ反映します。
+            </p>
+            <textarea
+              className="import-box"
+              value={importText}
+              placeholder={
+                "順位\t名前\t武力\t知力\t統率力\t政治力\t計略\t資金\t兵糧\t年齢\t勝率\t仕官月数\t自己PR\t階級\t国名\n（ランキング表をタブ区切りのまま貼り付け）"
+              }
+              onChange={(e) => setImportText(e.target.value)}
+              spellCheck={false}
+            />
+            <div className="import-actions">
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleImport}
+                disabled={importing || !importText.trim()}
+              >
+                {importing ? "取り込み中…" : "取り込む"}
+              </button>
+              {importMsg && (
+                <span
+                  className={
+                    "import-msg" + (importMsg.kind === "error" ? " error" : " ok")
+                  }
+                >
+                  {importMsg.text}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
 
       <div className="stat-grid">
         <div className="stat">

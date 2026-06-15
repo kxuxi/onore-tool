@@ -16,6 +16,13 @@ type WarlordRow = {
   lastActionAt: string | null;
   actions: string[];
   updatedAt: bigint;
+  power: number | null;
+  intelligence: number | null;
+  leadership: number | null;
+  politics: number | null;
+  strategy: number | null;
+  selfPr: string | null;
+  statsRaw: string | null;
 };
 
 function rowToWarlord(r: WarlordRow): Warlord {
@@ -29,6 +36,13 @@ function rowToWarlord(r: WarlordRow): Warlord {
     lastActionAt: r.lastActionAt ?? undefined,
     actions: r.actions.length > 0 ? r.actions : undefined,
     updatedAt: Number(r.updatedAt),
+    power: r.power ?? undefined,
+    intelligence: r.intelligence ?? undefined,
+    leadership: r.leadership ?? undefined,
+    politics: r.politics ?? undefined,
+    strategy: r.strategy ?? undefined,
+    selfPr: r.selfPr ?? undefined,
+    statsRaw: r.statsRaw ?? undefined,
   };
 }
 
@@ -43,6 +57,14 @@ function warlordToRow(w: Warlord) {
     lastActionAt: w.lastActionAt ?? null,
     actions: w.actions ?? [],
     updatedAt: BigInt(w.updatedAt),
+    // 能力値・自己PRは戦闘登録では変更しないが、既存値を保持するため書き戻す。
+    power: w.power ?? null,
+    intelligence: w.intelligence ?? null,
+    leadership: w.leadership ?? null,
+    politics: w.politics ?? null,
+    strategy: w.strategy ?? null,
+    selfPr: w.selfPr ?? null,
+    statsRaw: w.statsRaw ?? null,
   };
 }
 

@@ -19,6 +19,20 @@ export interface Warlord {
   actions?: string[];
   /** ローカル登録時刻（ミリ秒） */
   updatedAt: number;
+  /** 武力（ランキング取り込み） */
+  power?: number;
+  /** 知力（ランキング取り込み） */
+  intelligence?: number;
+  /** 統率力（ランキング取り込み） */
+  leadership?: number;
+  /** 政治力（ランキング取り込み） */
+  politics?: number;
+  /** 計略（ランキング取り込み・小数あり 例: 102.5） */
+  strategy?: number;
+  /** 自己PR（ランキング取り込み） */
+  selfPr?: string;
+  /** 取り込み元の生テキスト（未使用項目の保全用） */
+  statsRaw?: string;
 }
 
 export type WarlordMap = Record<string, Warlord>;

@@ -36,6 +36,14 @@ model Warlord {
   lastActionAt String?  // 最終行動時刻
   actions      String[] @default([]) // 行動履歴
   updatedAt    BigInt   @default(0)
+  // ランキング取り込みで反映する能力値（武力〜計略）と自己PR。すべて任意。
+  power        Int?     // 武力
+  intelligence Int?     // 知力
+  leadership   Int?     // 統率力
+  politics     Int?     // 政治力
+  strategy     Float?   // 計略 (例: 102.5)
+  selfPr       String?  // 自己PR
+  statsRaw     String?  // 取り込み元の生テキスト（資金・兵糧など未使用項目の保全用）
 }
 
 // 戦闘履歴

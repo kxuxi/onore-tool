@@ -27,6 +27,7 @@ import {
   WinHeatmapSection,
   FactionHistory,
   WarlordComment,
+  AbilityStats,
 } from "@/components/detail/WarlordInsights";
 
 interface Props {
@@ -86,6 +87,8 @@ export function WarlordDetail({
   return (
     <section className="panel detail-panel">
       <DetailHeader kind="武将" title={name} tags={tags} onBack={onBack} />
+
+      <AbilityStats warlord={dbInfo} />
 
       {outcomes.length === 0 ? (
         <>

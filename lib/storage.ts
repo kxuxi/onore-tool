@@ -36,6 +36,14 @@ export function mergeWarlords(
       lastActionAt,
       actions: actions.length > 0 ? actions : undefined,
       updatedAt: Math.max(prev?.updatedAt ?? 0, w.updatedAt),
+      // 能力値・自己PR は戦闘登録では渡らないため、既存値を保持する。
+      power: w.power ?? prev?.power,
+      intelligence: w.intelligence ?? prev?.intelligence,
+      leadership: w.leadership ?? prev?.leadership,
+      politics: w.politics ?? prev?.politics,
+      strategy: w.strategy ?? prev?.strategy,
+      selfPr: w.selfPr ?? prev?.selfPr,
+      statsRaw: w.statsRaw ?? prev?.statsRaw,
     };
   }
   return { map, added, updated };

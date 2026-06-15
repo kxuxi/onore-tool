@@ -12,7 +12,7 @@ import { SwiTab } from "@/components/tabs/SwiTab";
 import { WarlordDetail } from "@/components/detail/WarlordDetail";
 import { UnitDetail } from "@/components/detail/UnitDetail";
 import { EquipDetail } from "@/components/detail/EquipDetail";
-import { fetchState, registerState } from "@/lib/api";
+import { fetchState, registerState, importWarlordStats } from "@/lib/api";
 import { parseBattleEntries } from "@/lib/parser";
 import {
   loadFactionColors,
@@ -287,6 +287,21 @@ export default function HomePage() {
     []
   );
 
+  const handleImportStats = useCallback(
+    async (
+      stats: Parameters<typeof importWarlordStats>[0]
+    ): Promise<{ updated: number; created: number }> => {
+      const res = await importWarlordStats(stats);
+      setDb(res.db);
+      setToast({
+        kind: "success",
+        message: `能力値取り込み: 更新 ${res.updated} / 新規 ${res.created}`,
+      });
+      return { updated: res.updated, created: res.created };
+    },
+    []
+  );
+
   const selectTab = useCallback(
     (key: TabKey) => {
       setTab(key);
@@ -383,7 +398,7 @@ export default function HomePage() {
       case "swi":
         return <SwiTab log={battleLog} onSelectWarlord={selectWarlord} />;
       case "db":
-        return <DbTab db={db} onSelectWarlord={selectWarlord} />;
+        return <DbTab db={db} onSelectWarlord={selectWarlord} onImportStats={handleImportStats} />;
       case "units":
         return <UnitTab onSelectUnit={selectUnit} />;
       case "weapons":
@@ -421,6 +436,7 @@ export default function HomePage() {
     battleLog,
     factionColors,
     handleRegister,
+    handleImportStats,
     handleChangeFactionColors,
     selectWarlord,
     selectUnit,

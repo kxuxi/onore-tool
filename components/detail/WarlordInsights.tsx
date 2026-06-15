@@ -11,6 +11,8 @@ import {
   type WinHeatmap,
 } from "@/lib/stats";
 import { getWarlordNote, setWarlordNote } from "@/lib/warlordNotes";
+import type { Warlord } from "@/lib/types";
+import { hasWarlordStats } from "@/lib/warlordStats";
 
 /** 勝率を百分率の文字列にする（決着が無ければ "—"）。 */
 function pctLabel(rate: number, decided: number): string {
@@ -297,6 +299,52 @@ export function WarlordComment({ name }: { name: string }) {
         onChange={(e) => setText(e.target.value)}
         onBlur={() => persist(text)}
       />
+    </div>
+  );
+}
+
+/* ---------- 能力値（ランキング取り込み） ---------- */
+
+/** 計略などの数値を表示用文字列にする（小数はそのまま、整数は整数表記）。 */
+function formatStatValue(value: number): string {
+  return Number.isInteger(value) ? String(value) : String(value);
+}
+
+/**
+ * ランキングから取り込んだ能力値（武力〜計略）と自己PRを表示する。
+ * 能力値も自己PRも無ければ何も描画しない。
+ */
+export function AbilityStats({ warlord }: { warlord: Warlord | undefined }) {
+  if (!warlord || !hasWarlordStats(warlord)) return null;
+  const items: Array<{ label: string; value: number | undefined }> = [
+    { label: "武力", value: warlord.power },
+    { label: "知力", value: warlord.intelligence },
+    { label: "統率力", value: warlord.leadership },
+    { label: "政治力", value: warlord.politics },
+    { label: "計略", value: warlord.strategy },
+  ];
+  const shown = items.filter((i) => i.value !== undefined);
+  return (
+    <div className="detail-section">
+      <h3>能力値</h3>
+      {shown.length > 0 && (
+        <div className="ability-grid">
+          {shown.map((i) => (
+            <div key={i.label} className="ability-cell">
+              <div className="ability-label">{i.label}</div>
+              <div className="ability-value">
+                {formatStatValue(i.value as number)}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {warlord.selfPr && (
+        <div className="ability-pr">
+          <div className="ability-pr-label">自己PR</div>
+          <p className="ability-pr-text">{warlord.selfPr}</p>
+        </div>
+      )}
     </div>
   );
 }

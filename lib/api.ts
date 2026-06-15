@@ -24,6 +24,38 @@ export async function fetchState(): Promise<StateResponse> {
   return res.json();
 }
 
+export type ImportStatsResponse = {
+  db: WarlordMap;
+  updated: number;
+  created: number;
+};
+
+/** ランキングから解析した能力値を共有DBへ取り込む */
+export async function importWarlordStats(
+  stats: Array<{
+    name: string;
+    power?: number;
+    intelligence?: number;
+    leadership?: number;
+    politics?: number;
+    strategy?: number;
+    selfPr?: string;
+    faction?: string;
+    raw?: string;
+  }>
+): Promise<ImportStatsResponse> {
+  const res = await fetch("/api/warlord-stats", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ stats }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new Error(data?.error ?? "能力値の取り込みに失敗しました");
+  }
+  return res.json();
+}
+
 /** 解析済みの武将・戦闘履歴を登録 */
 export async function registerState(
   warlords: Warlord[],
