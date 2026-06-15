@@ -1,0 +1,48 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 兵種マスタ
+model UnitType {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique // 兵種名
+  category    String   @default("") // 種類 (万能/歩兵/弓兵/騎兵/小型船/特殊船/軍艦/妖怪)
+  goodAgainst String   @default("") // 得意兵種
+  attack      Int      @default(0) // 攻撃
+  defense     Int      @default(0) // 防御
+  cost        String   @default("") // 雇用金 (例: 金:120)
+  tech        String   @default("") // 技術
+  years       String   @default("") // 年数
+  reqStats    String   @default("") // 必要能力値
+  facility    String   @default("") // 施設/国宝
+  special     String   @default("") // 特殊攻撃
+  bonus       String   @default("") // ボーナス
+  updatedAt   DateTime @updatedAt
+}
+
+// 武将DB
+model Warlord {
+  name         String   @id // 武将名
+  faction      String?  // 勢力/国
+  type         String   @default("") // タイプ
+  branch       String   @default("") // 兵科
+  unit         String?  // 兵種
+  battleAt     String?  // 戦闘時刻 (元テキスト)
+  lastActionAt String?  // 最終行動時刻
+  actions      String[] @default([]) // 行動履歴
+  updatedAt    BigInt   @default(0)
+}
+
+// 戦闘履歴
+model BattleRecord {
+  id      Int     @id @default(autoincrement())
+  line    String  @unique // 重複排除キー(正規化済み)
+  raw     String  @default("") // 元の行
+  time    String? // 戦闘時刻
+  savedAt BigInt  @default(0)
+}

@@ -1,4 +1,4 @@
-export type TabKey = "history" | "scout" | "db" | "damage";
+export type TabKey = "history" | "scout" | "db" | "damage" | "units";
 
 export interface Warlord {
   /** 武将名（プライマリキー） */
@@ -31,4 +31,32 @@ export interface BattleRecord {
   time?: string;
   /** ローカル保存時刻（ミリ秒） */
   savedAt: number;
+}
+
+/** 兵種マスタの 1 件 */
+export interface UnitType {
+  /** 兵種名（プライマリキー・上書き判定に使用） */
+  name: string;
+  /** 種類（万能/歩兵/弓兵/騎兵/小型船/特殊船/軍艦/妖怪 など） */
+  category: string;
+  /** 得意兵種 */
+  goodAgainst: string;
+  /** 攻撃 */
+  attack: number;
+  /** 防御 */
+  defense: number;
+  /** 雇用金（例: 金:120） */
+  cost: string;
+  /** 技術 */
+  tech: string;
+  /** 年数 */
+  years: string;
+  /** 必要能力値（例: 統率:60） */
+  reqStats: string;
+  /** 施設/国宝 */
+  facility: string;
+  /** 特殊攻撃 */
+  special: string;
+  /** ボーナス */
+  bonus: string;
 }

@@ -359,6 +359,18 @@ input:focus {
   gap: 8px;
 }
 
+.unit-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.unit-form textarea.text-input {
+  resize: vertical;
+  min-height: 60px;
+}
+
 .filter {
   display: flex;
   flex-direction: column;
@@ -677,6 +689,9 @@ tbody tr:hover {
   .stat .value { font-size: 18px; }
   .filter-grid {
     grid-template-columns: 1fr 1fr;
+  }
+  .unit-form {
+    grid-template-columns: 1fr;
   }
   th, td { padding: 8px 10px; }
   table { font-size: 13px; }

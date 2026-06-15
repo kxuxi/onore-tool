@@ -5,12 +5,12 @@ import type { BattleRecord } from "@/lib/types";
 import { parseActionDate } from "@/lib/action";
 
 interface Props {
-  onRegister: (text: string) => {
+  onRegister: (text: string) => Promise<{
     added: number;
     updated: number;
     parsed: number;
     skipped: number;
-  };
+  }>;
   log: BattleRecord[];
 }
 
@@ -35,18 +35,25 @@ export function HistoryTab({ onRegister, log }: Props) {
       }
     | { kind: "warn"; message: string }
   >(null);
+  const [busy, setBusy] = useState(false);
 
-  const handleRegister = () => {
-    const r = onRegister(text);
-    if (r.parsed === 0) {
-      setResult({
-        kind: "warn",
-        message:
-          "解析できる行が見つかりませんでした。タブ区切りで貼り付けてください。",
-      });
-      return;
+  const handleRegister = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const r = await onRegister(text);
+      if (r.parsed === 0) {
+        setResult({
+          kind: "warn",
+          message:
+            "解析できる行が見つかりませんでした。タブ区切りで貼り付けてください。",
+        });
+        return;
+      }
+      setResult({ kind: "success", ...r });
+    } finally {
+      setBusy(false);
     }
-    setResult({ kind: "success", ...r });
   };
 
   const handleClear = () => {
@@ -113,9 +120,9 @@ export function HistoryTab({ onRegister, log }: Props) {
             type="button"
             className="btn btn-primary"
             onClick={handleRegister}
-            disabled={!text.trim()}
+            disabled={!text.trim() || busy}
           >
-            登録する
+            {busy ? "登録中…" : "登録する"}
           </button>
           <button type="button" className="btn" onClick={handleClear}>
             クリア

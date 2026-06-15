@@ -6,15 +6,12 @@ import { HistoryTab } from "@/components/tabs/HistoryTab";
 import { ScoutTab } from "@/components/tabs/ScoutTab";
 import { DbTab } from "@/components/tabs/DbTab";
 import { DamageTab } from "@/components/tabs/DamageTab";
+import { UnitTab } from "@/components/tabs/UnitTab";
 import {
-  appendBattleLog,
-  loadAll,
-  loadBattleLog,
-  mergeWarlords,
-  resetAll,
-  saveAll,
-  saveBattleLog,
-} from "@/lib/storage";
+  fetchState,
+  registerState,
+  resetState,
+} from "@/lib/api";
 import { parseBattleEntries } from "@/lib/parser";
 import type { BattleRecord, TabKey, WarlordMap } from "@/lib/types";
 
@@ -23,6 +20,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "scout", label: "偵察検索" },
   { key: "damage", label: "被弾表" },
   { key: "db", label: "DB確認" },
+  { key: "units", label: "兵種図鑑" },
 ];
 
 export default function HomePage() {
@@ -37,11 +35,25 @@ export default function HomePage() {
     message: string;
   } | null>(null);
 
-  // 初回マウント時に localStorage から読み込み
+  // 初回マウント時にサーバー（共有DB）から読み込み
   useEffect(() => {
-    setDb(loadAll());
-    setBattleLog(loadBattleLog());
-    setHydrated(true);
+    let active = true;
+    fetchState()
+      .then((state) => {
+        if (!active) return;
+        setDb(state.db);
+        setBattleLog(state.log);
+      })
+      .catch(() => {
+        if (!active) return;
+        setToast({ kind: "error", message: "データの読み込みに失敗しました" });
+      })
+      .finally(() => {
+        if (active) setHydrated(true);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   // 画面幅に応じてサイドバーの初期表示を切り替え（デスクトップは開、モバイルは閉）
@@ -65,45 +77,49 @@ export default function HomePage() {
   }, [toast]);
 
   const handleRegister = useCallback(
-    (text: string) => {
+    async (text: string) => {
       const entries = parseBattleEntries(text);
       const warlords = entries.flatMap((e) => e.warlords);
       if (warlords.length === 0) {
         return { added: 0, updated: 0, parsed: 0, skipped: 0 };
       }
-      const { map, added, updated } = mergeWarlords(db, warlords);
-      setDb(map);
-      saveAll(map);
-
-      // 生の戦闘履歴も保存（重複行はスキップ）
       const now = Date.now();
       const records: BattleRecord[] = entries.map((e) => ({
         line: e.line,
         time: e.time,
         savedAt: now,
       }));
-      const {
-        log,
-        added: logAdded,
-        skipped,
-      } = appendBattleLog(battleLog, records);
-      setBattleLog(log);
-      saveBattleLog(log);
-
-      setToast({
-        kind: "success",
-        message: `登録: 新規 ${added} / 更新 ${updated}（履歴 +${logAdded} / 重複 ${skipped}）`,
-      });
-      return { added, updated, parsed: warlords.length, skipped };
+      try {
+        const res = await registerState(warlords, records);
+        setDb(res.db);
+        setBattleLog(res.log);
+        setToast({
+          kind: "success",
+          message: `登録: 新規 ${res.added} / 更新 ${res.updated}（履歴 +${res.logAdded} / 重複 ${res.skipped}）`,
+        });
+        return {
+          added: res.added,
+          updated: res.updated,
+          parsed: warlords.length,
+          skipped: res.skipped,
+        };
+      } catch {
+        setToast({ kind: "error", message: "登録に失敗しました" });
+        return { added: 0, updated: 0, parsed: warlords.length, skipped: 0 };
+      }
     },
-    [db, battleLog]
+    []
   );
 
-  const handleReset = useCallback(() => {
-    resetAll();
-    setDb({});
-    setBattleLog([]);
-    setToast({ kind: "success", message: "DBをリセットしました" });
+  const handleReset = useCallback(async () => {
+    try {
+      const state = await resetState();
+      setDb(state.db);
+      setBattleLog(state.log);
+      setToast({ kind: "success", message: "DBをリセットしました" });
+    } catch {
+      setToast({ kind: "error", message: "リセットに失敗しました" });
+    }
   }, []);
 
   const selectTab = useCallback(
@@ -124,6 +140,8 @@ export default function HomePage() {
         return <DamageTab db={db} />;
       case "db":
         return <DbTab db={db} onReset={handleReset} />;
+      case "units":
+        return <UnitTab />;
       default:
         return null;
     }

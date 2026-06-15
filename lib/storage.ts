@@ -152,7 +152,7 @@ export function saveBattleLog(log: BattleRecord[]): void {
 }
 
 /** 重複判定用に行テキストを正規化（空白を1つに圧縮） */
-function normalizeLine(line: string): string {
+export function normalizeLine(line: string): string {
   return line.replace(/[\s\u3000]+/g, " ").trim();
 }
 
