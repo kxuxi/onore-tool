@@ -120,6 +120,10 @@ export function EquipTab({ log, onSelectWarlord, onSelectEquip, variant }: Props
         </div>
       </div>
 
+      <p className="sr-only" role="status" aria-live="polite">
+        絞り込み結果 {view.length.toLocaleString("ja-JP")}件
+      </p>
+
       <div className="search-row">
         <div className="search-box">
           <span className="search-icon">

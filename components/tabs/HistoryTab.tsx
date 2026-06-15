@@ -344,7 +344,7 @@ export function HistoryTab({
       <section className="panel">
         <div className="history-head" ref={listTopRef}>
           <h2>登録済み戦闘履歴</h2>
-          <span className="count-badge">
+          <span className="count-badge" role="status" aria-live="polite">
             {hasActiveFilter
               ? `全${cards.length.toLocaleString("ja-JP")}件中 ${visibleLog.length.toLocaleString("ja-JP")}件`
               : `全${cards.length.toLocaleString("ja-JP")}件`}

@@ -232,6 +232,10 @@ export function SwiTab({ log, onSelectWarlord }: Props) {
         </div>
       )}
 
+      <p className="sr-only" role="status" aria-live="polite">
+        該当 {view.length.toLocaleString("ja-JP")}件
+      </p>
+
       {view.length === 0 ? (
         <div className="empty">
           <p className="empty-title">条件を満たす武将がいません</p>

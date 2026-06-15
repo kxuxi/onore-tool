@@ -265,6 +265,10 @@ export function UnitTab({
 
       {error && !editing && <p className="muted">{error}</p>}
 
+      <p className="sr-only" role="status" aria-live="polite">
+        {filtered.length.toLocaleString("ja-JP")}件の兵種を表示
+      </p>
+
       <div className="table-wrap">
         <table className="unit-table">
           <thead>

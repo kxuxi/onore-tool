@@ -254,6 +254,10 @@ export function DbTab({ db, onSelectWarlord, onImportStats }: Props) {
         </div>
       </div>
 
+      <p className="sr-only" role="status" aria-live="polite">
+        絞り込み結果 {filtered.length.toLocaleString("ja-JP")}件
+      </p>
+
       <div className="search-row">
         <div className="search-box">
           <span className="search-icon">
