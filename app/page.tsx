@@ -61,6 +61,29 @@ function buildShareQuery(tab: TabKey, detail: DetailView | null): string {
   return qs ? `?${qs}` : "";
 }
 
+/** URL クエリからタブ・詳細スタックを復元する（共有リンク・履歴の戻る/進むで共用）。 */
+function navStateFromSearch(search: string): {
+  tab: TabKey;
+  detailStack: DetailView[];
+} {
+  const params = new URLSearchParams(search);
+  const t = params.get("tab");
+  // 旧「武器・品物」タブ（equips）の共有リンクは武器図鑑へ寄せる。
+  const tabKey = t === "equips" ? "weapons" : t;
+  const tab: TabKey =
+    tabKey && TABS.some((x) => x.key === tabKey) ? (tabKey as TabKey) : "history";
+  const w = params.get("w");
+  const u = params.get("u");
+  const wp = params.get("wp");
+  const it = params.get("it");
+  let detailStack: DetailView[] = [];
+  if (w) detailStack = [{ kind: "warlord", name: w }];
+  else if (u) detailStack = [{ kind: "unit", name: u }];
+  else if (wp) detailStack = [{ kind: "weapon", name: wp }];
+  else if (it) detailStack = [{ kind: "item", name: it }];
+  return { tab, detailStack };
+}
+
 export default function HomePage() {
   const [tab, setTab] = useState<TabKey>("history");
   const [db, setDb] = useState<WarlordMap>({});
@@ -152,33 +175,64 @@ export default function HomePage() {
   }, []);
 
   // 初回マウント時に URL クエリからタブ・詳細ページを復元（共有リンク・再読込対応）
+  const justRestored = useRef(false);
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const t = params.get("tab");
-    // 旧「武器・品物」タブ（equips）の共有リンクは武器図鑑へ誤導する。
-    const tabKey = t === "equips" ? "weapons" : t;
-    if (tabKey && TABS.some((x) => x.key === tabKey)) setTab(tabKey as TabKey);
-    const w = params.get("w");
-    const u = params.get("u");
-    const wp = params.get("wp");
-    const it = params.get("it");
-    if (w) setDetailStack([{ kind: "warlord", name: w }]);
-    else if (u) setDetailStack([{ kind: "unit", name: u }]);
-    else if (wp) setDetailStack([{ kind: "weapon", name: wp }]);
-    else if (it) setDetailStack([{ kind: "item", name: it }]);
+    const { tab: t, detailStack: stack } = navStateFromSearch(
+      window.location.search
+    );
+    // 既定（戦闘履歴・詳細なし）と異なる場合のみ復元する。
+    if (t !== "history" || stack.length > 0) {
+      justRestored.current = true;
+      setTab(t);
+      setDetailStack(stack);
+    }
   }, []);
 
-  // タブ・詳細ページの変化を URL へ反映（履歴は汚さず replaceState）。
-  // 初回マウントは復元結果と一致するためスキップする。
+  // タブ・詳細ページの変化を履歴へ反映する。
+  // 前進ナビ（タブ切替・詳細を開く/積む）は pushState で履歴を積み、
+  // 復元・戻る/進む由来の変化は replaceState に留めて二重登録を防ぐ。
+  // これによりブラウザ／端末の「戻る」で詳細やタブを行き来できる。
   const firstUrlSync = useRef(true);
+  const fromPopState = useRef(false);
   useEffect(() => {
     if (firstUrlSync.current) {
       firstUrlSync.current = false;
       return;
     }
     const qs = buildShareQuery(tab, detail);
-    window.history.replaceState(null, "", window.location.pathname + qs);
-  }, [tab, detail]);
+    const url = window.location.pathname + qs;
+    const navState = { tab, detailStack };
+    if (justRestored.current || fromPopState.current) {
+      justRestored.current = false;
+      fromPopState.current = false;
+      window.history.replaceState(navState, "", url);
+      return;
+    }
+    window.history.pushState(navState, "", url);
+  }, [tab, detail, detailStack]);
+
+  // ブラウザ／端末の戻る・進むでタブ・詳細を行き来する。
+  useEffect(() => {
+    const onPop = (e: PopStateEvent) => {
+      fromPopState.current = true;
+      const st = e.state as
+        | { tab?: TabKey; detailStack?: DetailView[] }
+        | null;
+      if (st && typeof st.tab === "string") {
+        setTab(st.tab);
+        setDetailStack(Array.isArray(st.detailStack) ? st.detailStack : []);
+      } else {
+        // state を持たないエントリ（直リンク初期エントリ等）は URL から復元。
+        const { tab: t, detailStack: stack } = navStateFromSearch(
+          window.location.search
+        );
+        setTab(t);
+        setDetailStack(stack);
+      }
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
 
   const handleChangeFactionColors = useCallback((next: FactionColorMap) => {
     setFactionColors(next);
