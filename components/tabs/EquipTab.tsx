@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { BattleRecord } from "@/lib/types";
 import { weaponStats, itemStats } from "@/lib/stats";
+import { SearchIcon, FilterIcon, CloseIcon } from "@/components/icons";
 
 /** 集計する装備枠。weapon=装備1 / item=装備2。 */
 export type EquipVariant = "weapon" | "item";
@@ -70,6 +71,7 @@ export function EquipTab({ log, onSelectWarlord, variant }: Props) {
   const [keyword, setKeyword] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("battles");
   const [minUses, setMinUses] = useState(10);
+  const [showFilter, setShowFilter] = useState(false);
 
   const stats = useMemo(() => copy.stats(log), [copy, log]);
 
@@ -89,6 +91,15 @@ export function EquipTab({ log, onSelectWarlord, variant }: Props) {
     });
   }, [stats, keyword, sortKey, minUses]);
 
+  // 検索ボックスとは別にトグルする並べ替え・絞り込み（既定値と異なると「適用中」扱い）。
+  const hasDropdownFilter = sortKey !== "battles" || minUses !== 10;
+  const hasFilter = !!keyword || hasDropdownFilter;
+  const clearFilters = () => {
+    setKeyword("");
+    setSortKey("battles");
+    setMinUses(10);
+  };
+
   return (
     <section className="panel">
       <h2>{copy.title}</h2>
@@ -107,48 +118,78 @@ export function EquipTab({ log, onSelectWarlord, variant }: Props) {
         </div>
       </div>
 
-      <div className="row">
-        <input
-          type="search"
-          className="text-input"
-          placeholder={copy.searchPlaceholder}
-          value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
-          autoCapitalize="off"
-          autoCorrect="off"
-        />
+      <div className="search-row">
+        <div className="search-box">
+          <span className="search-icon">
+            <SearchIcon />
+          </span>
+          <input
+            type="search"
+            className="text-input search-input"
+            placeholder={copy.searchPlaceholder}
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            autoCapitalize="off"
+            autoCorrect="off"
+          />
+        </div>
+        <button
+          type="button"
+          className={
+            "btn filter-toggle" +
+            (showFilter || hasDropdownFilter ? " active" : "")
+          }
+          onClick={() => setShowFilter((v) => !v)}
+          aria-expanded={showFilter}
+        >
+          <FilterIcon />
+          <span>フィルター</span>
+        </button>
+        {hasFilter && (
+          <button
+            type="button"
+            className="btn clear-filters"
+            onClick={clearFilters}
+            title="絞り込み条件をすべて解除"
+          >
+            <CloseIcon />
+            <span>解除</span>
+          </button>
+        )}
       </div>
 
-      <div className="filter-grid">
-        <label className="filter">
-          <span>並べ替え</span>
-          <select
-            className="select"
-            value={sortKey}
-            onChange={(e) => setSortKey(e.target.value as SortKey)}
-          >
-            {SORT_OPTIONS.map((o) => (
-              <option key={o.key} value={o.key}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="filter">
-          <span>最低使用回数</span>
-          <select
-            className="select"
-            value={minUses}
-            onChange={(e) => setMinUses(Number(e.target.value))}
-          >
-            {MIN_USE_OPTIONS.map((v) => (
-              <option key={v} value={v}>
-                {v}回以上
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+      {showFilter && (
+        <div className="filter-grid">
+          <label className="filter">
+            <span>並べ替え</span>
+            <select
+              className="select"
+              value={sortKey}
+              onChange={(e) => setSortKey(e.target.value as SortKey)}
+            >
+              {SORT_OPTIONS.map((o) => (
+                <option key={o.key} value={o.key}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="filter">
+            <span>最低使用回数</span>
+            <select
+              className="select"
+              value={minUses}
+              onChange={(e) => setMinUses(Number(e.target.value))}
+            >
+              {MIN_USE_OPTIONS.map((v) => (
+                <option key={v} value={v}>
+                  {v}回以上
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
 
       {view.length === 0 ? (
         <div className="empty">

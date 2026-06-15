@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { BattleRecord } from "@/lib/types";
+import { SearchIcon, FilterIcon, CloseIcon } from "@/components/icons";
 import {
   warlordRanking,
   rankMetricValue,
@@ -33,6 +34,7 @@ export function SwiTab({ log, onSelectWarlord }: Props) {
   const [minSorties, setMinSorties] = useState(10);
   const [query, setQuery] = useState("");
   const [branch, setBranch] = useState("");
+  const [showFilter, setShowFilter] = useState(false);
 
   const ranking = useMemo(() => warlordRanking(log), [log]);
 
@@ -81,6 +83,14 @@ export function SwiTab({ log, onSelectWarlord }: Props) {
 
   const formatValue = (v: number) =>
     metricKind === "swi" ? v.toFixed(2) : v.toLocaleString("ja-JP");
+
+  // 検索ボックスとは別にトグルするドロップダウン系の絞り込み。
+  const hasDropdownFilter = !!branch;
+  const hasFilter = !!(query || branch);
+  const clearFilters = () => {
+    setQuery("");
+    setBranch("");
+  };
 
   return (
     <section className="panel">
@@ -136,61 +146,91 @@ export function SwiTab({ log, onSelectWarlord }: Props) {
         </table>
       </details>
 
-      <div className="filter-grid">
-        <label className="filter">
-          <span>指標</span>
-          <select
-            className="select"
-            value={metric}
-            onChange={(e) => setMetric(e.target.value as RankMetric)}
-          >
-            {METRIC_OPTIONS.map((m) => (
-              <option key={m.key} value={m.key}>
-                {m.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="filter">
-          <span>{attackSide ? "最低出兵数" : "最低守備数"}</span>
-          <select
-            className="select"
-            value={minSorties}
-            onChange={(e) => setMinSorties(Number(e.target.value))}
-          >
-            {MIN_SORTIE_OPTIONS.map((v) => (
-              <option key={v} value={v}>
-                {v}回以上
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="filter">
-          <span>兵科</span>
-          <select
-            className="select"
-            value={branch}
-            onChange={(e) => setBranch(e.target.value)}
-          >
-            <option value="">すべて</option>
-            {branchOptions.map((v) => (
-              <option key={v} value={v}>
-                {v}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="filter">
-          <span>武将名で検索</span>
+      <div className="search-row">
+        <div className="search-box">
+          <span className="search-icon">
+            <SearchIcon />
+          </span>
           <input
             type="search"
-            className="text-input"
+            className="text-input search-input"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="名前の一部"
+            placeholder="武将名で検索"
           />
-        </label>
+        </div>
+        <button
+          type="button"
+          className={
+            "btn filter-toggle" +
+            (showFilter || hasDropdownFilter ? " active" : "")
+          }
+          onClick={() => setShowFilter((v) => !v)}
+          aria-expanded={showFilter}
+        >
+          <FilterIcon />
+          <span>フィルター</span>
+        </button>
+        {hasFilter && (
+          <button
+            type="button"
+            className="btn clear-filters"
+            onClick={clearFilters}
+            title="絞り込み条件をすべて解除"
+          >
+            <CloseIcon />
+            <span>解除</span>
+          </button>
+        )}
       </div>
+
+      {showFilter && (
+        <div className="filter-grid">
+          <label className="filter">
+            <span>指標</span>
+            <select
+              className="select"
+              value={metric}
+              onChange={(e) => setMetric(e.target.value as RankMetric)}
+            >
+              {METRIC_OPTIONS.map((m) => (
+                <option key={m.key} value={m.key}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="filter">
+            <span>{attackSide ? "最低出兵数" : "最低守備数"}</span>
+            <select
+              className="select"
+              value={minSorties}
+              onChange={(e) => setMinSorties(Number(e.target.value))}
+            >
+              {MIN_SORTIE_OPTIONS.map((v) => (
+                <option key={v} value={v}>
+                  {v}回以上
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="filter">
+            <span>兵科</span>
+            <select
+              className="select"
+              value={branch}
+              onChange={(e) => setBranch(e.target.value)}
+            >
+              <option value="">すべて</option>
+              {branchOptions.map((v) => (
+                <option key={v} value={v}>
+                  {v}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
 
       {view.length === 0 ? (
         <div className="empty">

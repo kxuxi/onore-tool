@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { WarlordMap } from "@/lib/types";
 import { copyText } from "@/lib/clipboard";
+import { SearchIcon, FilterIcon, CloseIcon } from "@/components/icons";
 
 interface Props {
   db: WarlordMap;
@@ -40,6 +41,7 @@ export function DbTab({ db, onSelectWarlord }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("updatedAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [copied, setCopied] = useState(false);
+  const [showFilter, setShowFilter] = useState(false);
 
   const all = useMemo(() => Object.values(db), [db]);
 
@@ -115,6 +117,8 @@ export function DbTab({ db, onSelectWarlord }: Props) {
   };
 
   const hasFilter = !!(keyword || faction || type || branch || unit);
+  // 検索ボックスとは別に管理するドロップダウン系の絞り込み（フィルターボタンの強調用）。
+  const hasDropdownFilter = !!(faction || type || branch || unit);
 
   const clearFilters = () => {
     setKeyword("");
@@ -163,19 +167,48 @@ export function DbTab({ db, onSelectWarlord }: Props) {
         </div>
       </div>
 
-      <div className="row">
-        <input
-          type="search"
-          className="text-input"
-          placeholder="武将名で絞り込み"
-          value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
-          autoCapitalize="off"
-          autoCorrect="off"
-        />
+      <div className="search-row">
+        <div className="search-box">
+          <span className="search-icon">
+            <SearchIcon />
+          </span>
+          <input
+            type="search"
+            className="text-input search-input"
+            placeholder="武将名で絞り込み"
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            autoCapitalize="off"
+            autoCorrect="off"
+          />
+        </div>
+        <button
+          type="button"
+          className={
+            "btn filter-toggle" +
+            (showFilter || hasDropdownFilter ? " active" : "")
+          }
+          onClick={() => setShowFilter((v) => !v)}
+          aria-expanded={showFilter}
+        >
+          <FilterIcon />
+          <span>フィルター</span>
+        </button>
+        {hasFilter && (
+          <button
+            type="button"
+            className="btn clear-filters"
+            onClick={clearFilters}
+            title="絞り込み条件をすべて解除"
+          >
+            <CloseIcon />
+            <span>解除</span>
+          </button>
+        )}
       </div>
 
-      <div className="filter-grid">
+      {showFilter && (
+        <div className="filter-grid">
         <label className="filter">
           <span>国</span>
           <select
@@ -236,7 +269,8 @@ export function DbTab({ db, onSelectWarlord }: Props) {
             ))}
           </select>
         </label>
-      </div>
+        </div>
+      )}
 
       <div className="db-sort-mobile">
         <label className="filter">
@@ -280,11 +314,6 @@ export function DbTab({ db, onSelectWarlord }: Props) {
         >
           {copied ? "コピーしました" : "結果をコピー(TSV)"}
         </button>
-        {hasFilter && (
-          <button type="button" className="btn" onClick={clearFilters}>
-            絞り込みをクリア
-          </button>
-        )}
       </div>
 
       <div className="table-wrap">

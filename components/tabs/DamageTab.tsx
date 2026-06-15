@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { WarlordMap } from "@/lib/types";
+import { SearchIcon, FilterIcon, CloseIcon } from "@/components/icons";
 import {
   ACTION_LABEL,
   formatElapsed,
@@ -30,6 +31,7 @@ export function DamageTab({ db, onSelectWarlord }: Props) {
   const [statusFilter, setStatusFilter] = useState<"" | ActionStatus>("");
   const [factionFilter, setFactionFilter] = useState("");
   const [nameQuery, setNameQuery] = useState("");
+  const [showFilter, setShowFilter] = useState(false);
 
   // 経過時間をリアルタイム表示するため 30 秒ごとに現在時刻を更新。
   // タブが非表示の間はインターバルを止め、再表示時に即時更新して再開する。
@@ -102,6 +104,15 @@ export function DamageTab({ db, onSelectWarlord }: Props) {
     return c;
   }, [rows]);
 
+  // 検索ボックスとは別にトグルするドロップダウン系の絞り込み。
+  const hasDropdownFilter = !!(statusFilter || factionFilter);
+  const hasFilter = !!(nameQuery || statusFilter || factionFilter);
+  const clearFilters = () => {
+    setNameQuery("");
+    setStatusFilter("");
+    setFactionFilter("");
+  };
+
   return (
     <section className="panel">
       <h2>被弾表（行動状況）</h2>
@@ -149,52 +160,82 @@ export function DamageTab({ db, onSelectWarlord }: Props) {
         </ul>
       </details>
 
-      <div className="filter-grid">
-        <label className="filter">
-          <span>武将名</span>
+      <div className="search-row">
+        <div className="search-box">
+          <span className="search-icon">
+            <SearchIcon />
+          </span>
           <input
             type="search"
-            className="text-input"
+            className="text-input search-input"
             placeholder="武将名で絞り込み"
             value={nameQuery}
             onChange={(e) => setNameQuery(e.target.value)}
             autoCapitalize="off"
             autoCorrect="off"
           />
-        </label>
-        <label className="filter">
-          <span>ステータス</span>
-          <select
-            className="select"
-            value={statusFilter}
-            onChange={(e) =>
-              setStatusFilter(e.target.value as "" | ActionStatus)
-            }
+        </div>
+        <button
+          type="button"
+          className={
+            "btn filter-toggle" +
+            (showFilter || hasDropdownFilter ? " active" : "")
+          }
+          onClick={() => setShowFilter((v) => !v)}
+          aria-expanded={showFilter}
+        >
+          <FilterIcon />
+          <span>フィルター</span>
+        </button>
+        {hasFilter && (
+          <button
+            type="button"
+            className="btn clear-filters"
+            onClick={clearFilters}
+            title="絞り込み条件をすべて解除"
           >
-            <option value="">すべて</option>
-            {STATUS_SUMMARY_ORDER.map((s) => (
-              <option key={s} value={s}>
-                {ACTION_LABEL[s]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="filter">
-          <span>国</span>
-          <select
-            className="select"
-            value={factionFilter}
-            onChange={(e) => setFactionFilter(e.target.value)}
-          >
-            <option value="">すべて</option>
-            {factionOptions.map((v) => (
-              <option key={v} value={v}>
-                {v}
-              </option>
-            ))}
-          </select>
-        </label>
+            <CloseIcon />
+            <span>解除</span>
+          </button>
+        )}
       </div>
+
+      {showFilter && (
+        <div className="filter-grid">
+          <label className="filter">
+            <span>ステータス</span>
+            <select
+              className="select"
+              value={statusFilter}
+              onChange={(e) =>
+                setStatusFilter(e.target.value as "" | ActionStatus)
+              }
+            >
+              <option value="">すべて</option>
+              {STATUS_SUMMARY_ORDER.map((s) => (
+                <option key={s} value={s}>
+                  {ACTION_LABEL[s]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="filter">
+            <span>国</span>
+            <select
+              className="select"
+              value={factionFilter}
+              onChange={(e) => setFactionFilter(e.target.value)}
+            >
+              <option value="">すべて</option>
+              {factionOptions.map((v) => (
+                <option key={v} value={v}>
+                  {v}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
 
       <div className="table-wrap">
         {rows.length === 0 ? (
