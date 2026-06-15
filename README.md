@@ -1,39 +1,64 @@
 # 己鯖 武将DBツール
 
-ブラウザ単体（Next.js + TypeScript）で動く、ゲーム「己鯖」用の武将データベースツールです。
-戦闘履歴を貼り付けるだけで攻撃側・防衛側の武将のタイプ・兵科を `localStorage` に登録し、偵察した武将名リストから即座に検索できます。
+Next.js + TypeScript 製の、ゲーム「己鯖」用の武将データベースツールです。
+戦闘履歴を貼り付けるだけで攻撃側・防衛側の武将のタイプ・兵科を共有データベース（PostgreSQL）に登録し、偵察した武将名リストから即座に検索できます。武将名・兵種名はクリックで詳細ページ（戦績・勝率・対戦ログ）に展開できます。
 
 ## 機能
 
-- **戦闘履歴タブ**: タブ区切りの戦闘履歴を貼り付けて「登録する」で両陣営の武将を一括登録
+- **戦闘履歴タブ**: タブ区切りの戦闘履歴を貼り付けて「登録する」で両陣営の武将を一括登録。並び替え（新しい順 / 古い順）・国での絞り込み・キーワード検索に対応
 - **偵察検索タブ**: スペース / 改行 / カンマ区切りで武将名を貼り付けてタイプ・兵科を即座に表示
+- **被弾表タブ**: 登録済みデータから被弾傾向を集計表示
 - **DB確認タブ**: 登録済み武将の一覧 / 名前で絞り込み / DBリセット
+- **兵種図鑑タブ**: 兵種マスタ（攻撃・防御・コスト・特殊攻撃など）の閲覧・追加・編集
+- **国カラータブ**: 勢力ごとの表示色を設定（この設定のみブラウザの `localStorage` に保存）
+- **武将ページ / 兵種ページ**: 一覧や戦闘カード内の武将名・兵種名をクリックすると、戦闘数・勝率・対戦ログを表示する詳細ページへ。相互リンクと「戻る」スタックで自然に行き来できます
+- **共有リンク**: 表示中のタブ・詳細ページは URL に反映され、「リンクをコピー」「共有」ボタンや再読込でそのまま復元できます
 - **ハンバーガーメニュー**: 画面右上に常設、確認ダイアログ付き「DBをリセット」
 
-データは全てブラウザの `localStorage` に保存され、サーバーには一切送信されません。
+武将DBと戦闘履歴はサーバー（Prisma + PostgreSQL）に保存され、複数の端末・ブラウザで共有されます。国カラー設定のみ各ブラウザの `localStorage` に保存されます。
 
 ## ローカルで動かす
 
-```bash
-npm install
-npm run dev
-```
+データベースに PostgreSQL を使用します。接続先を環境変数 `DATABASE_URL` で指定してください。
+
+1. 依存パッケージをインストール
+
+   ```bash
+   npm install
+   ```
+
+2. プロジェクト直下に `.env` を作成し、接続文字列を設定
+
+   ```bash
+   DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DBNAME"
+   ```
+
+3. マイグレーションを適用し、兵種マスタの初期データを投入
+
+   ```bash
+   npx prisma migrate deploy   # スキーマをDBへ反映
+   npx prisma db seed          # 兵種マスタ(seed-unit-types.tsv)を投入
+   ```
+
+4. 開発サーバーを起動
+
+   ```bash
+   npm run dev
+   ```
 
 ブラウザで http://localhost:3000 を開いてください。
+
+> Prisma の設定は `prisma.config.ts` に集約しています（`.env` は同ファイル内の `dotenv` で読み込まれます）。
 
 ## Vercel にデプロイ
 
 1. このリポジトリを GitHub にプッシュ
 2. [Vercel](https://vercel.com/) の "New Project" でリポジトリを Import
-3. Framework Preset は自動で **Next.js** が選択されます。そのまま Deploy
-4. 追加の環境変数・ビルド設定は不要
+3. Framework Preset は自動で **Next.js** が選択されます
+4. 環境変数 `DATABASE_URL` に本番 PostgreSQL の接続文字列を設定
+5. Deploy（ビルド時に `prisma generate && prisma migrate deploy && next build` が実行されます）
 
-`vercel` CLI を使う場合:
-
-```bash
-npm i -g vercel
-vercel
-```
+初回デプロイ後、兵種マスタを使う場合はローカルから本番DBに対して `npx prisma db seed` を実行してください。
 
 ## 戦闘履歴のフォーマット
 
@@ -48,9 +73,27 @@ vercel
 
 タブが含まれない場合は 2 文字以上の連続空白でもフォールバック分割します。
 
+## データ構成と API
+
+データは Next.js の API ルート経由で PostgreSQL に読み書きします（クライアントから直接DBへはアクセスしません）。
+
+- `GET /api/state` — 武将DBと戦闘履歴を取得
+- `POST /api/state` — 解析済みの武将・戦闘履歴を登録（戦闘履歴は重複排除キーで自動重複除外）
+- `DELETE /api/state` — 武将DBと戦闘履歴をリセット
+- `GET/POST /api/unit-types` — 兵種マスタの取得・追加/更新
+- `DELETE /api/unit-types/[name]` — 兵種を削除
+
+主なテーブル（`prisma/schema.prisma`）:
+
+- `Warlord` — 武将（名前・勢力・タイプ・兵科・兵種・行動履歴など）
+- `BattleRecord` — 戦闘履歴（`line` が重複排除キー、`raw` が表示・再解析用の元テキスト）
+- `UnitType` — 兵種マスタ（攻撃・防御・コスト・特殊攻撃など）
+
 ## 技術スタック
 
 - Next.js 14 (App Router)
 - React 18
 - TypeScript 5
-- 追加ライブラリなし（next / react / react-dom のみ）
+- Prisma 6 / PostgreSQL
+- turndown（戦闘ログ HTML の Markdown 変換）
+- dotenv・tsx（Prisma 設定・シード実行用）
