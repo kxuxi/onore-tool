@@ -116,6 +116,7 @@ export function BattleLogList({
               href={o.card.url}
               target="_blank"
               rel="noopener noreferrer"
+              aria-label="戦闘ログの詳細を開く"
               title="戦闘ログの詳細を開く"
             >
               <ExternalLinkIcon />

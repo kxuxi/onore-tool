@@ -45,13 +45,24 @@ export function PieChart({
   const circ = 2 * Math.PI * r;
   let offset = 0;
 
+  // スクリーンリーダー向けに内容を要約（上位3件 + 合計）。
+  const summary =
+    total === 0
+      ? "データなし"
+      : data
+          .slice(0, 3)
+          .map((d) => `${d.label} ${d.value}`)
+          .join("、") +
+        (data.length > 3 ? " ほか" : "") +
+        `（全${total}）`;
+
   return (
     <svg
       width={size}
       height={size}
       viewBox={`0 0 ${size} ${size}`}
       role="img"
-      aria-label="円グラフ"
+      aria-label={`円グラフ: ${summary}`}
     >
       <g transform={`rotate(-90 ${cx} ${cy})`}>
         {total === 0 ? (

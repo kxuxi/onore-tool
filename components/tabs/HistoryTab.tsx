@@ -536,6 +536,7 @@ function BattleHistoryCard({
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
+              aria-label="戦闘ログの詳細を開く"
               title="戦闘ログの詳細を開く"
             >
               <ExternalLinkIcon />
