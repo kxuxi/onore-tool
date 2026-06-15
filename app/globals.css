@@ -661,6 +661,7 @@ tbody tr:hover {
   display: flex;
   gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .search-box {
@@ -695,6 +696,26 @@ tbody tr:hover {
 .filter-toggle.active {
   color: var(--accent);
   border-color: var(--accent-strong);
+}
+
+.sort-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.clear-filters {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  color: var(--danger, #ff6b6b);
+  border-color: rgba(255, 107, 107, 0.35);
+}
+
+.clear-filters:hover {
+  border-color: var(--danger, #ff6b6b);
 }
 
 /* ---------- Battle history cards ---------- */

@@ -88,3 +88,23 @@ export function ShareIcon({ className = "icon" }: IconProps) {
     </svg>
   );
 }
+
+export function SortIcon({ className = "icon" }: IconProps) {
+  return (
+    <svg className={className} {...base}>
+      <line x1="4" y1="6" x2="16" y2="6" />
+      <line x1="4" y1="12" x2="12" y2="12" />
+      <line x1="4" y1="18" x2="8" y2="18" />
+      <path d="M18 9V20M18 20l-3-3M18 20l3-3" />
+    </svg>
+  );
+}
+
+export function CloseIcon({ className = "icon" }: IconProps) {
+  return (
+    <svg className={className} {...base}>
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  );
+}

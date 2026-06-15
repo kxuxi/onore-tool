@@ -21,7 +21,8 @@ import {
   ChevronLeft,
   ChevronRight,
   ExternalLinkIcon,
-  CopyIcon,
+  SortIcon,
+  CloseIcon,
 } from "@/components/icons";
 
 interface Props {
@@ -83,6 +84,7 @@ export function HistoryTab({
   const [text, setText] = useState("");
   const [keyword, setKeyword] = useState("");
   const [factionFilter, setFactionFilter] = useState("");
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [showFilter, setShowFilter] = useState(false);
   const [page, setPage] = useState(1);
   const [result, setResult] = useState<
@@ -175,7 +177,7 @@ export function HistoryTab({
     return Array.from(set).sort((a, b) => a.localeCompare(b, "ja"));
   }, [cards]);
 
-  // 戦闘時刻の降順（新しい順）で表示。キーワード・国で絞り込み。
+  // 戦闘時刻順で表示（新しい順 / 古い順）。キーワード・国で絞り込み。
   const visibleLog = useMemo(() => {
     const k = keyword.trim();
     const list = cards.filter(({ record, card }) => {
@@ -191,19 +193,27 @@ export function HistoryTab({
     const now = new Date();
     const timeOf = (r: BattleRecord) =>
       parseActionDate(r.time, now)?.getTime() ?? null;
+    // newest=1（降順）/ oldest=-1（昇順）。時刻が無い行は常に末尾。
+    const dir = sortOrder === "newest" ? 1 : -1;
     return [...list].sort((a, b) => {
       const ta = timeOf(a.record);
       const tb = timeOf(b.record);
-      // 戦闘時刻があるものを優先し、新しい順。両方無ければ登録の新しい順。
       if (ta != null && tb != null) {
-        if (tb !== ta) return tb - ta;
-        return b.record.savedAt - a.record.savedAt;
+        if (tb !== ta) return (tb - ta) * dir;
+        return (b.record.savedAt - a.record.savedAt) * dir;
       }
       if (ta != null) return -1;
       if (tb != null) return 1;
-      return b.record.savedAt - a.record.savedAt;
+      return (b.record.savedAt - a.record.savedAt) * dir;
     });
-  }, [cards, keyword, factionFilter]);
+  }, [cards, keyword, factionFilter, sortOrder]);
+
+  const hasActiveFilter = keyword.trim() !== "" || factionFilter !== "";
+
+  const clearFilters = () => {
+    setKeyword("");
+    setFactionFilter("");
+  };
 
   const totalPages = Math.max(1, Math.ceil(visibleLog.length / PAGE_SIZE));
 
@@ -212,10 +222,10 @@ export function HistoryTab({
     setPage((p) => Math.min(Math.max(1, p), totalPages));
   }, [totalPages]);
 
-  // キーワード・国変更時は1ページ目へ
+  // キーワード・国・並び順の変更時は1ページ目へ
   useEffect(() => {
     setPage(1);
-  }, [keyword, factionFilter]);
+  }, [keyword, factionFilter, sortOrder]);
 
   const pageItems = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE;
@@ -306,6 +316,22 @@ export function HistoryTab({
           </div>
           <button
             type="button"
+            className="btn sort-toggle"
+            onClick={() =>
+              setSortOrder((o) => (o === "newest" ? "oldest" : "newest"))
+            }
+            aria-label={
+              sortOrder === "newest"
+                ? "並び順: 新しい順（クリックで古い順に切替）"
+                : "並び順: 古い順（クリックで新しい順に切替）"
+            }
+            title="登録日時の並び替え"
+          >
+            <SortIcon />
+            <span>{sortOrder === "newest" ? "新しい順" : "古い順"}</span>
+          </button>
+          <button
+            type="button"
             className={
               "btn filter-toggle" +
               (showFilter || factionFilter ? " active" : "")
@@ -316,6 +342,17 @@ export function HistoryTab({
             <FilterIcon />
             <span>フィルター</span>
           </button>
+          {hasActiveFilter && (
+            <button
+              type="button"
+              className="btn clear-filters"
+              onClick={clearFilters}
+              title="絞り込み条件をすべて解除"
+            >
+              <CloseIcon />
+              <span>解除</span>
+            </button>
+          )}
         </div>
 
         {showFilter && (
