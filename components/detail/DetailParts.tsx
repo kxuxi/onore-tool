@@ -2,23 +2,7 @@
 
 import type { ReactNode } from "react";
 import type { StatSummary } from "@/lib/stats";
-
-function ChevronLeft() {
-  return (
-    <svg
-      className="icon"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <polyline points="15 18 9 12 15 6" />
-    </svg>
-  );
-}
+import { ChevronLeft } from "@/components/icons";
 
 interface HeaderProps {
   kind: string;
