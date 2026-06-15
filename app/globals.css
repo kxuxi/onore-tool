@@ -1310,6 +1310,20 @@ tbody tr:hover {
   padding: 6px 10px;
 }
 
+.detail-share {
+  flex: 0 0 auto;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+}
+
+.detail-share.copied {
+  color: var(--success, #4caf50);
+  border-color: var(--success, #4caf50);
+}
+
 .detail-title {
   min-width: 0;
 }

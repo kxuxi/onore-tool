@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { HamburgerMenu } from "@/components/HamburgerMenu";
 import { HistoryTab } from "@/components/tabs/HistoryTab";
 import { ScoutTab } from "@/components/tabs/ScoutTab";
@@ -34,6 +34,15 @@ const TABS: { key: TabKey; label: string }[] = [
 
 /** 武将ページ / 兵種ページの表示状態 */
 type DetailView = { kind: "warlord" | "unit"; name: string };
+
+/** タブ・詳細ページの状態を共有用 URL クエリへ変換する。 */
+function buildShareQuery(tab: TabKey, detail: DetailView | null): string {
+  const params = new URLSearchParams();
+  if (tab !== "history") params.set("tab", tab);
+  if (detail) params.set(detail.kind === "warlord" ? "w" : "u", detail.name);
+  const qs = params.toString();
+  return qs ? `?${qs}` : "";
+}
 
 export default function HomePage() {
   const [tab, setTab] = useState<TabKey>("history");
@@ -77,6 +86,29 @@ export default function HomePage() {
   useEffect(() => {
     setFactionColors(loadFactionColors());
   }, []);
+
+  // 初回マウント時に URL クエリからタブ・詳細ページを復元（共有リンク・再読込対応）
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const t = params.get("tab");
+    if (t && TABS.some((x) => x.key === t)) setTab(t as TabKey);
+    const w = params.get("w");
+    const u = params.get("u");
+    if (w) setDetailStack([{ kind: "warlord", name: w }]);
+    else if (u) setDetailStack([{ kind: "unit", name: u }]);
+  }, []);
+
+  // タブ・詳細ページの変化を URL へ反映（履歴は汚さず replaceState）。
+  // 初回マウントは復元結果と一致するためスキップする。
+  const firstUrlSync = useRef(true);
+  useEffect(() => {
+    if (firstUrlSync.current) {
+      firstUrlSync.current = false;
+      return;
+    }
+    const qs = buildShareQuery(tab, detail);
+    window.history.replaceState(null, "", window.location.pathname + qs);
+  }, [tab, detail]);
 
   const handleChangeFactionColors = useCallback((next: FactionColorMap) => {
     setFactionColors(next);

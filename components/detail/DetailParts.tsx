@@ -1,14 +1,41 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { StatSummary } from "@/lib/stats";
-import { ChevronLeft } from "@/components/icons";
+import { ChevronLeft, ShareIcon, CheckIcon } from "@/components/icons";
+import { copyText } from "@/lib/clipboard";
 
 interface HeaderProps {
   kind: string;
   title: string;
   tags?: ReactNode;
   onBack: () => void;
+}
+
+/** 現在のページURL（ディープリンク）をクリップボードへコピーする共有ボタン。 */
+function ShareLinkButton() {
+  const [copied, setCopied] = useState(false);
+  const share = async () => {
+    const ok = await copyText(window.location.href);
+    if (ok) {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    }
+  };
+  return (
+    <button
+      type="button"
+      className={"btn detail-share" + (copied ? " copied" : "")}
+      onClick={share}
+      aria-label={
+        copied ? "リンクをコピーしました" : "このページのリンクをコピー"
+      }
+      title={copied ? "コピーしました" : "リンクをコピー"}
+    >
+      {copied ? <CheckIcon /> : <ShareIcon />}
+      <span>{copied ? "コピー済み" : "共有"}</span>
+    </button>
+  );
 }
 
 export function DetailHeader({ kind, title, tags, onBack }: HeaderProps) {
@@ -23,6 +50,7 @@ export function DetailHeader({ kind, title, tags, onBack }: HeaderProps) {
         <h2>{title}</h2>
         {tags && <div className="detail-tags">{tags}</div>}
       </div>
+      <ShareLinkButton />
     </div>
   );
 }
