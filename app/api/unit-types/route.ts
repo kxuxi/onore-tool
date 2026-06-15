@@ -5,9 +5,18 @@ import type { UnitType } from "@/lib/types";
 export const dynamic = "force-dynamic";
 
 function errorResponse(context: string, err: unknown) {
-  const message = err instanceof Error ? err.message : String(err);
+  // 詳細は常にサーバーログにのみ出力する。
   console.error(`[api/unit-types] ${context} failed:`, err);
-  return NextResponse.json({ error: message, context }, { status: 500 });
+  // 本番では内部情報の漏えいを防ぐため汎用文言のみ返す。
+  const isDev = process.env.NODE_ENV !== "production";
+  if (isDev) {
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: message, context }, { status: 500 });
+  }
+  return NextResponse.json(
+    { error: "サーバー内部エラーが発生しました。" },
+    { status: 500 }
+  );
 }
 
 function normalize(body: Partial<UnitType>): Omit<UnitType, "name"> {
@@ -54,7 +63,22 @@ export async function GET() {
 // 兵種を upsert（名前が被ったら上書き、無ければ追加）
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as Partial<UnitType>;
+    let raw: unknown;
+    try {
+      raw = await req.json();
+    } catch {
+      return NextResponse.json(
+        { error: "リクエストボディが不正な JSON です" },
+        { status: 400 }
+      );
+    }
+    if (typeof raw !== "object" || raw === null) {
+      return NextResponse.json(
+        { error: "リクエストボディはオブジェクトである必要があります" },
+        { status: 400 }
+      );
+    }
+    const body = raw as Partial<UnitType>;
     const name = (body.name ?? "").toString().trim();
     if (!name) {
       return NextResponse.json({ error: "name は必須です" }, { status: 400 });

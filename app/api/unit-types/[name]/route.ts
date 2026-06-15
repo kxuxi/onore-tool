@@ -16,8 +16,15 @@ export async function DELETE(
     await prisma.unitType.deleteMany({ where: { name } });
     return NextResponse.json({ ok: true });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    // 詳細はサーバーログにのみ出力し、本番では汎用文言のみ返す。
     console.error("[api/unit-types/[name]] DELETE failed:", err);
-    return NextResponse.json({ error: message }, { status: 500 });
+    if (process.env.NODE_ENV !== "production") {
+      const message = err instanceof Error ? err.message : String(err);
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
+    return NextResponse.json(
+      { error: "サーバー内部エラーが発生しました。" },
+      { status: 500 }
+    );
   }
 }

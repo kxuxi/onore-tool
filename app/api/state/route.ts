@@ -65,12 +65,59 @@ async function loadLog(): Promise<BattleRecord[]> {
 }
 
 function errorResponse(context: string, err: unknown) {
-  const message = err instanceof Error ? err.message : String(err);
+  // 詳細は常にサーバーログにのみ出力する。
   console.error(`[api/state] ${context} failed:`, err);
+  // 本番では内部情報（DB接続文字列・スキーマ等）の漏えいを防ぐため汎用文言のみ返す。
+  const isDev = process.env.NODE_ENV !== "production";
+  if (isDev) {
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: message, context }, { status: 500 });
+  }
   return NextResponse.json(
-    { error: message, context },
+    { error: "サーバー内部エラーが発生しました。" },
     { status: 500 }
   );
+}
+
+function badRequest(message: string) {
+  return NextResponse.json({ error: message }, { status: 400 });
+}
+
+function isObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null;
+}
+
+/**
+ * POST ボディを境界で検証する。受信 JSON の形を信頼せず、配列・必須フィールドを
+ * 確認して不正なら 400 を返せるようにする（実行時例外による 500 を防ぐ）。
+ */
+function parseStateBody(
+  body: unknown
+): { warlords: Warlord[]; records: BattleRecord[] } | { error: string } {
+  if (!isObject(body)) return { error: "リクエストボディはオブジェクトである必要があります" };
+  const warlords = body.warlords ?? [];
+  const records = body.records ?? [];
+  if (!Array.isArray(warlords)) return { error: "warlords は配列である必要があります" };
+  if (!Array.isArray(records)) return { error: "records は配列である必要があります" };
+  for (const w of warlords) {
+    if (
+      !isObject(w) ||
+      typeof w.name !== "string" ||
+      typeof w.type !== "string" ||
+      typeof w.branch !== "string" ||
+      typeof w.updatedAt !== "number"
+    ) {
+      return {
+        error: "warlords の各要素には name/type/branch（文字列）と updatedAt（数値）が必要です",
+      };
+    }
+  }
+  for (const r of records) {
+    if (!isObject(r) || typeof r.line !== "string") {
+      return { error: "records の各要素には line（文字列）が必要です" };
+    }
+  }
+  return { warlords: warlords as Warlord[], records: records as BattleRecord[] };
 }
 
 export async function GET() {
@@ -84,12 +131,15 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as {
-      warlords?: Warlord[];
-      records?: BattleRecord[];
-    };
-    const warlords = body.warlords ?? [];
-    const records = body.records ?? [];
+    let raw: unknown;
+    try {
+      raw = await req.json();
+    } catch {
+      return badRequest("リクエストボディが不正な JSON です");
+    }
+    const parsed = parseStateBody(raw);
+    if ("error" in parsed) return badRequest(parsed.error);
+    const { warlords, records } = parsed;
 
     // 武将のマージ（既存DBを読み込んでサーバ側で統合）
     const existing = await loadMap();
