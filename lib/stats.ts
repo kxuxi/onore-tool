@@ -529,23 +529,34 @@ export interface UnitMatchupRanking {
 
 /**
  * 敵兵種を勝率順に並べ、相性の良い／苦手な兵種 TOP3 を返す。
- * 勝敗が確定した対戦が 1 度でもある兵種のみ対象。種類が少なければ
- * worst は省略する（best と重複するため）。
+ * 勝敗が確定した対戦が 1 度でもある兵種のみ対象。
+ * - 相性の良い兵種 = 勝ち越している兵種（勝率 > 50%）を勝率の高い順に。
+ * - 苦手な兵種 = 負け越している兵種（勝率 < 50%）を勝率の低い順に。
+ * 勝率 50%（五分）の兵種はどちらにも含めない（同じ兵種が両方に出ない）。
  */
 export function unitMatchupRanking(
   outcomes: BattleOutcome[],
   top = 3
 ): UnitMatchupRanking {
-  const ranked = opponentUnitStats(outcomes)
-    .filter((s) => s.decided > 0)
+  const decided = opponentUnitStats(outcomes).filter((s) => s.decided > 0);
+  const best = decided
+    .filter((s) => s.winRate > 0.5)
     .sort(
       (a, b) =>
         b.winRate - a.winRate ||
         b.decided - a.decided ||
         b.battles - a.battles
-    );
-  const best = ranked.slice(0, top);
-  const worst = ranked.length > top ? ranked.slice(-top).reverse() : [];
+    )
+    .slice(0, top);
+  const worst = decided
+    .filter((s) => s.winRate < 0.5)
+    .sort(
+      (a, b) =>
+        a.winRate - b.winRate ||
+        b.decided - a.decided ||
+        b.battles - a.battles
+    )
+    .slice(0, top);
   return { best, worst };
 }
 

@@ -367,13 +367,18 @@ describe("unitMatchupRanking / userWinRates", () => {
   ];
   const outcomes = collectUnitBattles(log, "ランセロ");
 
-  it("敵兵種ごとの相性を勝率順に並べる", () => {
+  it("敵兵種ごとの相性を勝ち越し/負け越しで分ける", () => {
     const ranking = unitMatchupRanking(outcomes);
-    // ドラグーン相手 2勝0敗(100%)、コサック相手 0勝1敗(0%)
+    // ドラグーン相手 2勝0敗(100%) → 相性の良い兵種
     expect(ranking.best[0].unit).toBe("ドラグーン");
     expect(ranking.best[0].winRate).toBeCloseTo(1);
-    const cosaku = ranking.best.find((s) => s.unit === "コサック");
+    // コサック相手 0勝1敗(0%) → 苦手な兵種
+    const cosaku = ranking.worst.find((s) => s.unit === "コサック");
     expect(cosaku?.winRate).toBeCloseTo(0);
+    // 同じ兵種が良い／苦手の両方に出ない
+    const bestUnits = ranking.best.map((s) => s.unit);
+    const worstUnits = ranking.worst.map((s) => s.unit);
+    expect(bestUnits.filter((u) => worstUnits.includes(u))).toHaveLength(0);
   });
 
   it("武将別の勝率を戦闘数の多い順に集計する", () => {
