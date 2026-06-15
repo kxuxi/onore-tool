@@ -6,9 +6,10 @@ import type { WarlordMap } from "@/lib/types";
 interface Props {
   db: WarlordMap;
   onReset: () => void;
+  onSelectWarlord: (name: string) => void;
 }
 
-export function DbTab({ db, onReset }: Props) {
+export function DbTab({ db, onReset, onSelectWarlord }: Props) {
   const [keyword, setKeyword] = useState("");
   const [faction, setFaction] = useState("");
   const [type, setType] = useState("");
@@ -200,7 +201,16 @@ export function DbTab({ db, onReset }: Props) {
                       <span className="muted">-</span>
                     )}
                   </td>
-                  <td>{w.name}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="link-like"
+                      onClick={() => onSelectWarlord(w.name)}
+                      title={`${w.name} の戦績を見る`}
+                    >
+                      {w.name}
+                    </button>
+                  </td>
                   <td>
                     <span className="tag type">{w.type}</span>
                   </td>

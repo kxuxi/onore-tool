@@ -1,5 +1,6 @@
 import type { BattleRecord, Warlord, WarlordMap } from "./types";
 import { parseActionDate } from "./action";
+import { battleKey } from "./parser";
 
 export const STORAGE_KEY = "onore-tool:warlords:v1";
 export const BATTLE_LOG_KEY = "onore-tool:battle-log:v1";
@@ -159,18 +160,20 @@ export function normalizeLine(line: string): string {
 /**
  * 戦闘履歴ログに新しいレコードを追加する。
  * 既存および追加分の中で内容が重複する行はスキップする。
+ * 重複判定は戦闘の同一性（時刻・場所・武将・勝敗）で行うため、
+ * ターン数や URL の有無だけが異なる同一戦闘もスキップされる。
  * @returns 追加後のログ・新規追加数・スキップ数
  */
 export function appendBattleLog(
   existing: BattleRecord[],
   incoming: BattleRecord[]
 ): { log: BattleRecord[]; added: number; skipped: number } {
-  const seen = new Set(existing.map((r) => normalizeLine(r.line)));
+  const seen = new Set(existing.map((r) => battleKey(r.line)));
   const log = [...existing];
   let added = 0;
   let skipped = 0;
   for (const r of incoming) {
-    const key = normalizeLine(r.line);
+    const key = battleKey(r.line);
     if (!key || seen.has(key)) {
       skipped++;
       continue;

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { mergeWarlords, normalizeLine } from "@/lib/storage";
+import { mergeWarlords } from "@/lib/storage";
+import { battleKey } from "@/lib/parser";
 import type { BattleRecord, Warlord, WarlordMap } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -63,70 +64,91 @@ async function loadLog(): Promise<BattleRecord[]> {
   }));
 }
 
+function errorResponse(context: string, err: unknown) {
+  const message = err instanceof Error ? err.message : String(err);
+  console.error(`[api/state] ${context} failed:`, err);
+  return NextResponse.json(
+    { error: message, context },
+    { status: 500 }
+  );
+}
+
 export async function GET() {
-  const [db, log] = await Promise.all([loadMap(), loadLog()]);
-  return NextResponse.json({ db, log });
+  try {
+    const [db, log] = await Promise.all([loadMap(), loadLog()]);
+    return NextResponse.json({ db, log });
+  } catch (err) {
+    return errorResponse("GET", err);
+  }
 }
 
 export async function POST(req: Request) {
-  const body = (await req.json()) as {
-    warlords?: Warlord[];
-    records?: BattleRecord[];
-  };
-  const warlords = body.warlords ?? [];
-  const records = body.records ?? [];
+  try {
+    const body = (await req.json()) as {
+      warlords?: Warlord[];
+      records?: BattleRecord[];
+    };
+    const warlords = body.warlords ?? [];
+    const records = body.records ?? [];
 
-  // 武将のマージ（既存DBを読み込んでサーバ側で統合）
-  const existing = await loadMap();
-  const { map, added, updated } = mergeWarlords(existing, warlords);
+    // 武将のマージ（既存DBを読み込んでサーバ側で統合）
+    const existing = await loadMap();
+    const { map, added, updated } = mergeWarlords(existing, warlords);
 
-  const changedNames = new Set(warlords.map((w) => w.name));
-  await prisma.$transaction(
-    Array.from(changedNames).map((name) => {
-      const row = warlordToRow(map[name]);
-      const { name: _n, ...rest } = row;
-      return prisma.warlord.upsert({
-        where: { name },
-        create: row,
-        update: rest,
+    const changedNames = new Set(warlords.map((w) => w.name));
+    await prisma.$transaction(
+      Array.from(changedNames).map((name) => {
+        const row = warlordToRow(map[name]);
+        const { name: _n, ...rest } = row;
+        return prisma.warlord.upsert({
+          where: { name },
+          create: row,
+          update: rest,
+        });
+      })
+    );
+
+    // 戦闘履歴の追加（戦闘の同一性キーをユニークキーにして重複排除）
+    let logAdded = 0;
+    let skipped = 0;
+    if (records.length > 0) {
+      const now = Date.now();
+      // 入力内の重複もまとめる（ターン数・URL の有無だけが違う同一戦闘も集約）
+      const byKey = new Map<string, { raw: string; time?: string }>();
+      for (const r of records) {
+        const key = battleKey(r.line);
+        if (!key) continue;
+        if (!byKey.has(key)) byKey.set(key, { raw: r.line, time: r.time });
+      }
+      const data = Array.from(byKey.entries()).map(([key, v]) => ({
+        line: key,
+        raw: v.raw,
+        time: v.time ?? null,
+        savedAt: BigInt(now),
+      }));
+      const result = await prisma.battleRecord.createMany({
+        data,
+        skipDuplicates: true,
       });
-    })
-  );
-
-  // 戦闘履歴の追加（正規化済みの行をユニークキーにして重複排除）
-  let logAdded = 0;
-  let skipped = 0;
-  if (records.length > 0) {
-    const now = Date.now();
-    // 入力内の重複もまとめる
-    const byKey = new Map<string, { raw: string; time?: string }>();
-    for (const r of records) {
-      const key = normalizeLine(r.line);
-      if (!key) continue;
-      if (!byKey.has(key)) byKey.set(key, { raw: r.line, time: r.time });
+      logAdded = result.count;
+      skipped = data.length - logAdded;
     }
-    const data = Array.from(byKey.entries()).map(([key, v]) => ({
-      line: key,
-      raw: v.raw,
-      time: v.time ?? null,
-      savedAt: BigInt(now),
-    }));
-    const result = await prisma.battleRecord.createMany({
-      data,
-      skipDuplicates: true,
-    });
-    logAdded = result.count;
-    skipped = data.length - logAdded;
-  }
 
-  const [db, log] = await Promise.all([loadMap(), loadLog()]);
-  return NextResponse.json({ db, log, added, updated, logAdded, skipped });
+    const [db, log] = await Promise.all([loadMap(), loadLog()]);
+    return NextResponse.json({ db, log, added, updated, logAdded, skipped });
+  } catch (err) {
+    return errorResponse("POST", err);
+  }
 }
 
 export async function DELETE() {
-  await prisma.$transaction([
-    prisma.warlord.deleteMany({}),
-    prisma.battleRecord.deleteMany({}),
-  ]);
-  return NextResponse.json({ db: {}, log: [] });
+  try {
+    await prisma.$transaction([
+      prisma.warlord.deleteMany({}),
+      prisma.battleRecord.deleteMany({}),
+    ]);
+    return NextResponse.json({ db: {}, log: [] });
+  } catch (err) {
+    return errorResponse("DELETE", err);
+  }
 }

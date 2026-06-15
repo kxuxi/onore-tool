@@ -7,12 +7,20 @@ import { ScoutTab } from "@/components/tabs/ScoutTab";
 import { DbTab } from "@/components/tabs/DbTab";
 import { DamageTab } from "@/components/tabs/DamageTab";
 import { UnitTab } from "@/components/tabs/UnitTab";
+import { FactionTab } from "@/components/tabs/FactionTab";
+import { WarlordDetail } from "@/components/detail/WarlordDetail";
+import { UnitDetail } from "@/components/detail/UnitDetail";
 import {
   fetchState,
   registerState,
   resetState,
 } from "@/lib/api";
 import { parseBattleEntries } from "@/lib/parser";
+import {
+  loadFactionColors,
+  saveFactionColors,
+  type FactionColorMap,
+} from "@/lib/factionColors";
 import type { BattleRecord, TabKey, WarlordMap } from "@/lib/types";
 
 const TABS: { key: TabKey; label: string }[] = [
@@ -21,12 +29,19 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "damage", label: "被弾表" },
   { key: "db", label: "DB確認" },
   { key: "units", label: "兵種図鑑" },
+  { key: "factions", label: "国カラー" },
 ];
+
+/** 武将ページ / 兵種ページの表示状態 */
+type DetailView = { kind: "warlord" | "unit"; name: string };
 
 export default function HomePage() {
   const [tab, setTab] = useState<TabKey>("history");
   const [db, setDb] = useState<WarlordMap>({});
   const [battleLog, setBattleLog] = useState<BattleRecord[]>([]);
+  const [factionColors, setFactionColors] = useState<FactionColorMap>({});
+  // 詳細ページ（武将 / 兵種）はスタックで管理し、相互リンクの「戻る」を自然にする。
+  const [detailStack, setDetailStack] = useState<DetailView[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -34,6 +49,8 @@ export default function HomePage() {
     kind: "success" | "error";
     message: string;
   } | null>(null);
+
+  const detail = detailStack[detailStack.length - 1] ?? null;
 
   // 初回マウント時にサーバー（共有DB）から読み込み
   useEffect(() => {
@@ -54,6 +71,16 @@ export default function HomePage() {
     return () => {
       active = false;
     };
+  }, []);
+
+  // 国カラー設定をローカルから読み込み
+  useEffect(() => {
+    setFactionColors(loadFactionColors());
+  }, []);
+
+  const handleChangeFactionColors = useCallback((next: FactionColorMap) => {
+    setFactionColors(next);
+    saveFactionColors(next);
   }, []);
 
   // 画面幅に応じてサイドバーの初期表示を切り替え（デスクトップは開、モバイルは閉）
@@ -125,27 +152,111 @@ export default function HomePage() {
   const selectTab = useCallback(
     (key: TabKey) => {
       setTab(key);
+      setDetailStack([]);
       if (isMobile) setSidebarOpen(false);
     },
     [isMobile]
   );
 
+  // 武将ページを開く（同じ対象が既に最前面なら何もしない）。
+  const selectWarlord = useCallback(
+    (name: string) => {
+      const n = name.trim();
+      if (!n) return;
+      setDetailStack((s) => {
+        const top = s[s.length - 1];
+        if (top && top.kind === "warlord" && top.name === n) return s;
+        return [...s, { kind: "warlord", name: n }];
+      });
+      if (isMobile) setSidebarOpen(false);
+    },
+    [isMobile]
+  );
+
+  // 兵種ページを開く。
+  const selectUnit = useCallback(
+    (name: string) => {
+      const n = name.trim();
+      if (!n) return;
+      setDetailStack((s) => {
+        const top = s[s.length - 1];
+        if (top && top.kind === "unit" && top.name === n) return s;
+        return [...s, { kind: "unit", name: n }];
+      });
+      if (isMobile) setSidebarOpen(false);
+    },
+    [isMobile]
+  );
+
+  const backDetail = useCallback(() => {
+    setDetailStack((s) => s.slice(0, -1));
+  }, []);
+
   const content = useMemo(() => {
     switch (tab) {
       case "history":
-        return <HistoryTab onRegister={handleRegister} log={battleLog} />;
+        return (
+          <HistoryTab
+            onRegister={handleRegister}
+            log={battleLog}
+            factionColors={factionColors}
+            onSelectWarlord={selectWarlord}
+            onSelectUnit={selectUnit}
+          />
+        );
       case "scout":
-        return <ScoutTab db={db} />;
+        return <ScoutTab db={db} onSelectWarlord={selectWarlord} />;
       case "damage":
         return <DamageTab db={db} />;
       case "db":
-        return <DbTab db={db} onReset={handleReset} />;
+        return (
+          <DbTab db={db} onReset={handleReset} onSelectWarlord={selectWarlord} />
+        );
       case "units":
-        return <UnitTab />;
+        return <UnitTab onSelectUnit={selectUnit} />;
+      case "factions":
+        return (
+          <FactionTab
+            db={db}
+            colors={factionColors}
+            onChange={handleChangeFactionColors}
+          />
+        );
       default:
         return null;
     }
-  }, [tab, db, battleLog, handleRegister, handleReset]);
+  }, [
+    tab,
+    db,
+    battleLog,
+    factionColors,
+    handleRegister,
+    handleReset,
+    handleChangeFactionColors,
+    selectWarlord,
+    selectUnit,
+  ]);
+
+  const detailView = detail ? (
+    detail.kind === "warlord" ? (
+      <WarlordDetail
+        name={detail.name}
+        db={db}
+        log={battleLog}
+        onSelectWarlord={selectWarlord}
+        onSelectUnit={selectUnit}
+        onBack={backDetail}
+      />
+    ) : (
+      <UnitDetail
+        name={detail.name}
+        log={battleLog}
+        onSelectWarlord={selectWarlord}
+        onSelectUnit={selectUnit}
+        onBack={backDetail}
+      />
+    )
+  ) : null;
 
   return (
     <div className={"app" + (sidebarOpen ? " sidebar-open" : "")}>
@@ -204,7 +315,7 @@ export default function HomePage() {
 
         <main className="main">
           {hydrated ? (
-            content
+            detailView ?? content
           ) : (
             <div className="panel">
               <p className="muted" style={{ margin: 0 }}>

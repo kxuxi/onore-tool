@@ -3,6 +3,17 @@
 import { useEffect, useMemo, useState } from "react";
 import type { BattleRecord } from "@/lib/types";
 import { parseActionDate } from "@/lib/action";
+import {
+  parseBattleCard,
+  isSpecialToken,
+  normalizeDisplayToken,
+  extractBattleUrl,
+  battleKey,
+  type BattleCard,
+  type BattleSide,
+} from "@/lib/parser";
+import { resolveWinColor, type FactionColorMap } from "@/lib/factionColors";
+import { htmlToMarkdown } from "@/lib/clipboard";
 
 interface Props {
   onRegister: (text: string) => Promise<{
@@ -12,17 +23,164 @@ interface Props {
     skipped: number;
   }>;
   log: BattleRecord[];
+  factionColors: FactionColorMap;
+  onSelectWarlord: (name: string) => void;
+  onSelectUnit: (name: string) => void;
 }
 
 const PAGE_SIZE = 20;
 
-const PLACEHOLDER = `戦闘履歴をここに貼り付けてください。
-例:
-【1戦目】\t1583年4月\t10:23\t京都\t織田家\t織田信長\t織田\t武統\t重騎兵\t騎兵\t名刀\t名馬\tV.S.\t武田家\t武田勝頼\t武田\t武特\t精鋭騎馬\t騎兵\t名刀\t名馬\t勝利\t12`;
+/** 片側の装備・兵種タグを組み立てる（兵種 → 兵科 → 装備）。
+ * `unit: true` のタグ（兵種名）は兵種ページへ遷移できる。 */
+function sideTags(
+  side: BattleSide
+): { text: string; highlight: boolean; unit: boolean }[] {
+  const tags: { text: string; highlight: boolean; unit: boolean }[] = [];
+  if (side.unit) {
+    tags.push({
+      text: normalizeDisplayToken(side.unit),
+      highlight: isSpecialToken(side.unit),
+      unit: true,
+    });
+  }
+  if (side.branch)
+    tags.push({ text: side.branch, highlight: false, unit: false });
+  for (const e of side.equips) {
+    tags.push({
+      text: normalizeDisplayToken(e),
+      highlight: isSpecialToken(e),
+      unit: false,
+    });
+  }
+  return tags;
+}
 
-export function HistoryTab({ onRegister, log }: Props) {
+function SearchIcon() {
+  return (
+    <svg
+      className="icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <circle cx="11" cy="11" r="7" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </svg>
+  );
+}
+
+function FilterIcon() {
+  return (
+    <svg
+      className="icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+    </svg>
+  );
+}
+
+function TrophyIcon() {
+  return (
+    <svg
+      className="icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Z" />
+      <path d="M7 5H4v2a3 3 0 0 0 3 3M17 5h3v2a3 3 0 0 1-3 3" />
+    </svg>
+  );
+}
+
+function ChevronLeft() {
+  return (
+    <svg
+      className="icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <polyline points="15 18 9 12 15 6" />
+    </svg>
+  );
+}
+
+function ChevronRight() {
+  return (
+    <svg
+      className="icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
+}
+
+function ExternalLinkIcon() {
+  return (
+    <svg
+      className="icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M15 3h6v6" />
+      <path d="M10 14 21 3" />
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+    </svg>
+  );
+}
+
+const PLACEHOLDER = `戦闘履歴をここに貼り付けてください。
+リンク付き（マークダウン形式）でもタブ区切りでも登録できます。
+
+例（リンク付き）:
+【1戦目】1583年4月06/15 10:23京都[織田家 織田信長 織田 武統 重騎兵 騎兵 名刀 名馬 V.S. 武田家 武田勝頼 武田 武特 精鋭騎馬 騎兵 名刀 名馬](https://example.com/battle_1.html)織田信長の勝利12ターンで終了
+
+例（タブ区切り）:
+【1戦目】\t1583年4月\t10:23\t京都\t織田家 織田信長 織田 武統 重騎兵 騎兵 名刀 名馬 V.S. 武田家 武田勝頼 武田 武特 精鋭騎馬 騎兵 名刀 名馬\t織田信長の勝利\t12`;
+
+export function HistoryTab({
+  onRegister,
+  log,
+  factionColors,
+  onSelectWarlord,
+  onSelectUnit,
+}: Props) {
   const [text, setText] = useState("");
   const [keyword, setKeyword] = useState("");
+  const [factionFilter, setFactionFilter] = useState("");
+  const [showFilter, setShowFilter] = useState(false);
   const [page, setPage] = useState(1);
   const [result, setResult] = useState<
     | null
@@ -61,26 +219,88 @@ export function HistoryTab({ onRegister, log }: Props) {
     setResult(null);
   };
 
-  // 戦闘時刻の降順（新しい順）で表示。キーワードで絞り込み。
+  // ブラウザからコピーした内容を貼り付けたとき、クリップボードの HTML を
+  // Markdown に変換してから挿入する。これにより `<a href>` が `[テキスト](URL)`
+  // となり、プレーンテキストでは失われる戦闘ログの URL を保持できる。
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const html = e.clipboardData.getData("text/html");
+    // HTML が無い（プレーンテキスト）場合は通常の貼り付けに任せる。
+    if (!html.trim()) return;
+
+    const md = htmlToMarkdown(html);
+    if (!md) return;
+
+    e.preventDefault();
+    const el = e.currentTarget;
+    const start = el.selectionStart ?? text.length;
+    const end = el.selectionEnd ?? text.length;
+    const next = text.slice(0, start) + md + text.slice(end);
+    setText(next);
+
+    // 再レンダリング後にカーソル位置を挿入末尾へ復元する。
+    const caret = start + md.length;
+    requestAnimationFrame(() => {
+      try {
+        el.setSelectionRange(caret, caret);
+      } catch {
+        /* 選択範囲の復元失敗は無視 */
+      }
+    });
+  };
+
+  // 各履歴をカード表示用に解析（取得・並びロジックは従来通り）。
+  // 内容が同一の行（正規化後に一致）は重複表示しないよう除外する。
+  const cards = useMemo(() => {
+    const seen = new Set<string>();
+    const out: { record: BattleRecord; card: BattleCard | null }[] = [];
+    for (const record of log) {
+      const key = battleKey(record.line);
+      if (key && seen.has(key)) continue;
+      if (key) seen.add(key);
+      out.push({ record, card: parseBattleCard(record.line) });
+    }
+    return out;
+  }, [log]);
+
+  // フィルター用の国一覧（カードの左右いずれかに登場する勢力）
+  const factionOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const { card } of cards) {
+      if (card?.left.faction) set.add(card.left.faction);
+      if (card?.right.faction) set.add(card.right.faction);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "ja"));
+  }, [cards]);
+
+  // 戦闘時刻の降順（新しい順）で表示。キーワード・国で絞り込み。
   const visibleLog = useMemo(() => {
     const k = keyword.trim();
-    const list = k ? log.filter((r) => r.line.includes(k)) : log;
+    const list = cards.filter(({ record, card }) => {
+      if (k && !record.line.includes(k)) return false;
+      if (factionFilter) {
+        const f =
+          card?.left.faction === factionFilter ||
+          card?.right.faction === factionFilter;
+        if (!f) return false;
+      }
+      return true;
+    });
     const now = new Date();
     const timeOf = (r: BattleRecord) =>
       parseActionDate(r.time, now)?.getTime() ?? null;
     return [...list].sort((a, b) => {
-      const ta = timeOf(a);
-      const tb = timeOf(b);
+      const ta = timeOf(a.record);
+      const tb = timeOf(b.record);
       // 戦闘時刻があるものを優先し、新しい順。両方無ければ登録の新しい順。
       if (ta != null && tb != null) {
         if (tb !== ta) return tb - ta;
-        return b.savedAt - a.savedAt;
+        return b.record.savedAt - a.record.savedAt;
       }
       if (ta != null) return -1;
       if (tb != null) return 1;
-      return b.savedAt - a.savedAt;
+      return b.record.savedAt - a.record.savedAt;
     });
-  }, [log, keyword]);
+  }, [cards, keyword, factionFilter]);
 
   const totalPages = Math.max(1, Math.ceil(visibleLog.length / PAGE_SIZE));
 
@@ -89,10 +309,10 @@ export function HistoryTab({ onRegister, log }: Props) {
     setPage((p) => Math.min(Math.max(1, p), totalPages));
   }, [totalPages]);
 
-  // キーワード変更時は1ページ目へ
+  // キーワード・国変更時は1ページ目へ
   useEffect(() => {
     setPage(1);
-  }, [keyword]);
+  }, [keyword, factionFilter]);
 
   const pageItems = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE;
@@ -104,12 +324,14 @@ export function HistoryTab({ onRegister, log }: Props) {
       <section className="panel">
         <h2>戦闘履歴を登録</h2>
         <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-          ゲームからコピーした戦闘履歴（タブ区切り）を貼り付けて「登録する」を押してください。
-          攻撃側・防衛側どちらの武将も自動で抽出されます。同じ内容の行は重複登録されません。
+          ゲームの戦闘履歴をブラウザからコピーして貼り付け、「登録する」を押してください。
+          リンク付き（各戦の詳細ページ URL）も自動で保持されます。
+          攻撃側・防衛側どちらの武将も自動で抽出され、同じ内容の行は重複登録されません。
         </p>
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
+          onPaste={handlePaste}
           placeholder={PLACEHOLDER}
           spellCheck={false}
           autoCapitalize="off"
@@ -157,21 +379,61 @@ export function HistoryTab({ onRegister, log }: Props) {
       </section>
 
       <section className="panel">
-        <h2>登録済み戦闘履歴</h2>
-        <div className="row">
-          <input
-            type="search"
-            className="text-input"
-            placeholder="履歴を絞り込み（武将名など）"
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            autoCapitalize="off"
-            autoCorrect="off"
-          />
-          <span className="muted" style={{ fontSize: 13 }}>
-            {visibleLog.length} / {log.length} 件
+        <div className="history-head">
+          <h2>登録済み戦闘履歴</h2>
+          <span className="count-badge">
+            {visibleLog.length.toLocaleString("ja-JP")} 件
           </span>
         </div>
+
+        <div className="search-row">
+          <div className="search-box">
+            <span className="search-icon">
+              <SearchIcon />
+            </span>
+            <input
+              type="search"
+              className="text-input search-input"
+              placeholder="履歴を絞り込み（武将名など）"
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              autoCapitalize="off"
+              autoCorrect="off"
+            />
+          </div>
+          <button
+            type="button"
+            className={
+              "btn filter-toggle" +
+              (showFilter || factionFilter ? " active" : "")
+            }
+            onClick={() => setShowFilter((v) => !v)}
+            aria-expanded={showFilter}
+          >
+            <FilterIcon />
+            <span>フィルター</span>
+          </button>
+        </div>
+
+        {showFilter && (
+          <div className="filter-grid">
+            <label className="filter">
+              <span>国</span>
+              <select
+                className="select"
+                value={factionFilter}
+                onChange={(e) => setFactionFilter(e.target.value)}
+              >
+                <option value="">すべて</option>
+                {factionOptions.map((f) => (
+                  <option key={f} value={f}>
+                    {f}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
 
         {visibleLog.length === 0 ? (
           <div className="empty">
@@ -181,44 +443,222 @@ export function HistoryTab({ onRegister, log }: Props) {
           </div>
         ) : (
           <>
-            <ul className="log-list">
-              {pageItems.map((r, i) => (
-                <li
-                  key={`${r.savedAt}-${i}-${r.line.slice(0, 16)}`}
-                  className="log-item"
-                >
-                  {r.time && <span className="log-time">{r.time}</span>}
-                  <span className="log-line">{r.line}</span>
-                </li>
+            <ul className="battle-list">
+              {pageItems.map(({ record, card }, i) => (
+                <BattleHistoryCard
+                  key={`${record.savedAt}-${i}-${record.line.slice(0, 16)}`}
+                  record={record}
+                  card={card}
+                  factionColors={factionColors}
+                  onSelectWarlord={onSelectWarlord}
+                  onSelectUnit={onSelectUnit}
+                />
               ))}
             </ul>
 
-            {totalPages > 1 && (
-              <div className="pager">
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page <= 1}
-                >
-                  前へ
-                </button>
-                <span className="pager-info">
-                  {page} / {totalPages}
-                </span>
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page >= totalPages}
-                >
-                  次へ
-                </button>
-              </div>
-            )}
+            <div className="pager">
+              <button
+                type="button"
+                className="btn pager-btn"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+              >
+                <ChevronLeft />
+                <span>前へ</span>
+              </button>
+              <span className="pager-info">
+                {page} / {totalPages} ページ
+              </span>
+              <button
+                type="button"
+                className="btn pager-btn"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+              >
+                <span>次へ</span>
+                <ChevronRight />
+              </button>
+            </div>
           </>
         )}
       </section>
     </>
+  );
+}
+
+interface CardProps {
+  record: BattleRecord;
+  card: BattleCard | null;
+  factionColors: FactionColorMap;
+  onSelectWarlord: (name: string) => void;
+  onSelectUnit: (name: string) => void;
+}
+
+function BattleHistoryCard({
+  record,
+  card,
+  factionColors,
+  onSelectWarlord,
+  onSelectUnit,
+}: CardProps) {
+  // 解析できなかった行は生テキストで表示（データを失わない）
+  if (!card) {
+    const { url } = extractBattleUrl(record.line);
+    return (
+      <li className="battle-card battle-card--raw">
+        {record.time && <span className="bc-time">{record.time}</span>}
+        <span className="bc-raw-line">{record.line}</span>
+        {url && (
+          <a
+            className="bc-link"
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <ExternalLinkIcon />
+            <span>詳細を見る</span>
+          </a>
+        )}
+      </li>
+    );
+  }
+
+  const safeCard = card;
+
+  const winColor = resolveWinColor(
+    safeCard.winner,
+    safeCard.left.faction,
+    safeCard.right.faction,
+    factionColors
+  );
+  const winnerName =
+    safeCard.winner === "left"
+      ? safeCard.left.name
+      : safeCard.winner === "right"
+      ? safeCard.right.name
+      : "—";
+  const resultLabel =
+    safeCard.winner === "draw"
+      ? "引分"
+      : safeCard.winner === "retreat"
+      ? "撤退"
+      : safeCard.winner === "unknown"
+      ? safeCard.resultRaw
+      : "勝利";
+
+  // カード余白のクリックで戦闘ログ URL を開く（武将名・兵種ボタンは stopPropagation）。
+  const openUrl = () => {
+    if (safeCard.url) window.open(safeCard.url, "_blank", "noopener,noreferrer");
+  };
+
+  const renderTeam = (side: BattleSide, align: "left" | "right") => (
+    <div className={`bc-team bc-team--${align}`}>
+      {side.faction && <span className="bc-faction">{side.faction}</span>}
+      <button
+        type="button"
+        className="bc-name bc-name-btn"
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelectWarlord(side.name);
+        }}
+        title={`${side.name} の戦績を見る`}
+      >
+        {side.name}
+      </button>
+      <div className="bc-tags">
+        {sideTags(side).map((t, i) =>
+          t.unit ? (
+            <button
+              key={`${t.text}-${i}`}
+              type="button"
+              className={"pill pill-btn" + (t.highlight ? " highlight" : "")}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelectUnit(t.text);
+              }}
+              title={`${t.text} の戦績を見る`}
+            >
+              {t.text}
+            </button>
+          ) : (
+            <span
+              key={`${t.text}-${i}`}
+              className={"pill" + (t.highlight ? " highlight" : "")}
+            >
+              {t.text}
+            </span>
+          )
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <li
+      className={"battle-card" + (safeCard.url ? " battle-card--link" : "")}
+      style={{
+        borderLeftWidth: 2,
+        borderLeftStyle: "solid",
+        borderLeftColor: winColor ?? "var(--border)",
+      }}
+      onClick={safeCard.url ? openUrl : undefined}
+      role={safeCard.url ? "link" : undefined}
+      tabIndex={safeCard.url ? 0 : undefined}
+      onKeyDown={
+        safeCard.url
+          ? (e) => {
+              if (e.key === "Enter") openUrl();
+            }
+          : undefined
+      }
+    >
+      <div className="bc-header">
+        <div className="bc-header-left">
+          {safeCard.battleNo && (
+            <span className="bc-badge">{safeCard.battleNo}</span>
+          )}
+          {safeCard.place && <span className="bc-place">{safeCard.place}</span>}
+        </div>
+        <div className="bc-header-right">
+          {safeCard.turns && (
+            <span className="bc-turns">{safeCard.turns}ターン</span>
+          )}
+          {(safeCard.battleAt || record.time) && (
+            <span className="bc-time">{safeCard.battleAt ?? record.time}</span>
+          )}
+          {safeCard.url && (
+            <a
+              className="bc-link-icon"
+              href={safeCard.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              title="戦闘ログの詳細を開く"
+            >
+              <ExternalLinkIcon />
+            </a>
+          )}
+        </div>
+      </div>
+
+      <div className="bc-vs">
+        {renderTeam(safeCard.left, "left")}
+        <div className="bc-vs-label">VS</div>
+        {renderTeam(safeCard.right, "right")}
+      </div>
+
+      <div className="bc-result">
+        <span className="bc-result-label">
+          <TrophyIcon />
+          {resultLabel}
+        </span>
+        <span
+          className="bc-winner"
+          style={winColor ? { color: winColor } : undefined}
+        >
+          {winnerName}
+        </span>
+      </div>
+    </li>
   );
 }

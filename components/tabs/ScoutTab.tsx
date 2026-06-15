@@ -6,6 +6,7 @@ import { lookup } from "@/lib/storage";
 
 interface Props {
   db: WarlordMap;
+  onSelectWarlord: (name: string) => void;
 }
 
 interface Row {
@@ -25,7 +26,7 @@ function splitNames(text: string): string[] {
     .filter((s) => s.length > 0);
 }
 
-export function ScoutTab({ db }: Props) {
+export function ScoutTab({ db, onSelectWarlord }: Props) {
   const [text, setText] = useState("");
 
   const rows = useMemo<Row[]>(() => {
@@ -108,7 +109,16 @@ export function ScoutTab({ db }: Props) {
                         <span className="muted">-</span>
                       )}
                     </td>
-                    <td>{r.name}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="link-like"
+                        onClick={() => onSelectWarlord(r.name)}
+                        title={`${r.name} の戦績を見る`}
+                      >
+                        {r.name}
+                      </button>
+                    </td>
                     <td>
                       {r.found ? (
                         <span className="tag type">{r.type}</span>

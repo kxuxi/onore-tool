@@ -63,15 +63,13 @@ export function DamageTab({ db }: Props) {
 
   const counts = useMemo(() => {
     const c = { done: 0, ready: 0, unknown: 0 };
-    if (!now) return c;
-    for (const w of Object.values(db)) {
-      const { status } = getActionInfo(w, now);
-      if (status === "done") c.done++;
-      else if (status === "ready") c.ready++;
-      else if (status === "unknown") c.unknown++;
+    for (const { info } of rows) {
+      if (info.status === "done") c.done++;
+      else if (info.status === "ready") c.ready++;
+      else if (info.status === "unknown") c.unknown++;
     }
     return c;
-  }, [db, now]);
+  }, [rows]);
 
   return (
     <section className="panel">
