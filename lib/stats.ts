@@ -239,25 +239,36 @@ export interface MatchupRanking {
 }
 
 /**
- * 対戦相手を勝率順に並べ、相性の良い／悪い相手 TOP3 を返す。
- * 勝敗が確定した対戦が 1 度でもある相手のみ対象。相手が 3 人以下なら
- * worst は省略する（best と重複するため）。
+ * 対戦相手を勝率順に並べ、相性の良い／苦手な相手 TOP3 を返す。
+ * 勝敗が確定した対戦が 1 度でもある相手のみ対象。
+ * - 相性の良い相手 = 勝ち越している相手（勝率 > 50%）を勝率の高い順に。
+ * - 苦手な相手 = 負け越している相手（勝率 < 50%）を勝率の低い順に。
+ * 勝率 50%（五分）の相手はどちらにも含めない。良い／苦手は勝率で
+ * 明確に分かれるため、同じ相手が両方に出ることはない。
  */
 export function matchupRanking(
   outcomes: BattleOutcome[],
   top = 3
 ): MatchupRanking {
-  const ranked = opponentStats(outcomes)
-    .filter((s) => s.decided > 0)
+  const decided = opponentStats(outcomes).filter((s) => s.decided > 0);
+  const best = decided
+    .filter((s) => s.winRate > 0.5)
     .sort(
       (a, b) =>
         b.winRate - a.winRate ||
         b.decided - a.decided ||
         b.battles - a.battles
-    );
-  const best = ranked.slice(0, top);
-  const worst =
-    ranked.length > top ? ranked.slice(-top).reverse() : [];
+    )
+    .slice(0, top);
+  const worst = decided
+    .filter((s) => s.winRate < 0.5)
+    .sort(
+      (a, b) =>
+        a.winRate - b.winRate ||
+        b.decided - a.decided ||
+        b.battles - a.battles
+    )
+    .slice(0, top);
   return { best, worst };
 }
 

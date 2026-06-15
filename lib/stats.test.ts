@@ -89,10 +89,69 @@ describe("opponentStats / matchupRanking / rivalry", () => {
     expect(katsuyori.winRate).toBeCloseTo(0.5);
   });
 
-  it("相性ランキングは勝敗確定済みの相手のみ対象", () => {
+  it("相性ランキングは勝ち越し/負け越しで分け、五分は除外する", () => {
     const ranking = matchupRanking(outcomes);
-    // 謙信(0勝1敗=0%) と 勝頼(1勝1敗=50%) が対象。best 先頭は勝率の高い勝頼。
-    expect(ranking.best[0].name).toBe("勝頼");
+    // 勝頼(1勝1敗=50%)は五分なのでどちらにも入らない。
+    // 謙信(0勝1敗=0%)は負け越しなので苦手な相手。
+    expect(ranking.best).toHaveLength(0);
+    expect(ranking.worst.map((s) => s.name)).toEqual(["謙信"]);
+  });
+
+  it("良い相手と苦手な相手に同じ相手は出ない（重複しない）", () => {
+    // 相手5人・勝率まちまちでも、良い相手(>50%)と苦手な相手(<50%)は
+    // 勝率で排他的に分かれるため重複しない。
+    const lines: BattleRecord[] = [];
+    let n = 0;
+    const add = (opp: string, selfWins: number, oppWins: number) => {
+      for (let i = 0; i < selfWins; i++)
+        lines.push(
+          rec(
+            makeLine({
+              year: 1600 + n,
+              time: `04/10 1${n % 10}:00`,
+              selfFaction: "織田",
+              selfBranch: "騎兵",
+              opponent: opp,
+              oppFaction: "敵",
+              result: "信長の勝利",
+            }),
+            n++
+          )
+        );
+      for (let i = 0; i < oppWins; i++)
+        lines.push(
+          rec(
+            makeLine({
+              year: 1600 + n,
+              time: `04/10 1${n % 10}:00`,
+              selfFaction: "織田",
+              selfBranch: "騎兵",
+              opponent: opp,
+              oppFaction: "敵",
+              result: `${opp}の勝利`,
+            }),
+            n++
+          )
+        );
+    };
+    add("Aカモ", 3, 0); // 100%
+    add("B得意", 2, 1); // 約67%
+    add("C五分", 1, 1); // 50%（除外）
+    add("D苦手", 1, 2); // 約33%
+    add("Eカモられ", 0, 3); // 0%
+    const oc = collectWarlordBattles(lines, "信長");
+    const r = matchupRanking(oc);
+    const bestNames = r.best.map((s) => s.name);
+    const worstNames = r.worst.map((s) => s.name);
+    // 重複なし
+    expect(bestNames.filter((x) => worstNames.includes(x))).toHaveLength(0);
+    // 良い相手は勝ち越しのみ・勝率降順
+    expect(bestNames).toEqual(["Aカモ", "B得意"]);
+    // 苦手な相手は負け越しのみ・勝率昇順（一番苦手が先頭）
+    expect(worstNames).toEqual(["Eカモられ", "D苦手"]);
+    // 五分(C)はどちらにも出ない
+    expect(bestNames).not.toContain("C五分");
+    expect(worstNames).not.toContain("C五分");
   });
 });
 

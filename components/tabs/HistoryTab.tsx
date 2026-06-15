@@ -54,9 +54,12 @@ function sideTags(
 ): { text: string; highlight: boolean; unit: boolean }[] {
   const tags: { text: string; highlight: boolean; unit: boolean }[] = [];
   if (side.unit) {
+    // 兵種は表示名（オリジナル兵は括弧内の素の兵種名）に正規化されるため、
+    // `*`始まり（オリジナル兵）かどうかで色を変えると、同じ「ライフル銃兵」でも
+    // 色が割れてしまう。兵種タグは常に同じスタイルで表示する。
     tags.push({
       text: normalizeDisplayToken(side.unit),
-      highlight: isSpecialToken(side.unit),
+      highlight: false,
       unit: true,
     });
   }
