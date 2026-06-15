@@ -80,7 +80,7 @@ export function SwiTab({ log, onSelectWarlord }: Props) {
     view.reduce((m, r) => Math.max(m, rankMetricValue(r, metric)), 0) || 1;
 
   const formatValue = (v: number) =>
-    metricKind === "swi" ? v.toFixed(2) : String(v);
+    metricKind === "swi" ? v.toFixed(2) : v.toLocaleString("ja-JP");
 
   return (
     <section className="panel">
@@ -236,12 +236,14 @@ export function SwiTab({ log, onSelectWarlord }: Props) {
                   </span>
                   <div className="swi-meta muted">
                     <span className={attackSide ? "rank-side-active" : ""}>
-                      攻 出撃{r.attackSorties}・勝{r.attackWins}・SWI
+                      攻 出撃{r.attackSorties.toLocaleString("ja-JP")}・勝
+                      {r.attackWins.toLocaleString("ja-JP")}・SWI
                       {r.attackSwi.toFixed(2)}
                     </span>
                     <span className="rank-sep">／</span>
                     <span className={!attackSide ? "rank-side-active" : ""}>
-                      守 出撃{r.defenseSorties}・勝{r.defenseWins}・SWI
+                      守 出撃{r.defenseSorties.toLocaleString("ja-JP")}・勝
+                      {r.defenseWins.toLocaleString("ja-JP")}・SWI
                       {r.defenseSwi.toFixed(2)}
                     </span>
                   </div>

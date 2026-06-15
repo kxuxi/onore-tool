@@ -19,7 +19,7 @@ import {
   type FactionColorMap,
 } from "@/lib/factionColors";
 import { copyText } from "@/lib/clipboard";
-import { ShareIcon, CheckIcon } from "@/components/icons";
+import { ShareIcon, CheckIcon, RefreshIcon, ChevronUp } from "@/components/icons";
 import type { BattleRecord, TabKey, WarlordMap } from "@/lib/types";
 
 const TABS: { key: TabKey; label: string }[] = [
@@ -64,6 +64,10 @@ export default function HomePage() {
   const [reloadKey, setReloadKey] = useState(0);
   // ヘッダーの「共有」ボタンのコピー完了表示。
   const [linkCopied, setLinkCopied] = useState(false);
+  // 共有DBの手動再取得中表示。
+  const [refreshing, setRefreshing] = useState(false);
+  // 縦に長い画面で「先頭へ戻る」FABを表示するか。
+  const [showTop, setShowTop] = useState(false);
   // タブリストのロービングタブインデックス用の参照。
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -95,6 +99,21 @@ export default function HomePage() {
 
   // 読み込み失敗時の再試行（取得 useEffect を再実行する）。
   const reload = useCallback(() => setReloadKey((k) => k + 1), []);
+
+  // 共有DBを手動で再取得して最新状態に更新する（画面は維持したまま）。
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const state = await fetchState();
+      setDb(state.db);
+      setBattleLog(state.log);
+      setToast({ kind: "success", message: "最新の状態に更新しました" });
+    } catch {
+      setToast({ kind: "error", message: "更新に失敗しました" });
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
 
   // 国カラー設定をローカルから読み込み
   useEffect(() => {
@@ -198,6 +217,21 @@ export default function HomePage() {
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0 });
   }, [tab, detail]);
+
+  // 一定量スクロールしたら「先頭へ戻る」FABを表示する。
+  useEffect(() => {
+    const onScroll = () => setShowTop(window.scrollY > 400);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const scrollToTop = useCallback(() => {
+    const reduce = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+    window.scrollTo({ top: 0, left: 0, behavior: reduce ? "auto" : "smooth" });
+  }, []);
 
   const handleRegister = useCallback(
     async (text: string) => {
@@ -365,6 +399,9 @@ export default function HomePage() {
 
   return (
     <div className={"app" + (sidebarOpen ? " sidebar-open" : "")}>
+      <a href="#main-panel" className="skip-link">
+        本文へスキップ
+      </a>
       <header className="header">
         <div className="header-left">
           <button
@@ -379,21 +416,41 @@ export default function HomePage() {
             <span />
           </button>
           <h1>
-            ONORE ANALYTICS
+            <button
+              type="button"
+              className="brand-btn"
+              onClick={() => selectTab("history")}
+              title="ホーム（戦闘履歴）へ"
+            >
+              ONORE ANALYTICS
+            </button>
           </h1>
         </div>
-        <button
-          type="button"
-          className={"btn header-share" + (linkCopied ? " copied" : "")}
-          onClick={handleShareLink}
-          aria-label={
-            linkCopied ? "リンクをコピーしました" : "このページのリンクをコピー"
-          }
-          title={linkCopied ? "コピーしました" : "リンクをコピー"}
-        >
-          {linkCopied ? <CheckIcon /> : <ShareIcon />}
-          <span>{linkCopied ? "コピー済み" : "共有"}</span>
-        </button>
+        <div className="header-actions">
+          <button
+            type="button"
+            className={"btn header-refresh" + (refreshing ? " is-refreshing" : "")}
+            onClick={refresh}
+            disabled={refreshing || !hydrated}
+            aria-label="共有DBを最新に更新"
+            title="共有DBを最新に更新"
+          >
+            <RefreshIcon />
+            <span>{refreshing ? "更新中…" : "更新"}</span>
+          </button>
+          <button
+            type="button"
+            className={"btn header-share" + (linkCopied ? " copied" : "")}
+            onClick={handleShareLink}
+            aria-label={
+              linkCopied ? "リンクをコピーしました" : "このページのリンクをコピー"
+            }
+            title={linkCopied ? "コピーしました" : "リンクをコピー"}
+          >
+            {linkCopied ? <CheckIcon /> : <ShareIcon />}
+            <span>{linkCopied ? "コピー済み" : "共有"}</span>
+          </button>
+        </div>
       </header>
 
       <div className="body">
@@ -470,11 +527,23 @@ export default function HomePage() {
         </main>
       </div>
 
+      {showTop && (
+        <button
+          type="button"
+          className="back-to-top"
+          onClick={scrollToTop}
+          aria-label="先頭へ戻る"
+          title="先頭へ戻る"
+        >
+          <ChevronUp />
+        </button>
+      )}
+
       {toast && (
         <div
           className={"toast " + toast.kind}
-          role="status"
-          aria-live="polite"
+          role={toast.kind === "error" ? "alert" : "status"}
+          aria-live={toast.kind === "error" ? "assertive" : "polite"}
         >
           <span className="toast-message">{toast.message}</span>
           <button

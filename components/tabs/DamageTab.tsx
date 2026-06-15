@@ -29,6 +29,7 @@ export function DamageTab({ db, onSelectWarlord }: Props) {
   const [now, setNow] = useState<Date | null>(null);
   const [statusFilter, setStatusFilter] = useState<"" | ActionStatus>("");
   const [factionFilter, setFactionFilter] = useState("");
+  const [nameQuery, setNameQuery] = useState("");
 
   // 経過時間をリアルタイム表示するため 30 秒ごとに現在時刻を更新。
   // タブが非表示の間はインターバルを止め、再表示時に即時更新して再開する。
@@ -63,11 +64,13 @@ export function DamageTab({ db, onSelectWarlord }: Props) {
 
   const rows = useMemo(() => {
     if (!now) return [];
+    const q = nameQuery.trim().toLowerCase();
     return Object.values(db)
       .map((w) => ({ w, info: getActionInfo(w, now) }))
       .filter((r) => r.info.status !== "none")
       .filter((r) => (statusFilter ? r.info.status === statusFilter : true))
       .filter((r) => (factionFilter ? r.w.faction === factionFilter : true))
+      .filter((r) => (q ? r.w.name.toLowerCase().includes(q) : true))
       .sort((a, b) => {
         // 行動可 → 不明 → 行動済みの順。
         // 同ステータス内は経過時間の昇順（短い＝さっき行動可になった人が上）。
@@ -75,7 +78,7 @@ export function DamageTab({ db, onSelectWarlord }: Props) {
         if (so !== 0) return so;
         return (a.info.minutes ?? 0) - (b.info.minutes ?? 0);
       });
-  }, [db, now, statusFilter, factionFilter]);
+  }, [db, now, statusFilter, factionFilter, nameQuery]);
 
   // 国の選択肢（行動時刻を持つ武将の勢力名）
   const factionOptions = useMemo(() => {
@@ -148,6 +151,18 @@ export function DamageTab({ db, onSelectWarlord }: Props) {
 
       <div className="filter-grid">
         <label className="filter">
+          <span>武将名</span>
+          <input
+            type="search"
+            className="text-input"
+            placeholder="武将名で絞り込み"
+            value={nameQuery}
+            onChange={(e) => setNameQuery(e.target.value)}
+            autoCapitalize="off"
+            autoCorrect="off"
+          />
+        </label>
+        <label className="filter">
           <span>ステータス</span>
           <select
             className="select"
@@ -192,7 +207,7 @@ export function DamageTab({ db, onSelectWarlord }: Props) {
             </p>
           </div>
         ) : (
-          <table>
+          <table className="table-card">
             <thead>
               <tr>
                 <th>状況</th>
@@ -208,7 +223,7 @@ export function DamageTab({ db, onSelectWarlord }: Props) {
             <tbody>
               {rows.map(({ w, info }) => (
                 <tr key={w.name}>
-                  <td>
+                  <td className="cell-block" data-label="状況">
                     <span className={STATUS_CLASS[info.status]}>
                       {ACTION_LABEL[info.status]}
                     </span>
@@ -227,14 +242,14 @@ export function DamageTab({ db, onSelectWarlord }: Props) {
                       </span>
                     )}
                   </td>
-                  <td>
+                  <td data-label="国">
                     {w.faction ? (
                       <span className="tag faction">{w.faction}</span>
                     ) : (
                       <span className="muted">-</span>
                     )}
                   </td>
-                  <td>
+                  <td className="cell-title">
                     <button
                       type="button"
                       className="link-like"
@@ -244,23 +259,23 @@ export function DamageTab({ db, onSelectWarlord }: Props) {
                       {w.name}
                     </button>
                   </td>
-                  <td>
+                  <td data-label="タイプ">
                     <span className="tag type">{w.type}</span>
                   </td>
-                  <td>
+                  <td data-label="兵科">
                     <span className="tag branch">{w.branch}</span>
                   </td>
-                  <td>
+                  <td data-label="兵種">
                     {w.unit ? (
                       <span className="tag unit">{w.unit}</span>
                     ) : (
                       <span className="muted">-</span>
                     )}
                   </td>
-                  <td className="muted" style={{ fontSize: 12 }}>
+                  <td className="muted" data-label="行動時刻" style={{ fontSize: 12 }}>
                     {w.lastActionAt ?? "-"}
                   </td>
-                  <td className="muted" style={{ fontSize: 12 }}>
+                  <td className="muted" data-label="経過" style={{ fontSize: 12 }}>
                     {formatElapsed(info.minutes)}
                   </td>
                 </tr>

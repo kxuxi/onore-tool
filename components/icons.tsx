@@ -58,6 +58,14 @@ export function ChevronRight({ className = "icon" }: IconProps) {
   );
 }
 
+export function ChevronUp({ className = "icon" }: IconProps) {
+  return (
+    <svg className={className} {...base}>
+      <polyline points="18 15 12 9 6 15" />
+    </svg>
+  );
+}
+
 export function ExternalLinkIcon({ className = "icon" }: IconProps) {
   return (
     <svg className={className} {...base}>
@@ -113,6 +121,15 @@ export function CheckIcon({ className = "icon" }: IconProps) {
   return (
     <svg className={className} {...base}>
       <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+export function RefreshIcon({ className = "icon" }: IconProps) {
+  return (
+    <svg className={className} {...base}>
+      <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+      <polyline points="21 3 21 9 15 9" />
     </svg>
   );
 }

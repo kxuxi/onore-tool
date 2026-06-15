@@ -115,7 +115,7 @@ export function EquipTab({ log, onSelectWarlord }: Props) {
         </div>
       ) : (
         <div className="table-wrap">
-          <table>
+          <table className="table-card">
             <thead>
               <tr>
                 <th>装備</th>
@@ -128,26 +128,30 @@ export function EquipTab({ log, onSelectWarlord }: Props) {
             <tbody>
               {view.map((e) => (
                 <tr key={e.name}>
-                  <td>
+                  <td className="cell-title">
                     <span className="tag unit">{e.name}</span>
                   </td>
-                  <td>{e.battles}</td>
-                  <td>
-                    {e.decided > 0 ? (
-                      <>
-                        {(e.winRate * 100).toFixed(1)}%
-                        <span className="muted equip-decided">
-                          （{e.wins}/{e.decided}）
-                        </span>
-                      </>
-                    ) : (
-                      <span className="muted">-</span>
-                    )}
+                  <td data-label="使用回数">{e.battles}</td>
+                  <td data-label="勝率">
+                    <span>
+                      {e.decided > 0 ? (
+                        <>
+                          {(e.winRate * 100).toFixed(1)}%
+                          <span className="muted equip-decided">
+                            （{e.wins}/{e.decided}）
+                          </span>
+                        </>
+                      ) : (
+                        <span className="muted">-</span>
+                      )}
+                    </span>
                   </td>
-                  <td className="equip-split">
-                    {e.attackUses} / {e.defenseUses}
+                  <td className="equip-split" data-label="攻 / 守">
+                    <span>
+                      {e.attackUses} / {e.defenseUses}
+                    </span>
                   </td>
-                  <td>
+                  <td className="cell-block" data-label="主な使用武将">
                     <span className="equip-users">
                       {e.topUsers.map((u) => (
                         <button

@@ -78,6 +78,27 @@ input:focus {
   border-radius: 4px;
 }
 
+/* キーボード操作時のみ表示する「本文へスキップ」リンク。 */
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 100;
+  padding: 8px 14px;
+  background: var(--accent);
+  color: #0b1220;
+  font-weight: 700;
+  border-radius: 8px;
+  text-decoration: none;
+  transform: translateY(-150%);
+  transition: transform 0.15s ease;
+}
+.skip-link:focus {
+  transform: translateY(0);
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
 .app {
   min-height: 100vh;
   display: flex;
@@ -93,6 +114,10 @@ input:focus {
   align-items: center;
   justify-content: space-between;
   padding: 10px 14px;
+  /* ノッチ端末（viewport-fit=cover）でもヘッダーが隠れないよう safe-area を加算。 */
+  padding-top: calc(10px + env(safe-area-inset-top, 0px));
+  padding-left: calc(14px + env(safe-area-inset-left, 0px));
+  padding-right: calc(14px + env(safe-area-inset-right, 0px));
   background: rgba(15, 17, 21, 0.92);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border);
@@ -103,6 +128,26 @@ input:focus {
   font-size: 16px;
   font-weight: 600;
   letter-spacing: 0.02em;
+}
+
+/* ロゴ（ホームへ戻るボタン）。見出し風に見せつつボタンとして機能させる。 */
+.brand-btn {
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  white-space: nowrap;
+}
+.brand-btn:hover {
+  color: var(--accent);
+}
+.brand-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
 }
 
 .header-left {
@@ -123,6 +168,29 @@ input:focus {
 .header-share.copied {
   color: var(--success, #4caf50);
   border-color: var(--success, #4caf50);
+}
+
+/* ヘッダー右側のアクション群（更新・共有）。 */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+.header-refresh {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+}
+.header-refresh.is-refreshing .icon {
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .header h1 .sub {
@@ -344,6 +412,23 @@ input:focus {
   background: #252a35;
 }
 
+/* \u30ad\u30fc\u30dc\u30fc\u30c9\u64cd\u4f5c\u6642\u306e\u53ef\u8996\u30d5\u30a9\u30fc\u30ab\u30b9\uff08\u30dc\u30bf\u30f3\u30fb\u30bb\u30ec\u30af\u30c8\u7b49\u3001\u6a19\u6e96\u306e\u67a0\u304c\u898b\u3048\u306b\u304f\u3044\u8981\u7d20\u3092\u88dc\u5b8c\uff09\u3002 */
+.btn:focus-visible,
+.select:focus-visible,
+.color-trigger:focus-visible,
+.hamburger:focus-visible,
+.toast-close:focus-visible,
+.detail-back:focus-visible,
+.palette-swatch:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.scout-toggle:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
 .btn-primary {
   background: var(--accent-strong);
   border-color: var(--accent-strong);
@@ -397,6 +482,21 @@ input:focus {
   gap: 12px;
   flex-wrap: wrap;
   margin: 4px 0 8px;
+}
+
+/* 偵察検索の入力下: クリアと件数サマリー */
+.scout-input-row {
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.scout-summary {
+  font-size: 13px;
+  color: var(--muted);
+}
+.scout-summary strong {
+  color: var(--text);
+  font-weight: 700;
 }
 .scout-toggle {
   display: inline-flex;
@@ -492,6 +592,13 @@ input:focus {
   text-transform: uppercase;
 }
 
+/* .text-input は本来 横並び(.row)用に flex:1 1 200px を持つ。
+   縦並びの .filter 内ではこの flex-basis が高さ 200px として効いてしまうため打ち消す。 */
+.filter .text-input {
+  flex: 0 0 auto;
+  width: 100%;
+}
+
 .select {
   appearance: none;
   width: 100%;
@@ -566,6 +673,21 @@ thead th {
   text-transform: uppercase;
   position: sticky;
   top: 0;
+}
+
+/* デスクトップでは表本体を縦スクロールさせ、見出し(thead)を固定表示する（#69）。
+   .table-wrap は overflow:auto でスクロールコンテナとなり、sticky な thead が
+   その上端に貼り付く。横長の表は引き続き横スクロールできる。
+   モバイル(<=680px)はカード表示で thead を隠すため対象外。 */
+@media (min-width: 681px) {
+  .table-wrap {
+    max-height: calc(100vh - 200px);
+    overflow: auto;
+  }
+  thead th {
+    z-index: 5;
+    box-shadow: inset 0 -1px 0 var(--border);
+  }
 }
 
 /* 並び替え可能な見出しセル（DB確認タブ） */
@@ -773,6 +895,14 @@ tbody tr:hover {
   border-radius: 999px;
   padding: 2px 10px;
   white-space: nowrap;
+}
+
+/* 検索語ハイライト（戦闘履歴カード内の一致箇所）。 */
+mark.hl {
+  background: rgba(240, 180, 41, 0.32);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 1px;
 }
 
 /* ---------- Search row ---------- */
@@ -1404,6 +1534,35 @@ tbody tr:hover {
   background: rgba(255, 255, 255, 0.18);
 }
 
+/* ---------- 先頭へ戻る FAB ---------- */
+.back-to-top {
+  position: fixed;
+  right: 16px;
+  right: calc(16px + env(safe-area-inset-right, 0px));
+  bottom: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  animation: fade-in 0.15s ease;
+}
+.back-to-top:hover {
+  background: #252a35;
+  color: var(--accent);
+}
+.back-to-top:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* ---------- Modal ---------- */
 .modal-backdrop {
   position: fixed;
@@ -1495,6 +1654,159 @@ tbody tr:hover {
 
 @media (max-width: 360px) {
   .filter-grid { grid-template-columns: 1fr; }
+}
+
+/* DB確認: モバイル(カード表示)用の並び替えコントロール。既定は非表示。 */
+.db-sort-mobile {
+  display: none;
+}
+
+/* ===== モバイル: データテーブルをカード表示に ===== */
+@media (max-width: 680px) {
+  /* カード化対象テーブルのラッパーは枠・横スクロールを解除 */
+  .table-wrap:has(.table-card) {
+    overflow: visible;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  table.table-card {
+    min-width: 0;
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 14px;
+  }
+
+  /* 見出し行は視覚的に隠す（スクリーンリーダーには残す） */
+  table.table-card thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  table.table-card tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* 1行 = 1カード（縦積み） */
+  table.table-card tr {
+    display: flex;
+    flex-direction: column;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2px 14px 6px;
+  }
+  table.table-card tbody tr:hover {
+    background: var(--panel-2);
+  }
+
+  /* セル = ラベル(左) + 値(右) の行 */
+  table.table-card td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    text-align: right;
+  }
+  table.table-card tr td:last-child {
+    border-bottom: none;
+  }
+  table.table-card td::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-align: left;
+    text-transform: none;
+  }
+  /* カード内のタグは折り返さない */
+  table.table-card td .tag {
+    white-space: nowrap;
+  }
+
+  /* タイトルセル（武将名・装備名など）はカード見出しとして上部に */
+  table.table-card td.cell-title {
+    order: -1;
+    justify-content: flex-start;
+    gap: 8px;
+    padding: 10px 0;
+    text-align: left;
+  }
+  table.table-card td.cell-title::before {
+    content: none;
+  }
+  table.table-card td.cell-title .link-like {
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  /* 値が大きい / 複数あるセルは縦積み（ラベル上・内容下） */
+  table.table-card td.cell-block {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: left;
+    gap: 6px;
+  }
+  table.table-card td.cell-block::before {
+    text-align: left;
+  }
+  /* 縦積みセル内のバッジ類は自然な幅で左寄せ（横いっぱいに伸ばさない） */
+  table.table-card td.cell-block .status {
+    align-self: flex-start;
+  }
+
+  /* 空ラベルのセルはラベルを描画しない */
+  table.table-card td[data-label=""]::before {
+    content: none;
+  }
+
+  /* ----- 兵種図鑑: 横スクロール + 先頭列を固定 ----- */
+  .unit-table {
+    font-size: 13px;
+  }
+  .unit-table th:first-child,
+  .unit-table td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    min-width: 104px;
+  }
+  .unit-table thead th:first-child {
+    z-index: 2;
+    background: var(--panel-2);
+  }
+
+  /* DB確認: モバイル並び替えコントロールを表示 */
+  .db-sort-mobile {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+  }
+  .db-sort-mobile .filter {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .db-sort-dir {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
 }
 
 /* ===== 武将ページ / 兵種ページ ===== */

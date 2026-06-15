@@ -237,17 +237,15 @@ export function UnitTab({
 
   return (
     <section className="panel">
-      <h2>兵種図鑑</h2>
-
-      <div className="stat-grid">
-        <div className="stat">
-          <div className="label">登録兵種数</div>
-          <div className="value">{units.length}</div>
-        </div>
-        <div className="stat">
-          <div className="label">絞り込み結果</div>
-          <div className="value">{filtered.length}</div>
-        </div>
+      <div className="history-head">
+        <h2>兵種図鑑</h2>
+        {!loading && (
+          <span className="count-badge">
+            {hasFilter
+              ? `全${units.length.toLocaleString("ja-JP")}件中 ${filtered.length.toLocaleString("ja-JP")}件`
+              : `全${units.length.toLocaleString("ja-JP")}件`}
+          </span>
+        )}
       </div>
 
       <div className="row">

@@ -279,6 +279,13 @@ export function HistoryTab({
           value={text}
           onChange={(e) => setText(e.target.value)}
           onPaste={handlePaste}
+          onKeyDown={(e) => {
+            // Cmd/Ctrl + Enter で登録（入力欄から手を離さず登録できる）。
+            if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+              e.preventDefault();
+              if (text.trim() && !busy) handleRegister();
+            }
+          }}
           placeholder={PLACEHOLDER}
           spellCheck={false}
           autoCapitalize="off"
@@ -290,6 +297,7 @@ export function HistoryTab({
             className="btn btn-primary"
             onClick={handleRegister}
             disabled={!text.trim() || busy}
+            title="Cmd/Ctrl + Enter でも登録できます"
           >
             {busy ? "登録中…" : "登録する"}
           </button>
@@ -437,6 +445,7 @@ export function HistoryTab({
                   record={record}
                   card={card}
                   factionColors={factionColors}
+                  highlight={deferredKeyword}
                   onSelectWarlord={onSelectWarlord}
                   onSelectUnit={onSelectUnit}
                 />
@@ -486,14 +495,42 @@ interface CardProps {
   record: BattleRecord;
   card: BattleCard | null;
   factionColors: FactionColorMap;
+  highlight: string;
   onSelectWarlord: (name: string) => void;
   onSelectUnit: (name: string) => void;
+}
+
+/** 検索語に一致する部分を <mark> で強調表示する（大文字小文字を区別しない）。 */
+function highlightMatch(text: string, query: string): React.ReactNode {
+  const q = query.trim();
+  if (!q) return text;
+  const lower = text.toLowerCase();
+  const lowerQ = q.toLowerCase();
+  const out: React.ReactNode[] = [];
+  let i = 0;
+  let key = 0;
+  while (i < text.length) {
+    const idx = lower.indexOf(lowerQ, i);
+    if (idx === -1) {
+      out.push(text.slice(i));
+      break;
+    }
+    if (idx > i) out.push(text.slice(i, idx));
+    out.push(
+      <mark key={key++} className="hl">
+        {text.slice(idx, idx + q.length)}
+      </mark>
+    );
+    i = idx + q.length;
+  }
+  return out;
 }
 
 function BattleHistoryCard({
   record,
   card,
   factionColors,
+  highlight,
   onSelectWarlord,
   onSelectUnit,
 }: CardProps) {
@@ -506,7 +543,7 @@ function BattleHistoryCard({
     return (
       <li className="battle-card battle-card--raw">
         {record.time && <span className="bc-time">{record.time}</span>}
-        <span className="bc-raw-line">{record.line}</span>
+        <span className="bc-raw-line">{highlightMatch(record.line, highlight)}</span>
         {url && (
           <a
             className="bc-link"
@@ -563,7 +600,9 @@ function BattleHistoryCard({
 
   const renderTeam = (side: BattleSide, align: "left" | "right") => (
     <div className={`bc-team bc-team--${align}`}>
-      {side.faction && <span className="bc-faction">{side.faction}</span>}
+      {side.faction && (
+        <span className="bc-faction">{highlightMatch(side.faction, highlight)}</span>
+      )}
       <button
         type="button"
         className="bc-name bc-name-btn"
@@ -573,7 +612,7 @@ function BattleHistoryCard({
         }}
         title={`${side.name} の戦績を見る`}
       >
-        {side.name}
+        {highlightMatch(side.name, highlight)}
       </button>
       <div className="bc-tags">
         {sideTags(side).map((t, i) =>
@@ -588,14 +627,14 @@ function BattleHistoryCard({
               }}
               title={`${t.text} の戦績を見る`}
             >
-              {t.text}
+              {highlightMatch(t.text, highlight)}
             </button>
           ) : (
             <span
               key={`${t.text}-${i}`}
               className={"pill" + (t.highlight ? " highlight" : "")}
             >
-              {t.text}
+              {highlightMatch(t.text, highlight)}
             </span>
           )
         )}

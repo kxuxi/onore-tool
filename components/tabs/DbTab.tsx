@@ -19,6 +19,18 @@ type SortKey =
   | "lastActionAt"
   | "updatedAt";
 
+/** ローカル登録時刻（ミリ秒）を「YY/MM/DD HH:mm」形式に整形する。 */
+function formatUpdatedAt(ms: number): string {
+  if (!ms) return "-";
+  return new Date(ms).toLocaleString("ja-JP", {
+    year: "2-digit",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function DbTab({ db, onSelectWarlord }: Props) {
   const [keyword, setKeyword] = useState("");
   const [faction, setFaction] = useState("");
@@ -115,7 +127,7 @@ export function DbTab({ db, onSelectWarlord }: Props) {
   // 絞り込み中の一覧をタブ区切り（TSV）でクリップボードへコピーする。
   const handleCopyTsv = async () => {
     if (filtered.length === 0) return;
-    const header = ["国", "武将名", "タイプ", "兵科", "兵種", "行動時間"].join(
+    const header = ["国", "武将名", "タイプ", "兵科", "兵種", "行動時間", "更新日時"].join(
       "\t"
     );
     const lines = filtered.map((w) =>
@@ -126,6 +138,7 @@ export function DbTab({ db, onSelectWarlord }: Props) {
         w.branch,
         w.unit ?? "",
         w.lastActionAt ?? "",
+        formatUpdatedAt(w.updatedAt),
       ].join("\t")
     );
     const ok = await copyText([header, ...lines].join("\n"));
@@ -225,6 +238,39 @@ export function DbTab({ db, onSelectWarlord }: Props) {
         </label>
       </div>
 
+      <div className="db-sort-mobile">
+        <label className="filter">
+          <span>並び替え</span>
+          <select
+            className="select"
+            value={sortKey}
+            onChange={(e) => {
+              const key = e.target.value as SortKey;
+              setSortKey(key);
+              setSortDir(key === "updatedAt" ? "desc" : "asc");
+            }}
+          >
+            <option value="updatedAt">更新日時</option>
+            <option value="faction">国</option>
+            <option value="name">武将名</option>
+            <option value="type">タイプ</option>
+            <option value="branch">兵科</option>
+            <option value="unit">兵種</option>
+            <option value="lastActionAt">行動時間</option>
+          </select>
+        </label>
+        <button
+          type="button"
+          className="btn db-sort-dir"
+          onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
+          aria-label={
+            sortDir === "asc" ? "昇順（押すと降順）" : "降順（押すと昇順）"
+          }
+        >
+          {sortDir === "asc" ? "昇順 ▲" : "降順 ▼"}
+        </button>
+      </div>
+
       <div className="row">
         <button
           type="button"
@@ -249,7 +295,7 @@ export function DbTab({ db, onSelectWarlord }: Props) {
               : "条件に一致する武将がいません。"}
           </div>
         ) : (
-          <table>
+          <table className="table-card">
             <thead>
               <tr>
                 <SortableTh label="国" field="faction" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
@@ -258,19 +304,20 @@ export function DbTab({ db, onSelectWarlord }: Props) {
                 <SortableTh label="兵科" field="branch" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                 <SortableTh label="兵種" field="unit" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                 <SortableTh label="行動時間" field="lastActionAt" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh label="更新日時" field="updatedAt" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
               </tr>
             </thead>
             <tbody>
               {filtered.map((w) => (
                 <tr key={w.name}>
-                  <td>
+                  <td data-label="国">
                     {w.faction ? (
                       <span className="tag faction">{w.faction}</span>
                     ) : (
                       <span className="muted">-</span>
                     )}
                   </td>
-                  <td>
+                  <td className="cell-title">
                     <button
                       type="button"
                       className="link-like"
@@ -280,21 +327,24 @@ export function DbTab({ db, onSelectWarlord }: Props) {
                       {w.name}
                     </button>
                   </td>
-                  <td>
+                  <td data-label="タイプ">
                     <span className="tag type">{w.type}</span>
                   </td>
-                  <td>
+                  <td data-label="兵科">
                     <span className="tag branch">{w.branch}</span>
                   </td>
-                  <td>
+                  <td data-label="兵種">
                     {w.unit ? (
                       <span className="tag unit">{w.unit}</span>
                     ) : (
                       <span className="muted">-</span>
                     )}
                   </td>
-                  <td className="muted" style={{ fontSize: 12 }}>
+                  <td className="muted" data-label="行動時間" style={{ fontSize: 12 }}>
                     {w.lastActionAt ?? "-"}
+                  </td>
+                  <td className="muted" data-label="更新日時" style={{ fontSize: 12 }}>
+                    {formatUpdatedAt(w.updatedAt)}
                   </td>
                 </tr>
               ))}

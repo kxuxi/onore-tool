@@ -77,16 +77,27 @@ export function ScoutTab({ db, onSelectWarlord }: Props) {
   // 「未登録のみ表示」を適用した表示用リスト。
   const visibleRows = unregisteredOnly ? rows.filter((r) => !r.found) : rows;
 
+  // 登録済・未登録の件数サマリー。
+  const foundCount = rows.filter((r) => r.found).length;
+  const unregisteredCount = rows.length - foundCount;
+
   const handleCopy = async () => {
     if (visibleRows.length === 0) return;
-    const tsv = visibleRows
+    const header = ["国", "武将名", "タイプ", "兵科", "兵種"].join("\t");
+    const body = visibleRows
       .map((r) =>
         r.found
-          ? [r.name, r.type ?? "", r.branch ?? "", r.unit ?? ""].join("\t")
-          : `${r.name}\t未登録`
+          ? [
+              r.faction ?? "",
+              r.name,
+              r.type ?? "",
+              r.branch ?? "",
+              r.unit ?? "",
+            ].join("\t")
+          : ["-", r.name, "未登録", "-", "-"].join("\t")
       )
       .join("\n");
-    const ok = await copyText(tsv);
+    const ok = await copyText(`${header}\n${body}`);
     setCopied(ok ? "ok" : "fail");
     window.setTimeout(() => setCopied("idle"), 1800);
   };
@@ -127,6 +138,24 @@ export function ScoutTab({ db, onSelectWarlord }: Props) {
         autoCapitalize="off"
         autoCorrect="off"
       />
+
+      <div className="row scout-input-row">
+        <button
+          type="button"
+          className="btn"
+          onClick={() => setText("")}
+          disabled={!text.trim()}
+        >
+          クリア
+        </button>
+        {rows.length > 0 && (
+          <span className="scout-summary">
+            入力 <strong>{rows.length}</strong>件（登録済{" "}
+            <strong>{foundCount}</strong> / 未登録{" "}
+            <strong>{unregisteredCount}</strong>）
+          </span>
+        )}
+      </div>
 
       {rows.length > 0 && (
         <>
@@ -180,10 +209,15 @@ export function ScoutTab({ db, onSelectWarlord }: Props) {
             </button>
           </div>
           {visibleRows.length === 0 ? (
-            <div className="empty">未登録の武将はありません。</div>
+            <div className="empty">
+              <p className="empty-title">未登録の武将はありません</p>
+              <p className="empty-hint">
+                「未登録のみ表示」を解除すると、登録済みの武将も含めて一覧表示します。
+              </p>
+            </div>
           ) : (
             <div className="table-wrap">
-              <table>
+              <table className="table-card">
                 <thead>
                   <tr>
                     <th>国</th>
@@ -196,14 +230,14 @@ export function ScoutTab({ db, onSelectWarlord }: Props) {
                 <tbody>
                   {visibleRows.map((r) => (
                     <tr key={r.name}>
-                      <td>
+                      <td data-label="国">
                         {r.found && r.faction ? (
                           <span className="tag faction">{r.faction}</span>
                         ) : (
                           <span className="muted">-</span>
                         )}
                       </td>
-                      <td>
+                      <td className="cell-title">
                         <button
                           type="button"
                           className="link-like"
@@ -213,21 +247,21 @@ export function ScoutTab({ db, onSelectWarlord }: Props) {
                           {r.name}
                         </button>
                       </td>
-                      <td>
+                      <td data-label="タイプ">
                         {r.found ? (
                           <span className="tag type">{r.type}</span>
                         ) : (
                           <span className="tag warn">データなし</span>
                         )}
                       </td>
-                      <td>
+                      <td data-label="兵科">
                         {r.found ? (
                           <span className="tag branch">{r.branch}</span>
                         ) : (
                           <span className="muted">-</span>
                         )}
                       </td>
-                      <td>
+                      <td data-label="兵種">
                         {r.found && r.unit ? (
                           <span className="tag unit">{r.unit}</span>
                         ) : (
