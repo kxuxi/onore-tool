@@ -942,11 +942,14 @@ export interface EquipStat {
 }
 
 /**
- * 戦闘ログの装備1・装備2 を集計し、装備（武器・品物）ごとの使用回数・勝率・
- * 主な使用武将を求める。攻撃側・守備側の両方を対象とし、重複行は除外する。
- * 「なし」など装備なしのトークンは parser 側で除外済み。
+ * 戦闘ログの装備枠（武器=装備1 / 品物=装備2）を集計し、装備ごとの使用回数・
+ * 勝率・主な使用武将を求める。`pick` で集計対象の枠を選ぶ。攻撃側・守備側の
+ * 両方を対象とし、重複行は除外する。「なし」など装備なしは除外する。
  */
-export function equipStats(log: BattleRecord[]): EquipStat[] {
+function collectEquipStats(
+  log: BattleRecord[],
+  pick: (side: BattleSide) => string | undefined
+): EquipStat[] {
   interface Acc {
     name: string;
     battles: number;
@@ -963,32 +966,32 @@ export function equipStats(log: BattleRecord[]): EquipStat[] {
     for (const side of sides) {
       const self = side === "left" ? card.left : card.right;
       const result = outcomeForSide(card.winner, side);
-      for (const raw of self.equips) {
-        const name = normalizeDisplayToken(raw);
-        if (!name || name === "なし") continue;
-        let e = map.get(name);
-        if (!e) {
-          e = {
-            name,
-            battles: 0,
-            wins: 0,
-            losses: 0,
-            others: 0,
-            attackUses: 0,
-            defenseUses: 0,
-            users: new Map(),
-          };
-          map.set(name, e);
-        }
-        e.battles++;
-        if (result === "win") e.wins++;
-        else if (result === "loss") e.losses++;
-        else e.others++;
-        if (side === "left") e.attackUses++;
-        else e.defenseUses++;
-        const user = self.name?.trim();
-        if (user) e.users.set(user, (e.users.get(user) ?? 0) + 1);
+      const raw = pick(self);
+      if (!raw) continue;
+      const name = normalizeDisplayToken(raw);
+      if (!name || name === "なし") continue;
+      let e = map.get(name);
+      if (!e) {
+        e = {
+          name,
+          battles: 0,
+          wins: 0,
+          losses: 0,
+          others: 0,
+          attackUses: 0,
+          defenseUses: 0,
+          users: new Map(),
+        };
+        map.set(name, e);
       }
+      e.battles++;
+      if (result === "win") e.wins++;
+      else if (result === "loss") e.losses++;
+      else e.others++;
+      if (side === "left") e.attackUses++;
+      else e.defenseUses++;
+      const user = self.name?.trim();
+      if (user) e.users.set(user, (e.users.get(user) ?? 0) + 1);
     }
   }
   return Array.from(map.values())
@@ -1012,5 +1015,15 @@ export function equipStats(log: BattleRecord[]): EquipStat[] {
       };
     })
     .sort((a, b) => b.battles - a.battles);
+}
+
+/** 武器（ゲームの装備2列）ごとの使用実績を集計する。 */
+export function weaponStats(log: BattleRecord[]): EquipStat[] {
+  return collectEquipStats(log, (s) => s.equip2);
+}
+
+/** 品物（ゲームの装備1列）ごとの使用実績を集計する。 */
+export function itemStats(log: BattleRecord[]): EquipStat[] {
+  return collectEquipStats(log, (s) => s.equip1);
 }
 

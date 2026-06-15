@@ -12,7 +12,12 @@ import {
   type BattleCard,
   type BattleSide,
 } from "@/lib/parser";
-import { resolveWinColor, type FactionColorMap } from "@/lib/factionColors";
+import {
+  resolveFactionColor,
+  DEFAULT_WIN_LEFT,
+  DEFAULT_WIN_RIGHT,
+  type FactionColorMap,
+} from "@/lib/factionColors";
 import { htmlToMarkdown, copyText } from "@/lib/clipboard";
 import {
   SearchIcon,
@@ -561,12 +566,24 @@ function BattleHistoryCard({
 
   const safeCard = card;
 
-  const winColor = resolveWinColor(
-    safeCard.winner,
+  // 左右それぞれの国の色を求める（未設定なら左=緑 / 右=橙の既定色）。
+  const leftColor = resolveFactionColor(
     safeCard.left.faction,
-    safeCard.right.faction,
+    DEFAULT_WIN_LEFT,
     factionColors
   );
+  const rightColor = resolveFactionColor(
+    safeCard.right.faction,
+    DEFAULT_WIN_RIGHT,
+    factionColors
+  );
+  // 勝者の名前はその国の色で塗る（引分・撤退・不明は色なし）。
+  const winnerColor =
+    safeCard.winner === "left"
+      ? leftColor
+      : safeCard.winner === "right"
+      ? rightColor
+      : undefined;
   const winnerName =
     safeCard.winner === "left"
       ? safeCard.left.name
@@ -598,7 +615,11 @@ function BattleHistoryCard({
     }
   };
 
-  const renderTeam = (side: BattleSide, align: "left" | "right") => (
+  const renderTeam = (
+    side: BattleSide,
+    align: "left" | "right",
+    color: string
+  ) => (
     <div className={`bc-team bc-team--${align}`}>
       {side.faction && (
         <span className="bc-faction">{highlightMatch(side.faction, highlight)}</span>
@@ -606,6 +627,7 @@ function BattleHistoryCard({
       <button
         type="button"
         className="bc-name bc-name-btn"
+        style={{ color }}
         onClick={(e) => {
           e.stopPropagation();
           onSelectWarlord(side.name);
@@ -648,7 +670,10 @@ function BattleHistoryCard({
       style={{
         borderLeftWidth: 2,
         borderLeftStyle: "solid",
-        borderLeftColor: winColor ?? "var(--border)",
+        borderLeftColor: leftColor,
+        borderRightWidth: 2,
+        borderRightStyle: "solid",
+        borderRightColor: rightColor,
       }}
       onClick={safeCard.url ? openUrl : undefined}
       role={safeCard.url ? "link" : undefined}
@@ -705,9 +730,9 @@ function BattleHistoryCard({
       </div>
 
       <div className="bc-vs">
-        {renderTeam(safeCard.left, "left")}
+        {renderTeam(safeCard.left, "left", leftColor)}
         <div className="bc-vs-label">VS</div>
-        {renderTeam(safeCard.right, "right")}
+        {renderTeam(safeCard.right, "right", rightColor)}
       </div>
 
       <div className="bc-result">
@@ -717,7 +742,7 @@ function BattleHistoryCard({
         </span>
         <span
           className="bc-winner"
-          style={winColor ? { color: winColor } : undefined}
+          style={winnerColor ? { color: winnerColor } : undefined}
         >
           {winnerName}
         </span>

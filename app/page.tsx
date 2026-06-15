@@ -29,7 +29,8 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "swi", label: "武将ランキング" },
   { key: "db", label: "DB確認" },
   { key: "units", label: "兵種図鑑" },
-  { key: "equips", label: "武器・品物" },
+  { key: "weapons", label: "武器図鑑" },
+  { key: "items", label: "品物図鑑" },
   { key: "factions", label: "国カラー" },
 ];
 
@@ -124,7 +125,9 @@ export default function HomePage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const t = params.get("tab");
-    if (t && TABS.some((x) => x.key === t)) setTab(t as TabKey);
+    // 旧「武器・品物」タブ（equips）の共有リンクは武器図鑑へ誤導する。
+    const tabKey = t === "equips" ? "weapons" : t;
+    if (tabKey && TABS.some((x) => x.key === tabKey)) setTab(tabKey as TabKey);
     const w = params.get("w");
     const u = params.get("u");
     if (w) setDetailStack([{ kind: "warlord", name: w }]);
@@ -352,8 +355,22 @@ export default function HomePage() {
         return <DbTab db={db} onSelectWarlord={selectWarlord} />;
       case "units":
         return <UnitTab onSelectUnit={selectUnit} />;
-      case "equips":
-        return <EquipTab log={battleLog} onSelectWarlord={selectWarlord} />;
+      case "weapons":
+        return (
+          <EquipTab
+            variant="weapon"
+            log={battleLog}
+            onSelectWarlord={selectWarlord}
+          />
+        );
+      case "items":
+        return (
+          <EquipTab
+            variant="item"
+            log={battleLog}
+            onSelectWarlord={selectWarlord}
+          />
+        );
       case "factions":
         return (
           <FactionTab

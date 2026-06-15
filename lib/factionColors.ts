@@ -76,20 +76,14 @@ export function saveFactionColors(map: FactionColorMap): void {
 }
 
 /**
- * 勝者側と勢力色から、カードのボーダー / 勝者名に使う色を決める。
- * 勢力に色が設定されていなければ、左右の既定色にフォールバックする。
+ * 勢力（国）の表示色を返す。色が未設定なら、左右どちらの側かに応じた
+ * 既定色（左=緑 / 右=橙）へフォールバックする。
+ * 戦闘カードで左右それぞれの側の色を塗るために使う。
  */
-export function resolveWinColor(
-  winner: "left" | "right" | "draw" | "retreat" | "unknown",
-  leftFaction: string | undefined,
-  rightFaction: string | undefined,
+export function resolveFactionColor(
+  faction: string | undefined,
+  fallback: string,
   colors: FactionColorMap
-): string | undefined {
-  if (winner === "left") {
-    return (leftFaction && colors[leftFaction]) || DEFAULT_WIN_LEFT;
-  }
-  if (winner === "right") {
-    return (rightFaction && colors[rightFaction]) || DEFAULT_WIN_RIGHT;
-  }
-  return undefined;
+): string {
+  return (faction && colors[faction]) || fallback;
 }

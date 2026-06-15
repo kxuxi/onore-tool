@@ -70,10 +70,10 @@ export function FactionTab({ db, colors, onChange }: Props) {
         )}
       </div>
       <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-        国（勢力）ごとに色を設定します。戦闘履歴カードの勝敗ボーダーと勝者名の色に反映されます。
-        未設定の国は既定色（左チーム勝利
+        国（勢力）ごとに色を設定します。戦闘履歴カードの左右ボーダー（各国の色）と勝者名の色に反映されます。
+        未設定の国は既定色（左側
         <span className="swatch" style={{ background: DEFAULT_WIN_LEFT }} />
-        / 右チーム勝利
+        / 右側
         <span className="swatch" style={{ background: DEFAULT_WIN_RIGHT }} />）
         で表示されます。
       </p>

@@ -162,6 +162,11 @@ describe("スマホ貼り付け（リンク喪失で詰まった形式）", () =
     expect(card!.winner).toBe("left");
     expect(card!.turns).toBe("12");
     expect(card!.right.equips).toEqual(["龍の腕輪", "五郎入道正宗"]);
+    // 装備1列 / 装備2列として枠の位置を保持する。
+    expect(card!.right.equip1).toBe("龍の腕輪");
+    expect(card!.right.equip2).toBe("五郎入道正宗");
+    expect(card!.left.equip1).toBe("示現流兵法巻");
+    expect(card!.left.equip2).toBe("六字名号旗");
   });
 
   it("半角スペース区切りとタブ区切りは同じ武将を抽出する", () => {
@@ -172,6 +177,23 @@ describe("スマホ貼り付け（リンク喪失で詰まった形式）", () =
     const wt = parseBattleLine(tab);
     expect(wt.map((x) => x.name)).toEqual(ws.map((x) => x.name));
     expect(ws.map((x) => x.name)).toEqual(["信長", "勝頼"]);
+  });
+});
+
+describe("装備枠（装備1 / 装備2 の位置保持）", () => {
+  it("片方の枠が「なし」でも、装備1・装備2の対応を取り違えない", () => {
+    const line =
+      "【1戦目】 1583年4月 10:23 京都 織田 信長 織田家 武特 騎馬隊 騎兵 なし 鐦 V.S. 武田 勝頼 武田家 統特 騎馬隊 騎兵 馬 なし 信長の勝利 12";
+    const card = parseBattleCard(line);
+    expect(card).not.toBeNull();
+    // 攻撃側: 装備1=なし、装備2=鐦。
+    expect(card!.left.equip1).toBeUndefined();
+    expect(card!.left.equip2).toBe("鐦");
+    expect(card!.left.equips).toEqual(["鐦"]);
+    // 防衛側: 装備1=馬、装備2=なし。
+    expect(card!.right.equip1).toBe("馬");
+    expect(card!.right.equip2).toBeUndefined();
+    expect(card!.right.equips).toEqual(["馬"]);
   });
 });
 

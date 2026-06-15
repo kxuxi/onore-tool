@@ -236,8 +236,12 @@ export interface BattleSide {
   /** 兵種名（`*` 付きの特殊兵種を含む生テキスト） */
   unit?: string;
   branch: string;
-  /** 装備（空・プレースホルダーは除去済み） */
+  /** 装備（空・プレースホルダーは除去済み。[装備1, 装備2] の順） */
   equips: string[];
+  /** 装備1（ゲームの装備1列）。空・プレースホルダーは undefined。 */
+  equip1?: string;
+  /** 装備2（ゲームの装備2列）。空・プレースホルダーは undefined。 */
+  equip2?: string;
 }
 
 /** 1 戦闘行をカード表示用に構造化したもの */
@@ -287,6 +291,10 @@ function cleanToken(s: string | undefined): string | undefined {
 
 function sideFromBlock(block: string[]): BattleSide {
   const [faction, name, family, type, unit, branch, e1, e2] = block;
+  // 装備1 / 装備2 は枠の位置を保持したいので個別に取り出す。
+  // （どちらが武器/品物かは集計・表示側で振り分ける。）
+  const equip1 = cleanToken(e1);
+  const equip2 = cleanToken(e2);
   return {
     faction: cleanToken(faction),
     name: name?.trim() ?? "",
@@ -294,9 +302,10 @@ function sideFromBlock(block: string[]): BattleSide {
     type: type?.trim() ?? "",
     unit: unit?.trim() || undefined,
     branch: branch?.trim() ?? "",
-    equips: [e1, e2]
-      .map((e) => cleanToken(e))
-      .filter((e): e is string => !!e),
+    // 既存利用箇所のため、空枠を除いた配列表現も維持する（[装備1, 装備2] の順）。
+    equips: [equip1, equip2].filter((e): e is string => !!e),
+    equip1,
+    equip2,
   };
 }
 

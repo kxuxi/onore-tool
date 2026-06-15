@@ -2,12 +2,57 @@
 
 import { useMemo, useState } from "react";
 import type { BattleRecord } from "@/lib/types";
-import { equipStats } from "@/lib/stats";
+import { weaponStats, itemStats } from "@/lib/stats";
+
+/** 集計する装備枠。weapon=装備1 / item=装備2。 */
+export type EquipVariant = "weapon" | "item";
 
 interface Props {
   log: BattleRecord[];
   onSelectWarlord: (name: string) => void;
+  /** 武器図鑑 / 品物図鑑のどちらを表示するか。 */
+  variant: EquipVariant;
 }
+
+/** 図鑑の表記まわりを variant ごとに切り替えるための文言設定。 */
+const VARIANT_COPY: Record<
+  EquipVariant,
+  {
+    title: string;
+    noun: string;
+    slotLabel: string;
+    kindLabel: string;
+    description: string;
+    searchPlaceholder: string;
+    emptyHint: string;
+    stats: (log: BattleRecord[]) => ReturnType<typeof weaponStats>;
+  }
+> = {
+  weapon: {
+    title: "武器図鑑",
+    noun: "武器",
+    slotLabel: "武器（装備2）",
+    kindLabel: "武器の種類",
+    description:
+      "戦闘履歴の装備2（武器）を集計し、使用回数・勝率・主な使用武将を表示します。勝率は勝敗が確定した戦闘のみで算出します。",
+    searchPlaceholder: "武器名で絞り込み",
+    emptyHint:
+      "「戦闘履歴」タブで戦績を登録すると、装備2（武器）のデータから図鑑を作成します。すでに登録済みの場合は、検索語や最低使用回数の条件を見直してください。",
+    stats: weaponStats,
+  },
+  item: {
+    title: "品物図鑑",
+    noun: "品物",
+    slotLabel: "品物（装備1）",
+    kindLabel: "品物の種類",
+    description:
+      "戦闘履歴の装備1（品物）を集計し、使用回数・勝率・主な使用武将を表示します。勝率は勝敗が確定した戦闘のみで算出します。",
+    searchPlaceholder: "品物名で絞り込み",
+    emptyHint:
+      "「戦闘履歴」タブで戦績を登録すると、装備1（品物）のデータから図鑑を作成します。すでに登録済みの場合は、検索語や最低使用回数の条件を見直してください。",
+    stats: itemStats,
+  },
+};
 
 type SortKey = "battles" | "winRate" | "name";
 
@@ -20,12 +65,13 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
 /** 勝率の信頼度を確保するための最低使用回数の選択肢。 */
 const MIN_USE_OPTIONS = [1, 10, 50, 100];
 
-export function EquipTab({ log, onSelectWarlord }: Props) {
+export function EquipTab({ log, onSelectWarlord, variant }: Props) {
+  const copy = VARIANT_COPY[variant];
   const [keyword, setKeyword] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("battles");
   const [minUses, setMinUses] = useState(10);
 
-  const stats = useMemo(() => equipStats(log), [log]);
+  const stats = useMemo(() => copy.stats(log), [copy, log]);
 
   const view = useMemo(() => {
     const k = keyword.trim();
@@ -45,15 +91,14 @@ export function EquipTab({ log, onSelectWarlord }: Props) {
 
   return (
     <section className="panel">
-      <h2>武器・品物図鑑</h2>
+      <h2>{copy.title}</h2>
       <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-        戦闘履歴の装備1・装備2（武器・品物）を集計し、使用回数・勝率・主な使用武将を表示します。
-        勝率は勝敗が確定した戦闘のみで算出します。
+        {copy.description}
       </p>
 
       <div className="stat-grid">
         <div className="stat">
-          <div className="label">装備の種類</div>
+          <div className="label">{copy.kindLabel}</div>
           <div className="value">{stats.length}</div>
         </div>
         <div className="stat">
@@ -66,7 +111,7 @@ export function EquipTab({ log, onSelectWarlord }: Props) {
         <input
           type="search"
           className="text-input"
-          placeholder="装備名で絞り込み"
+          placeholder={copy.searchPlaceholder}
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
           autoCapitalize="off"
@@ -107,18 +152,15 @@ export function EquipTab({ log, onSelectWarlord }: Props) {
 
       {view.length === 0 ? (
         <div className="empty">
-          <p className="empty-title">該当する装備がありません</p>
-          <p className="empty-hint">
-            「戦闘履歴」タブで戦績を登録すると、装備1・装備2のデータから図鑑を作成します。
-            すでに登録済みの場合は、検索語や最低使用回数の条件を見直してください。
-          </p>
+          <p className="empty-title">該当する{copy.noun}がありません</p>
+          <p className="empty-hint">{copy.emptyHint}</p>
         </div>
       ) : (
         <div className="table-wrap">
           <table className="table-card">
             <thead>
               <tr>
-                <th>装備</th>
+                <th>{copy.slotLabel}</th>
                 <th>使用回数</th>
                 <th>勝率</th>
                 <th>攻 / 守</th>

@@ -12,6 +12,8 @@ import {
   unitUsageTrend,
   unitBranchLabel,
   swiRanking,
+  weaponStats,
+  itemStats,
 } from "./stats";
 import type { BattleRecord } from "./types";
 
@@ -477,6 +479,54 @@ describe("swiRanking", () => {
     ];
     const ranking = swiRanking(log, 1);
     expect(ranking.map((r) => r.name)).toEqual(["強将", "弱将"]);
+  });
+});
+
+describe("weaponStats / itemStats", () => {
+  // 実データのゲーム仕様に合わせ、装備1列=品物 / 装備2列=武器。
+  // 攻撃側 信長: 装備1=金の腕輪(品物) 装備2=鬼丸(武器)。
+  // 防衛側 勝頼: 装備1=金の兜(品物) 装備2=カルバリン砲(武器)。
+  function equipLine(time: string, result: string): string {
+    return `【1戦目】 1600年4月 ${time} 京都 織田 信長 織田家 武特 騎馬隊 騎兵 金の腕輪 鬼丸 V.S. 武田 勝頼 武田家 統特 騎馬隊 騎兵 金の兜 カルバリン砲 ${result} 12`;
+  }
+  const log: BattleRecord[] = [
+    rec(equipLine("04/10 10:00", "信長の勝利"), 1),
+    rec(equipLine("04/11 11:00", "信長の勝利"), 2),
+  ];
+
+  it("武器は装備2列を集計し、品物（装備1列）は含まない", () => {
+    const names = weaponStats(log).map((w) => w.name);
+    expect(names).toContain("鬼丸");
+    expect(names).toContain("カルバリン砲");
+    expect(names).not.toContain("金の腕輪");
+    expect(names).not.toContain("金の兜");
+  });
+
+  it("武器の攻守・勝敗・使用武将を集計する", () => {
+    const oni = weaponStats(log).find((w) => w.name === "鬼丸")!;
+    expect(oni.battles).toBe(2);
+    expect(oni.attackUses).toBe(2);
+    expect(oni.defenseUses).toBe(0);
+    expect(oni.wins).toBe(2);
+    expect(oni.winRate).toBeCloseTo(1);
+    expect(oni.topUsers[0]).toEqual({ name: "信長", count: 2 });
+  });
+
+  it("品物は装備1列を集計し、武器（装備2列）は含まない", () => {
+    const names = itemStats(log).map((i) => i.name);
+    expect(names).toContain("金の腕輪");
+    expect(names).toContain("金の兜");
+    expect(names).not.toContain("鬼丸");
+    expect(names).not.toContain("カルバリン砲");
+  });
+
+  it("品物の防衛側使用・敗北を集計する", () => {
+    const kabuto = itemStats(log).find((i) => i.name === "金の兜")!;
+    expect(kabuto.battles).toBe(2);
+    expect(kabuto.defenseUses).toBe(2);
+    expect(kabuto.attackUses).toBe(0);
+    expect(kabuto.losses).toBe(2);
+    expect(kabuto.winRate).toBeCloseTo(0);
   });
 });
 
