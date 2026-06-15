@@ -112,6 +112,19 @@ input:focus {
   min-width: 0;
 }
 
+/* ヘッダーの共有（リンクコピー）ボタン */
+.header-share {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+}
+.header-share.copied {
+  color: var(--success, #4caf50);
+  border-color: var(--success, #4caf50);
+}
+
 .header h1 .sub {
   color: var(--muted);
   font-weight: 400;
@@ -422,6 +435,12 @@ input:focus {
   font-weight: 600;
   color: var(--text);
 }
+.scout-report-count {
+  margin-left: 8px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
 .scout-report-text {
   width: 100%;
   resize: vertical;
@@ -547,6 +566,41 @@ thead th {
   text-transform: uppercase;
   position: sticky;
   top: 0;
+}
+
+/* 並び替え可能な見出しセル（DB確認タブ） */
+thead th:has(.th-sort) {
+  padding: 0;
+}
+.th-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+  padding: 10px 12px;
+}
+.th-sort:hover {
+  color: var(--text);
+}
+.th-sort-ind {
+  font-size: 10px;
+  opacity: 0.6;
+}
+thead th[aria-sort="ascending"] .th-sort,
+thead th[aria-sort="descending"] .th-sort {
+  color: var(--text);
+}
+thead th[aria-sort="ascending"] .th-sort-ind,
+thead th[aria-sort="descending"] .th-sort-ind {
+  opacity: 1;
+  color: var(--accent);
 }
 
 tbody tr:last-child td {

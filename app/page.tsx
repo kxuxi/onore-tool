@@ -18,6 +18,8 @@ import {
   saveFactionColors,
   type FactionColorMap,
 } from "@/lib/factionColors";
+import { copyText } from "@/lib/clipboard";
+import { ShareIcon, CheckIcon } from "@/components/icons";
 import type { BattleRecord, TabKey, WarlordMap } from "@/lib/types";
 
 const TABS: { key: TabKey; label: string }[] = [
@@ -60,6 +62,10 @@ export default function HomePage() {
   // 初期読み込みの失敗表示・再試行用。reloadKey を変えると取得 useEffect が再実行される。
   const [loadError, setLoadError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  // ヘッダーの「共有」ボタンのコピー完了表示。
+  const [linkCopied, setLinkCopied] = useState(false);
+  // タブリストのロービングタブインデックス用の参照。
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const detail = detailStack[detailStack.length - 1] ?? null;
 
@@ -123,6 +129,15 @@ export default function HomePage() {
     saveFactionColors(next);
   }, []);
 
+  // 現在表示中のページ（タブ・詳細）の URL をクリップボードへコピーする。
+  const handleShareLink = useCallback(async () => {
+    const ok = await copyText(window.location.href);
+    if (ok) {
+      setLinkCopied(true);
+      window.setTimeout(() => setLinkCopied(false), 1500);
+    }
+  }, []);
+
   // 画面幅に応じてサイドバーの初期表示を切り替え（デスクトップは開、モバイルは閉）
   useEffect(() => {
     const mql = window.matchMedia("(min-width: 768px)");
@@ -136,12 +151,53 @@ export default function HomePage() {
     return () => mql.removeEventListener("change", onChange);
   }, []);
 
-  // トースト自動消去
+  // トースト自動消去（エラーは内容が重要なため手動で閉じるまで残す）
   useEffect(() => {
     if (!toast) return;
+    if (toast.kind === "error") return;
     const id = window.setTimeout(() => setToast(null), 2400);
     return () => window.clearTimeout(id);
   }, [toast]);
+
+  // Escape で詳細ページを1つ戻る／モバイルのサイドバーを閉じる。
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (detailStack.length > 0) {
+        setDetailStack((s) => s.slice(0, -1));
+      } else if (isMobile && sidebarOpen) {
+        setSidebarOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [detailStack.length, isMobile, sidebarOpen]);
+
+  // モバイルでサイドバー展開中は背景（body）のスクロールをロックする。
+  useEffect(() => {
+    if (!(isMobile && sidebarOpen)) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [isMobile, sidebarOpen]);
+
+  // タブ・詳細ページに応じてブラウザのタイトルを更新する（履歴・共有で分かりやすく）。
+  useEffect(() => {
+    const base = "ONORE ANALYTICS";
+    if (detail) {
+      document.title = `${detail.name}｜${base}`;
+    } else {
+      const label = TABS.find((t) => t.key === tab)?.label;
+      document.title = label ? `${label}｜${base}` : base;
+    }
+  }, [detail, tab]);
+
+  // タブ切替・詳細遷移時は本文の先頭へスクロールする。
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0 });
+  }, [tab, detail]);
 
   const handleRegister = useCallback(
     async (text: string) => {
@@ -185,6 +241,25 @@ export default function HomePage() {
       if (isMobile) setSidebarOpen(false);
     },
     [isMobile]
+  );
+
+  // タブリストのキーボード操作（↑↓←→ / Home / End でタブ移動）。
+  const onTabKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLElement>) => {
+      const idx = TABS.findIndex((t) => t.key === tab);
+      let next = -1;
+      if (e.key === "ArrowDown" || e.key === "ArrowRight")
+        next = (idx + 1) % TABS.length;
+      else if (e.key === "ArrowUp" || e.key === "ArrowLeft")
+        next = (idx - 1 + TABS.length) % TABS.length;
+      else if (e.key === "Home") next = 0;
+      else if (e.key === "End") next = TABS.length - 1;
+      else return;
+      e.preventDefault();
+      selectTab(TABS[next].key);
+      tabRefs.current[next]?.focus();
+    },
+    [tab, selectTab]
   );
 
   // 武将ページを開く（同じ対象が既に最前面なら何もしない）。
@@ -307,6 +382,18 @@ export default function HomePage() {
             ONORE ANALYTICS
           </h1>
         </div>
+        <button
+          type="button"
+          className={"btn header-share" + (linkCopied ? " copied" : "")}
+          onClick={handleShareLink}
+          aria-label={
+            linkCopied ? "リンクをコピーしました" : "このページのリンクをコピー"
+          }
+          title={linkCopied ? "コピーしました" : "リンクをコピー"}
+        >
+          {linkCopied ? <CheckIcon /> : <ShareIcon />}
+          <span>{linkCopied ? "コピー済み" : "共有"}</span>
+        </button>
       </header>
 
       <div className="body">
@@ -324,14 +411,25 @@ export default function HomePage() {
           aria-label="メインメニュー"
           aria-hidden={!sidebarOpen}
         >
-          <nav className="nav" role="tablist">
-            {TABS.map((t) => (
+          <nav
+            className="nav"
+            role="tablist"
+            aria-orientation="vertical"
+            aria-label="メインメニュー"
+            onKeyDown={onTabKeyDown}
+          >
+            {TABS.map((t, i) => (
               <button
                 key={t.key}
                 type="button"
                 role="tab"
+                id={`tab-${t.key}`}
                 aria-selected={tab === t.key}
-                tabIndex={sidebarOpen ? 0 : -1}
+                aria-controls="main-panel"
+                ref={(el) => {
+                  tabRefs.current[i] = el;
+                }}
+                tabIndex={sidebarOpen && tab === t.key ? 0 : -1}
                 className={"nav-item" + (tab === t.key ? " active" : "")}
                 onClick={() => selectTab(t.key)}
               >
@@ -341,7 +439,13 @@ export default function HomePage() {
           </nav>
         </aside>
 
-        <main className="main">
+        <main
+          className="main"
+          id="main-panel"
+          role="tabpanel"
+          aria-labelledby={`tab-${tab}`}
+          tabIndex={-1}
+        >
           {!hydrated ? (
             <div className="panel">
               <p className="muted" style={{ margin: 0 }}>

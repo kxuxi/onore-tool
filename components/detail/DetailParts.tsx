@@ -78,15 +78,19 @@ export function StatCards({ summary }: { summary: StatSummary }) {
     <div className="stat-grid detail-stats">
       <div className="stat">
         <div className="label">戦闘数</div>
-        <div className="value">{summary.battles}</div>
+        <div className="value">{summary.battles.toLocaleString("ja-JP")}</div>
       </div>
       <div className="stat">
         <div className="label">勝利</div>
-        <div className="value stat-win-text">{summary.wins}</div>
+        <div className="value stat-win-text">
+          {summary.wins.toLocaleString("ja-JP")}
+        </div>
       </div>
       <div className="stat">
         <div className="label">敗北</div>
-        <div className="value stat-loss-text">{summary.losses}</div>
+        <div className="value stat-loss-text">
+          {summary.losses.toLocaleString("ja-JP")}
+        </div>
       </div>
       <div className="stat">
         <div className="label">勝率</div>
@@ -95,7 +99,9 @@ export function StatCards({ summary }: { summary: StatSummary }) {
       {summary.others > 0 && (
         <div className="stat">
           <div className="label">撤退・引分</div>
-          <div className="value stat-other-text">{summary.others}</div>
+          <div className="value stat-other-text">
+            {summary.others.toLocaleString("ja-JP")}
+          </div>
         </div>
       )}
     </div>

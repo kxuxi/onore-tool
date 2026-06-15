@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useDeferredValue } from "react";
 import type { BattleRecord } from "@/lib/types";
 import { parseActionDate } from "@/lib/action";
 import {
@@ -100,6 +100,10 @@ export function HistoryTab({
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [showFilter, setShowFilter] = useState(false);
   const [page, setPage] = useState(1);
+  // 入力中の体感を軽く保つため、フィルタ計算は遅延値で行う（大量履歴対策）。
+  const deferredKeyword = useDeferredValue(keyword);
+  // ページ送り時に一覧の先頭へスクロールするための参照。
+  const listTopRef = useRef<HTMLDivElement>(null);
   const [result, setResult] = useState<
     | null
     | {
@@ -127,6 +131,8 @@ export function HistoryTab({
         return;
       }
       setResult({ kind: "success", ...r });
+      // 連続登録しやすいよう、成功時は入力欄をクリアする（重複は自動スキップされる）。
+      setText("");
     } finally {
       setBusy(false);
     }
@@ -197,7 +203,7 @@ export function HistoryTab({
 
   // 戦闘時刻順で表示（新しい順 / 古い順）。キーワード・国で絞り込み。
   const visibleLog = useMemo(() => {
-    const k = keyword.trim().toLowerCase();
+    const k = deferredKeyword.trim().toLowerCase();
     const list = cards.filter((item) => {
       if (k && !item.search.includes(k)) return false;
       const { card } = item;
@@ -225,7 +231,7 @@ export function HistoryTab({
       if (tb != null) return 1;
       return (b.record.savedAt - a.record.savedAt) * dir;
     });
-  }, [cards, keyword, factionFilter, sortOrder]);
+  }, [cards, deferredKeyword, factionFilter, sortOrder]);
 
   const hasActiveFilter = keyword.trim() !== "" || factionFilter !== "";
 
@@ -244,7 +250,12 @@ export function HistoryTab({
   // キーワード・国・並び順の変更時は1ページ目へ
   useEffect(() => {
     setPage(1);
-  }, [keyword, factionFilter, sortOrder]);
+  }, [deferredKeyword, factionFilter, sortOrder]);
+
+  // ページ送り時に一覧の先頭へスクロールする。
+  const scrollToListTop = () => {
+    listTopRef.current?.scrollIntoView({ block: "start" });
+  };
 
   const pageItems = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE;
@@ -315,7 +326,7 @@ export function HistoryTab({
       </section>
 
       <section className="panel">
-        <div className="history-head">
+        <div className="history-head" ref={listTopRef}>
           <h2>登録済み戦闘履歴</h2>
           <span className="count-badge">
             {hasActiveFilter
@@ -436,7 +447,10 @@ export function HistoryTab({
               <button
                 type="button"
                 className="btn pager-btn"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                onClick={() => {
+                  setPage((p) => Math.max(1, p - 1));
+                  scrollToListTop();
+                }}
                 disabled={page <= 1}
               >
                 <ChevronLeft />
@@ -451,7 +465,10 @@ export function HistoryTab({
               <button
                 type="button"
                 className="btn pager-btn"
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                onClick={() => {
+                  setPage((p) => Math.min(totalPages, p + 1));
+                  scrollToListTop();
+                }}
                 disabled={page >= totalPages}
               >
                 <span>次へ</span>

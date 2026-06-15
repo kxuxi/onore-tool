@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="ONORE ANALYTICS">
+  <rect width="64" height="64" rx="14" fill="#0f1115" />
+  <circle cx="32" cy="32" r="16" fill="none" stroke="#6aa9ff" stroke-width="7" />
+  <circle cx="32" cy="32" r="4.5" fill="#6aa9ff" />
+</svg>

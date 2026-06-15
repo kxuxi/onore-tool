@@ -5,6 +5,7 @@ import type { WarlordMap } from "@/lib/types";
 import { lookup } from "@/lib/storage";
 import { normalizeDisplayToken } from "@/lib/parser";
 import { shortUnit } from "@/lib/unitShortNames";
+import { copyText } from "@/lib/clipboard";
 
 interface Props {
   db: WarlordMap;
@@ -43,8 +44,10 @@ function shortType(type: string | undefined): string {
 export function ScoutTab({ db, onSelectWarlord }: Props) {
   const [text, setText] = useState("");
   const [unregisteredOnly, setUnregisteredOnly] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [reportCopied, setReportCopied] = useState(false);
+  const [copied, setCopied] = useState<"idle" | "ok" | "fail">("idle");
+  const [reportCopied, setReportCopied] = useState<"idle" | "ok" | "fail">(
+    "idle"
+  );
 
   const rows = useMemo<Row[]>(() => {
     const names = splitNames(text);
@@ -76,20 +79,16 @@ export function ScoutTab({ db, onSelectWarlord }: Props) {
 
   const handleCopy = async () => {
     if (visibleRows.length === 0) return;
-    const text = visibleRows
+    const tsv = visibleRows
       .map((r) =>
         r.found
           ? [r.name, r.type ?? "", r.branch ?? "", r.unit ?? ""].join("\t")
           : `${r.name}\t未登録`
       )
       .join("\n");
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // クリップボード非対応時は何もしない
-    }
+    const ok = await copyText(tsv);
+    setCopied(ok ? "ok" : "fail");
+    window.setTimeout(() => setCopied("idle"), 1800);
   };
 
   // 国へ敵の守備の並びを報告するためのテキスト。
@@ -108,13 +107,9 @@ export function ScoutTab({ db, onSelectWarlord }: Props) {
 
   const handleCopyReport = async () => {
     if (!reportText) return;
-    try {
-      await navigator.clipboard.writeText(reportText);
-      setReportCopied(true);
-      window.setTimeout(() => setReportCopied(false), 1500);
-    } catch {
-      // クリップボード非対応時は何もしない
-    }
+    const ok = await copyText(reportText);
+    setReportCopied(ok ? "ok" : "fail");
+    window.setTimeout(() => setReportCopied("idle"), 1800);
   };
 
   return (
@@ -139,6 +134,7 @@ export function ScoutTab({ db, onSelectWarlord }: Props) {
             <div className="scout-report-head">
               <span className="scout-report-title">
                 報告用テキスト（タイプ｜兵種）
+                <span className="scout-report-count">{rows.length}件</span>
               </span>
               <button
                 type="button"
@@ -146,7 +142,11 @@ export function ScoutTab({ db, onSelectWarlord }: Props) {
                 onClick={handleCopyReport}
                 disabled={!reportText}
               >
-                {reportCopied ? "コピーしました" : "報告用をコピー"}
+                {reportCopied === "ok"
+                  ? "コピーしました"
+                  : reportCopied === "fail"
+                    ? "コピーできませんでした"
+                    : "報告用をコピー"}
               </button>
             </div>
             <textarea
@@ -172,7 +172,11 @@ export function ScoutTab({ db, onSelectWarlord }: Props) {
               onClick={handleCopy}
               disabled={visibleRows.length === 0}
             >
-              {copied ? "コピーしました" : "結果をコピー"}
+              {copied === "ok"
+                ? "コピーしました"
+                : copied === "fail"
+                  ? "コピーできませんでした"
+                  : "結果をコピー"}
             </button>
           </div>
           {visibleRows.length === 0 ? (

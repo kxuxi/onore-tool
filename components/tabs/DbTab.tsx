@@ -2,11 +2,22 @@
 
 import { useMemo, useState } from "react";
 import type { WarlordMap } from "@/lib/types";
+import { copyText } from "@/lib/clipboard";
 
 interface Props {
   db: WarlordMap;
   onSelectWarlord: (name: string) => void;
 }
+
+/** 並び替えできる列キー（updatedAt は既定の更新日時順）。 */
+type SortKey =
+  | "faction"
+  | "name"
+  | "type"
+  | "branch"
+  | "unit"
+  | "lastActionAt"
+  | "updatedAt";
 
 export function DbTab({ db, onSelectWarlord }: Props) {
   const [keyword, setKeyword] = useState("");
@@ -14,6 +25,9 @@ export function DbTab({ db, onSelectWarlord }: Props) {
   const [type, setType] = useState("");
   const [branch, setBranch] = useState("");
   const [unit, setUnit] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("updatedAt");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [copied, setCopied] = useState(false);
 
   const all = useMemo(() => Object.values(db), [db]);
 
@@ -36,18 +50,57 @@ export function DbTab({ db, onSelectWarlord }: Props) {
   }, [all]);
 
   const filtered = useMemo(() => {
-    const k = keyword.trim();
+    // 武将名検索は大文字小文字を区別しない（他タブと挙動を揃える）。
+    const k = keyword.trim().toLowerCase();
     const list = all.filter((w) => {
-      if (k && !w.name.includes(k)) return false;
+      if (k && !w.name.toLowerCase().includes(k)) return false;
       if (faction && w.faction !== faction) return false;
       if (type && w.type !== type) return false;
       if (branch && w.branch !== branch) return false;
       if (unit && w.unit !== unit) return false;
       return true;
     });
-    // 更新が新しい順
-    return [...list].sort((a, b) => b.updatedAt - a.updatedAt);
-  }, [all, keyword, faction, type, branch, unit]);
+    const dir = sortDir === "asc" ? 1 : -1;
+    const strOf = (w: (typeof all)[number]): string => {
+      switch (sortKey) {
+        case "faction":
+          return w.faction ?? "";
+        case "name":
+          return w.name;
+        case "type":
+          return w.type;
+        case "branch":
+          return w.branch;
+        case "unit":
+          return w.unit ?? "";
+        case "lastActionAt":
+          return w.lastActionAt ?? "";
+        default:
+          return "";
+      }
+    };
+    return [...list].sort((a, b) => {
+      if (sortKey === "updatedAt") return (a.updatedAt - b.updatedAt) * dir;
+      const av = strOf(a);
+      const bv = strOf(b);
+      // 空値は並び順に関わらず常に末尾へ。
+      if (!av && bv) return 1;
+      if (av && !bv) return -1;
+      if (!av && !bv) return a.name.localeCompare(b.name, "ja");
+      const c = av.localeCompare(bv, "ja");
+      return c !== 0 ? c * dir : a.name.localeCompare(b.name, "ja");
+    });
+  }, [all, keyword, faction, type, branch, unit, sortKey, sortDir]);
+
+  const toggleSort = (key: SortKey) => {
+    if (key === sortKey) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      // 既定は文字列=昇順、更新日時=降順。
+      setSortDir(key === "updatedAt" ? "desc" : "asc");
+    }
+  };
 
   const hasFilter = !!(keyword || faction || type || branch || unit);
 
@@ -59,6 +112,29 @@ export function DbTab({ db, onSelectWarlord }: Props) {
     setUnit("");
   };
 
+  // 絞り込み中の一覧をタブ区切り（TSV）でクリップボードへコピーする。
+  const handleCopyTsv = async () => {
+    if (filtered.length === 0) return;
+    const header = ["国", "武将名", "タイプ", "兵科", "兵種", "行動時間"].join(
+      "\t"
+    );
+    const lines = filtered.map((w) =>
+      [
+        w.faction ?? "",
+        w.name,
+        w.type,
+        w.branch,
+        w.unit ?? "",
+        w.lastActionAt ?? "",
+      ].join("\t")
+    );
+    const ok = await copyText([header, ...lines].join("\n"));
+    if (ok) {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    }
+  };
+
   return (
     <section className="panel">
       <h2>DB確認</h2>
@@ -66,11 +142,11 @@ export function DbTab({ db, onSelectWarlord }: Props) {
       <div className="stat-grid">
         <div className="stat">
           <div className="label">登録武将数</div>
-          <div className="value">{all.length}</div>
+          <div className="value">{all.length.toLocaleString("ja-JP")}</div>
         </div>
         <div className="stat">
           <div className="label">絞り込み結果</div>
-          <div className="value">{filtered.length}</div>
+          <div className="value">{filtered.length.toLocaleString("ja-JP")}</div>
         </div>
       </div>
 
@@ -149,13 +225,21 @@ export function DbTab({ db, onSelectWarlord }: Props) {
         </label>
       </div>
 
-      {hasFilter && (
-        <div className="row">
+      <div className="row">
+        <button
+          type="button"
+          className="btn"
+          onClick={handleCopyTsv}
+          disabled={filtered.length === 0}
+        >
+          {copied ? "コピーしました" : "結果をコピー(TSV)"}
+        </button>
+        {hasFilter && (
           <button type="button" className="btn" onClick={clearFilters}>
             絞り込みをクリア
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
       <div className="table-wrap">
         {filtered.length === 0 ? (
@@ -168,12 +252,12 @@ export function DbTab({ db, onSelectWarlord }: Props) {
           <table>
             <thead>
               <tr>
-                <th>国</th>
-                <th>武将名</th>
-                <th>タイプ</th>
-                <th>兵科</th>
-                <th>兵種</th>
-                <th>行動時間</th>
+                <SortableTh label="国" field="faction" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh label="武将名" field="name" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh label="タイプ" field="type" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh label="兵科" field="branch" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh label="兵種" field="unit" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh label="行動時間" field="lastActionAt" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
               </tr>
             </thead>
             <tbody>
@@ -219,5 +303,36 @@ export function DbTab({ db, onSelectWarlord }: Props) {
         )}
       </div>
     </section>
+  );
+}
+
+/** 並び替え可能な見出しセル。クリックで昇順／降順をトグルする。 */
+function SortableTh({
+  label,
+  field,
+  sortKey,
+  sortDir,
+  onSort,
+}: {
+  label: string;
+  field: SortKey;
+  sortKey: SortKey;
+  sortDir: "asc" | "desc";
+  onSort: (k: SortKey) => void;
+}) {
+  const active = sortKey === field;
+  return (
+    <th
+      aria-sort={
+        active ? (sortDir === "asc" ? "ascending" : "descending") : "none"
+      }
+    >
+      <button type="button" className="th-sort" onClick={() => onSort(field)}>
+        <span>{label}</span>
+        <span className="th-sort-ind" aria-hidden>
+          {active ? (sortDir === "asc" ? "▲" : "▼") : "↕"}
+        </span>
+      </button>
+    </th>
   );
 }

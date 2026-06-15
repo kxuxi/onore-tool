@@ -30,11 +30,35 @@ export function DamageTab({ db, onSelectWarlord }: Props) {
   const [statusFilter, setStatusFilter] = useState<"" | ActionStatus>("");
   const [factionFilter, setFactionFilter] = useState("");
 
-  // 経過時間をリアルタイム表示するため 30 秒ごとに現在時刻を更新
+  // 経過時間をリアルタイム表示するため 30 秒ごとに現在時刻を更新。
+  // タブが非表示の間はインターバルを止め、再表示時に即時更新して再開する。
   useEffect(() => {
-    setNow(new Date());
-    const id = window.setInterval(() => setNow(new Date()), 30000);
-    return () => window.clearInterval(id);
+    let id: number | undefined;
+    const tick = () => setNow(new Date());
+    const start = () => {
+      if (id == null) id = window.setInterval(tick, 30000);
+    };
+    const stop = () => {
+      if (id != null) {
+        window.clearInterval(id);
+        id = undefined;
+      }
+    };
+    const onVisibility = () => {
+      if (document.hidden) {
+        stop();
+      } else {
+        tick();
+        start();
+      }
+    };
+    tick();
+    if (!document.hidden) start();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, []);
 
   const rows = useMemo(() => {
@@ -93,7 +117,7 @@ export function DamageTab({ db, onSelectWarlord }: Props) {
         {STATUS_SUMMARY_ORDER.map((s) => (
           <div className="stat" key={s}>
             <div className="label">{ACTION_LABEL[s]}</div>
-            <div className="value">{counts[s]}</div>
+            <div className="value">{counts[s].toLocaleString("ja-JP")}</div>
           </div>
         ))}
       </div>
