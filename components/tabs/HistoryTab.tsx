@@ -13,7 +13,7 @@ import {
   type BattleSide,
 } from "@/lib/parser";
 import { resolveWinColor, type FactionColorMap } from "@/lib/factionColors";
-import { htmlToMarkdown } from "@/lib/clipboard";
+import { htmlToMarkdown, copyText } from "@/lib/clipboard";
 import {
   SearchIcon,
   FilterIcon,
@@ -23,6 +23,8 @@ import {
   ExternalLinkIcon,
   SortIcon,
   CloseIcon,
+  CopyIcon,
+  CheckIcon,
 } from "@/components/icons";
 
 interface Props {
@@ -441,6 +443,9 @@ function BattleHistoryCard({
   onSelectWarlord,
   onSelectUnit,
 }: CardProps) {
+  // コピー完了の一時表示（フックは早期 return より前で宣言する）
+  const [copied, setCopied] = useState(false);
+
   // 解析できなかった行は生テキストで表示（データを失わない）
   if (!card) {
     const { url } = extractBattleUrl(record.line);
@@ -489,6 +494,17 @@ function BattleHistoryCard({
   // カード余白のクリックで戦闘ログ URL を開く（武将名・兵種ボタンは stopPropagation）。
   const openUrl = () => {
     if (safeCard.url) window.open(safeCard.url, "_blank", "noopener,noreferrer");
+  };
+
+  // 戦闘ログの URL をクリップボードへコピー（共有用）。
+  const copyLink = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!safeCard.url) return;
+    const ok = await copyText(safeCard.url);
+    if (ok) {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    }
   };
 
   const renderTeam = (side: BattleSide, align: "left" | "right") => (
@@ -565,6 +581,19 @@ function BattleHistoryCard({
           )}
           {(safeCard.battleAt || record.time) && (
             <span className="bc-time">{safeCard.battleAt ?? record.time}</span>
+          )}
+          {safeCard.url && (
+            <button
+              type="button"
+              className={"bc-link-icon bc-copy-btn" + (copied ? " copied" : "")}
+              onClick={copyLink}
+              aria-label={
+                copied ? "リンクをコピーしました" : "戦闘ログのリンクをコピー"
+              }
+              title={copied ? "コピーしました" : "リンクをコピー"}
+            >
+              {copied ? <CheckIcon /> : <CopyIcon />}
+            </button>
           )}
           {safeCard.url && (
             <a

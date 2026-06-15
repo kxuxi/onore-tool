@@ -799,6 +799,24 @@ tbody tr:hover {
   height: 13px;
 }
 
+/* コピーボタンは bc-link-icon の見た目を踏襲しつつ button 既定スタイルを打ち消す */
+.bc-copy-btn {
+  background: none;
+  border: none;
+  padding: 2px;
+  margin: 0;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.bc-copy-btn:hover {
+  color: var(--accent);
+}
+
+.bc-copy-btn.copied {
+  color: var(--success, #4caf50);
+}
+
 .bc-link {
   display: inline-flex;
   align-items: center;
@@ -1501,3 +1519,21 @@ tbody tr:hover {
 
 .dl-link:hover { color: var(--accent); }
 .dl-link .icon { width: 15px; height: 15px; }
+
+.dl-actions {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* コピーボタンは dl-link の見た目を踏襲しつつ button 既定スタイルを打ち消す */
+.dl-copy {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.dl-copy.copied { color: var(--success, #4caf50); }

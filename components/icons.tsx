@@ -108,3 +108,11 @@ export function CloseIcon({ className = "icon" }: IconProps) {
     </svg>
   );
 }
+
+export function CheckIcon({ className = "icon" }: IconProps) {
+  return (
+    <svg className={className} {...base}>
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}

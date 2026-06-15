@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { normalizeDisplayToken } from "@/lib/parser";
 import type { BattleOutcome, OutcomeResult } from "@/lib/stats";
 import type { BattleSide } from "@/lib/parser";
-import { ExternalLinkIcon } from "@/components/icons";
+import { copyText } from "@/lib/clipboard";
+import { ExternalLinkIcon, CopyIcon, CheckIcon } from "@/components/icons";
 
 interface Props {
   outcomes: BattleOutcome[];
@@ -21,6 +23,43 @@ function resultLabel(o: BattleOutcome): string {
   if (o.card.winner === "retreat") return "撤退";
   if (o.card.winner === "draw") return "引分";
   return "不明";
+}
+
+/** 戦闘ログ行の操作ボタン群（リンクコピー・詳細を開く）。行ごとにコピー状態を持つ。 */
+function LogRowActions({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    const ok = await copyText(url);
+    if (ok) {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    }
+  };
+  return (
+    <div className="dl-actions">
+      <button
+        type="button"
+        className={"dl-link dl-copy" + (copied ? " copied" : "")}
+        onClick={copy}
+        aria-label={
+          copied ? "リンクをコピーしました" : "戦闘ログのリンクをコピー"
+        }
+        title={copied ? "コピーしました" : "リンクをコピー"}
+      >
+        {copied ? <CheckIcon /> : <CopyIcon />}
+      </button>
+      <a
+        className="dl-link"
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="戦闘ログの詳細を開く"
+        title="戦闘ログの詳細を開く"
+      >
+        <ExternalLinkIcon />
+      </a>
+    </div>
+  );
 }
 
 interface ChipProps {
@@ -110,18 +149,7 @@ export function BattleLogList({
               />
             </div>
           </div>
-          {o.card.url && (
-            <a
-              className="dl-link"
-              href={o.card.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="戦闘ログの詳細を開く"
-              title="戦闘ログの詳細を開く"
-            >
-              <ExternalLinkIcon />
-            </a>
-          )}
+          {o.card.url && <LogRowActions url={o.card.url} />}
         </li>
       ))}
     </ul>
