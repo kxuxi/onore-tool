@@ -14,35 +14,43 @@ export function splitBattleSegments(text: string): string[] {
 }
 
 /**
- * マークダウンのリンク記法 `[本文](URL)` を検出して URL を取り出し、
- * 本文を通常のスペース区切り行へ正規化する。
+ * 戦闘履歴 1 行を解析しやすい形へ正規化し、含まれていれば URL を取り出す。
  *
- * ゲーム履歴をリンク付きでコピーすると
+ * ゲーム履歴をリンク付き（PC でコピー）で貼ると
  *   【N戦目】年月MM/DD HH:mm場所[攻撃側 V.S. 防衛側](URL)勝敗Nターンで終了
- * のように日時・場所・勝敗が詰まった形で貼られる。リンク外側の詰まりを
- * 区切り直して、既存のトークン解析がそのまま使えるようにする。
+ * のように日時・場所・勝敗が詰まった形になる。`[本文](URL)` を検出した場合は
+ * URL を取り出し、リンク本文を前後にスペースを足して展開する（場所と勢力名、
+ * 装備と勝敗の境界がここで切れる）。
  *
- * リンクが無ければ入力をそのまま返す（従来のタブ区切り形式に対応）。
+ * スマホ等でコピーするとリンク記法が失われ、プレーンテキストとして
+ *   【N戦目】年月MM/DD HH:mm場所勢力名 … V.S. … 装備2勝敗Nターン
+ * のように詰まって貼られる。この場合でも解析できるよう、リンクの有無に
+ * 関わらずメタ部（【N戦目】/年月/月日 時刻）と勝敗・ターン数の境界を
+ * 区切り直す。従来のタブ区切り形式は空白がもともと入っているため影響を受けない。
  */
 export function extractBattleUrl(line: string): { line: string; url?: string } {
   const m = line.match(/\[([\s\S]*?)\]\((https?:\/\/[^)\s]+)\)/);
-  if (!m) return { line };
+  let url: string | undefined;
+  let work = line;
+  if (m) {
+    url = m[2];
+    const start = m.index ?? 0;
+    // リンク記法を本文に置換し、前後にスペースを補って 1 行に均す。
+    work =
+      line.slice(0, start) + " " + m[1] + " " + line.slice(start + m[0].length);
+  }
 
-  const url = m[2];
-  const linkText = m[1];
-  const start = m.index ?? 0;
-  const before = line.slice(0, start);
-  const after = line.slice(start + m[0].length);
-
-  // リンク前: 【N戦目】 / 年月 / 月日 時刻 / 場所 の境界を区切り直す。
-  const pre = before
+  const normalized = work
+    // 【N戦目】 と直後の年月の境界
     .replace(/】/g, "】 ")
+    // 年月 と 月日 の境界
     .replace(/(\d+年\d+月)/g, "$1 ")
-    .replace(/(\d{1,2}:\d{2})(?=\S)/g, "$1 ");
-  // リンク後: 勝敗 と「Nターン」の境界を区切り直す。
-  const post = after.replace(/(\d+)\s*ターン/g, " $1 ターン");
-
-  const normalized = `${pre} ${linkText} ${post}`
+    // 時刻(HH:mm) と 場所 の境界
+    .replace(/(\d{1,2}:\d{2})(?=\S)/g, "$1 ")
+    // 勝敗(◯◯の勝利 / 撤退 / 敗北 / 引分) と ターン数の境界
+    .replace(/(勝利|撤退|敗北|引分)(?=\d)/g, "$1 ")
+    // 「Nターン」表記の境界
+    .replace(/(\d+)\s*ターン/g, " $1 ターン")
     .replace(/[\s\u3000]+/g, " ")
     .trim();
   return { line: normalized, url };
@@ -91,7 +99,7 @@ export function parseBattleLine(line: string): Warlord[] {
   // 戦闘日時: 先頭の【N戦目】と攻撃側ブロックの間にあるメタ情報のうち
   // 末尾（場所）を除いたもの（年月 月日 時刻）を最終戦闘時刻として扱う。
   const meta = tokens.slice(1, vsIndex - 8);
-  const battleAt = (meta.length > 1 ? meta.slice(0, -1) : meta).join(" ");
+  const { battleAt } = splitMeta(meta);
   // 実時刻部分（例: 06/15 09:30）を行動時刻として抽出。
   const actionAt = extractActionTime(battleAt);
 
@@ -114,6 +122,30 @@ export function parseBattleLine(line: string): Warlord[] {
 function extractActionTime(s: string): string | undefined {
   const m = s.match(/\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{2}/);
   return m ? m[0].replace(/\s+/, " ") : undefined;
+}
+
+/** トークンが日時要素（年月 / 月日 / 時刻）に見えるか。 */
+function looksLikeDateTime(token: string): boolean {
+  return (
+    /^\d{1,2}:\d{2}$/.test(token) ||
+    /^\d{1,2}\/\d{1,2}$/.test(token) ||
+    /^\d+年\d+月$/.test(token)
+  );
+}
+
+/**
+ * 【N戦目】と攻撃側ブロックの間のメタ情報を「場所」と「戦闘日時」に分ける。
+ *
+ * 通常は [年月, 月日, 時刻, 場所] の並びで末尾が場所だが、スマホ等で
+ * リンクが失われると場所が勢力名に連結し、メタは [年月, 月日, 時刻] だけになる。
+ * その場合に末尾の時刻を場所と誤認しないよう、末尾が日時要素なら場所なしとみなし
+ * 全体を戦闘日時として扱う（行動時刻の抽出が効くようにする）。
+ */
+function splitMeta(meta: string[]): { place?: string; battleAt: string } {
+  if (meta.length > 1 && !looksLikeDateTime(meta[meta.length - 1])) {
+    return { place: meta[meta.length - 1], battleAt: meta.slice(0, -1).join(" ") };
+  }
+  return { battleAt: meta.join(" ") };
 }
 
 /**
@@ -268,6 +300,43 @@ function sideFromBlock(block: string[]): BattleSide {
 }
 
 /**
+ * 防衛側ブロックの装備2と勝敗が連結している場合（スマホ等でリンクが失われ
+ * 「…装備2◯◯の勝利」のように詰まったケース）に、既知の武将名を手掛かりに
+ * 切り離す。連結が無ければ素直に従来通り（resultRaw=次トークン）を返す。
+ */
+function splitGluedResult(
+  tokens: string[],
+  vsIndex: number,
+  leftName: string,
+  rightName: string
+): { rightBlock: string[]; resultRaw: string; turns?: string } {
+  const rightBlock = tokens.slice(vsIndex + 1, vsIndex + 9);
+  let resultRaw = tokens[vsIndex + 9] ?? "";
+  let turnsRaw = tokens[vsIndex + 10];
+
+  const equip2 = rightBlock[rightBlock.length - 1] ?? "";
+  const suffixes = [
+    leftName && `${leftName}の勝利`,
+    rightName && `${rightName}の勝利`,
+    "撤退",
+    "敗北",
+    "引分",
+  ].filter((s): s is string => !!s);
+  for (const suf of suffixes) {
+    if (equip2.length > suf.length && equip2.endsWith(suf)) {
+      rightBlock[rightBlock.length - 1] = equip2.slice(0, -suf.length);
+      // 連結を解いた勝敗を結果に採用。元の結果トークン（数字なら）はターン数へ。
+      if (turnsRaw === undefined && /^\d+$/.test(resultRaw)) turnsRaw = resultRaw;
+      resultRaw = suf;
+      break;
+    }
+  }
+
+  const turns = turnsRaw && /^\d+$/.test(turnsRaw) ? turnsRaw : undefined;
+  return { rightBlock, resultRaw, turns };
+}
+
+/**
  * 1 戦闘行をカード表示用に解析する。解析できない行は null。
  * トークン構造は parseBattleLine と同じ規則に従う。
  */
@@ -286,18 +355,25 @@ export function parseBattleCard(line: string): BattleCard | null {
   if (vsIndex < 8) return null;
   if (tokens.length < vsIndex + 9) return null;
 
-  const left = sideFromBlock(tokens.slice(vsIndex - 8, vsIndex));
-  const right = sideFromBlock(tokens.slice(vsIndex + 1, vsIndex + 9));
+  const leftBlock = tokens.slice(vsIndex - 8, vsIndex);
+  const rightBlockRaw = tokens.slice(vsIndex + 1, vsIndex + 9);
+  const leftName = leftBlock[1]?.trim() ?? "";
+  const rightName = rightBlockRaw[1]?.trim() ?? "";
+  // 防衛側の装備2に勝敗が連結している場合は切り離す（スマホ貼り付け対策）。
+  const { rightBlock, resultRaw, turns } = splitGluedResult(
+    tokens,
+    vsIndex,
+    leftName,
+    rightName
+  );
+
+  const left = sideFromBlock(leftBlock);
+  const right = sideFromBlock(rightBlock);
   if (!left.name || !right.name) return null;
 
-  // 先頭【N戦目】〜攻撃側ブロックの間が [年月, 月日, 時刻, 場所]。末尾を場所とみなす。
+  // 先頭【N戦目】〜攻撃側ブロックの間が [年月, 月日, 時刻, 場所]。
   const meta = tokens.slice(1, vsIndex - 8);
-  const place = meta.length > 1 ? meta[meta.length - 1] : undefined;
-  const battleAt = (meta.length > 1 ? meta.slice(0, -1) : meta).join(" ");
-
-  const resultRaw = tokens[vsIndex + 9] ?? "";
-  const turnsRaw = tokens[vsIndex + 10];
-  const turns = turnsRaw && /^\d+$/.test(turnsRaw) ? turnsRaw : undefined;
+  const { place, battleAt } = splitMeta(meta);
 
   // 勝敗カラムは「{勝者名}の勝利」または「撤退」の形式。
   // 勝者名は左右いずれかの武将名と一致するため、名前で勝者側を判定する。
