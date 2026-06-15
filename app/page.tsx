@@ -307,9 +307,10 @@ export default function HomePage() {
           parsed: warlords.length,
           skipped: res.skipped,
         };
-      } catch {
+      } catch (e) {
         setToast({ kind: "error", message: "登録に失敗しました" });
-        return { added: 0, updated: 0, parsed: warlords.length, skipped: 0 };
+        // 呼び出し側（HistoryTab）で入力を保持しエラー表示できるよう再送出する。
+        throw e;
       }
     },
     []

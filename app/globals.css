@@ -1396,6 +1396,11 @@ mark.hl {
 .tag.unit { color: #c5b3ff; border-color: #3a2f57; background: #1e1830; }
 .tag.faction { color: #ff9ecb; border-color: #57273f; background: #2a1822; }
 .tag.warn { color: var(--danger); border-color: #5a2a2a; background: #2a1818; }
+.tag.danger {
+  color: #fff;
+  border-color: var(--danger-strong);
+  background: var(--danger-strong);
+}
 
 /* クリックできるタグ（図鑑から個別ページへ遷移）。見た目は tag のまま。 */
 .tag-btn {

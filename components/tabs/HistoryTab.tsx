@@ -122,6 +122,7 @@ export function HistoryTab({
         skipped: number;
       }
     | { kind: "warn"; message: string }
+    | { kind: "error"; message: string }
   >(null);
   const [busy, setBusy] = useState(false);
 
@@ -141,6 +142,13 @@ export function HistoryTab({
       setResult({ kind: "success", ...r });
       // 連続登録しやすいよう、成功時は入力欄をクリアする（重複は自動スキップされる）。
       setText("");
+    } catch {
+      // 保存失敗時は入力を残し（再貼り付け不要）、成功扱いにしない。
+      setResult({
+        kind: "error",
+        message:
+          "登録に失敗しました。通信状態を確認してもう一度お試しください。入力内容は保持しています。",
+      });
     } finally {
       setBusy(false);
     }
@@ -336,6 +344,11 @@ export function HistoryTab({
         )}
         {result?.kind === "warn" && (
           <div className="tag warn" role="alert">
+            {result.message}
+          </div>
+        )}
+        {result?.kind === "error" && (
+          <div className="tag danger" role="alert">
             {result.message}
           </div>
         )}
