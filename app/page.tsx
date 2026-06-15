@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { HamburgerMenu } from "@/components/HamburgerMenu";
 import { HistoryTab } from "@/components/tabs/HistoryTab";
 import { ScoutTab } from "@/components/tabs/ScoutTab";
 import { DbTab } from "@/components/tabs/DbTab";
@@ -10,11 +9,7 @@ import { UnitTab } from "@/components/tabs/UnitTab";
 import { FactionTab } from "@/components/tabs/FactionTab";
 import { WarlordDetail } from "@/components/detail/WarlordDetail";
 import { UnitDetail } from "@/components/detail/UnitDetail";
-import {
-  fetchState,
-  registerState,
-  resetState,
-} from "@/lib/api";
+import { fetchState, registerState } from "@/lib/api";
 import { parseBattleEntries } from "@/lib/parser";
 import {
   loadFactionColors,
@@ -170,17 +165,6 @@ export default function HomePage() {
     []
   );
 
-  const handleReset = useCallback(async () => {
-    try {
-      const state = await resetState();
-      setDb(state.db);
-      setBattleLog(state.log);
-      setToast({ kind: "success", message: "DBをリセットしました" });
-    } catch {
-      setToast({ kind: "error", message: "リセットに失敗しました" });
-    }
-  }, []);
-
   const selectTab = useCallback(
     (key: TabKey) => {
       setTab(key);
@@ -241,9 +225,7 @@ export default function HomePage() {
       case "damage":
         return <DamageTab db={db} />;
       case "db":
-        return (
-          <DbTab db={db} onReset={handleReset} onSelectWarlord={selectWarlord} />
-        );
+        return <DbTab db={db} onSelectWarlord={selectWarlord} />;
       case "units":
         return <UnitTab onSelectUnit={selectUnit} />;
       case "factions":
@@ -263,7 +245,6 @@ export default function HomePage() {
     battleLog,
     factionColors,
     handleRegister,
-    handleReset,
     handleChangeFactionColors,
     selectWarlord,
     selectUnit,
@@ -310,7 +291,6 @@ export default function HomePage() {
             <span className="sub">v1</span>
           </h1>
         </div>
-        <HamburgerMenu onResetDb={handleReset} />
       </header>
 
       <div className="body">

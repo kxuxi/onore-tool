@@ -140,15 +140,3 @@ export async function POST(req: Request) {
     return errorResponse("POST", err);
   }
 }
-
-export async function DELETE() {
-  try {
-    await prisma.$transaction([
-      prisma.warlord.deleteMany({}),
-      prisma.battleRecord.deleteMany({}),
-    ]);
-    return NextResponse.json({ db: {}, log: [] });
-  } catch (err) {
-    return errorResponse("DELETE", err);
-  }
-}

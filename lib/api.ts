@@ -38,13 +38,6 @@ export async function registerState(
   return res.json();
 }
 
-/** 武将DB + 戦闘履歴をリセット */
-export async function resetState(): Promise<StateResponse> {
-  const res = await fetch("/api/state", { method: "DELETE" });
-  if (!res.ok) throw new Error("リセットに失敗しました");
-  return res.json();
-}
-
 /** 兵種一覧を取得 */
 export async function fetchUnitTypes(): Promise<UnitType[]> {
   const res = await fetch("/api/unit-types", { cache: "no-store" });

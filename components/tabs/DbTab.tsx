@@ -5,17 +5,15 @@ import type { WarlordMap } from "@/lib/types";
 
 interface Props {
   db: WarlordMap;
-  onReset: () => void;
   onSelectWarlord: (name: string) => void;
 }
 
-export function DbTab({ db, onReset, onSelectWarlord }: Props) {
+export function DbTab({ db, onSelectWarlord }: Props) {
   const [keyword, setKeyword] = useState("");
   const [faction, setFaction] = useState("");
   const [type, setType] = useState("");
   const [branch, setBranch] = useState("");
   const [unit, setUnit] = useState("");
-  const [confirming, setConfirming] = useState(false);
 
   const all = useMemo(() => Object.values(db), [db]);
 
@@ -61,11 +59,6 @@ export function DbTab({ db, onReset, onSelectWarlord }: Props) {
     setUnit("");
   };
 
-  const handleReset = () => {
-    onReset();
-    setConfirming(false);
-  };
-
   return (
     <section className="panel">
       <h2>DB確認</h2>
@@ -91,14 +84,6 @@ export function DbTab({ db, onReset, onSelectWarlord }: Props) {
           autoCapitalize="off"
           autoCorrect="off"
         />
-        <button
-          type="button"
-          className="btn btn-danger"
-          onClick={() => setConfirming(true)}
-          disabled={all.length === 0}
-        >
-          DBをリセット
-        </button>
       </div>
 
       <div className="filter-grid">
@@ -233,42 +218,6 @@ export function DbTab({ db, onReset, onSelectWarlord }: Props) {
           </table>
         )}
       </div>
-
-      {confirming && (
-        <div
-          className="modal-backdrop"
-          onClick={() => setConfirming(false)}
-          role="presentation"
-        >
-          <div
-            className="modal"
-            role="alertdialog"
-            aria-labelledby="db-reset-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 id="db-reset-title">DBをリセットしますか？</h3>
-            <p>
-              登録済みの武将データを全て削除します。この操作は元に戻せません。
-            </p>
-            <div className="row">
-              <button
-                type="button"
-                className="btn"
-                onClick={() => setConfirming(false)}
-              >
-                キャンセル
-              </button>
-              <button
-                type="button"
-                className="btn btn-danger"
-                onClick={handleReset}
-              >
-                リセットする
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </section>
   );
 }

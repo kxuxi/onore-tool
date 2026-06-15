@@ -120,12 +120,6 @@ function pickLatestAction(
   return b >= a ? b : a;
 }
 
-export function resetAll(): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.removeItem(STORAGE_KEY);
-  window.localStorage.removeItem(BATTLE_LOG_KEY);
-}
-
 /** 武将名で DB を引く（前後の空白除去・全角空白許容） */
 export function lookup(map: WarlordMap, name: string): Warlord | undefined {
   const key = name.trim();
