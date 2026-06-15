@@ -197,6 +197,24 @@ describe("装備枠（装備1 / 装備2 の位置保持）", () => {
   });
 });
 
+describe("国名プレースホルダーの正規化（DB登録）", () => {
+  it("国列が「なし」の武将は faction を持たない（偽の国名を残さない）", () => {
+    const line =
+      "【1戦目】 1583年4月 04/10 10:23 京都 なし 浪人太郎 浪人家 武特 騎馬隊 騎兵 槍 鎧 V.S. ー 流浪次郎 流浪家 統特 騎馬隊 騎兵 馬 旗 浪人太郎の勝利 12";
+    const ws = parseBattleLine(line);
+    expect(ws[0].name).toBe("浪人太郎");
+    expect(ws[0].faction).toBeUndefined();
+    expect(ws[1].name).toBe("流浪次郎");
+    expect(ws[1].faction).toBeUndefined();
+  });
+
+  it("通常の国名はそのまま faction として保持する", () => {
+    const ws = parseBattleLine(LINE_PLAIN);
+    expect(ws[0].faction).toBe("織田");
+    expect(ws[1].faction).toBe("武田");
+  });
+});
+
 describe("normalizeDisplayToken", () => {
   it("* 始まり + 括弧は括弧内を採用", () => {
     expect(normalizeDisplayToken("*ノクスミーティア(カノン砲)")).toBe("カノン砲");

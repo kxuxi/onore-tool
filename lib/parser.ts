@@ -160,7 +160,9 @@ function sliceWarlord(
   if (!name || !type || !branch) return null;
   return {
     name: name.trim(),
-    faction: faction?.trim() || undefined,
+    // 国名のプレースホルダー（なし/-/ー）は除去する。
+    // 戦闘カード表示（sideFromBlock）と正規化を揃え、DBに偽の国名が残らないようにする。
+    faction: cleanToken(faction),
     type: type.trim(),
     branch: branch.trim(),
     unit: normalizeUnit(unit),
