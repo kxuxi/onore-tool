@@ -49,6 +49,9 @@ const DETAIL_PARAM: Record<DetailView["kind"], string> = {
   item: "it",
 };
 
+/** デスクトップでのサイドバー開閉の好みを保存する localStorage キー。 */
+const SIDEBAR_KEY = "onore.sidebarOpen";
+
 /** タブ・詳細ページの状態を共有用 URL クエリへ変換する。 */
 function buildShareQuery(tab: TabKey, detail: DetailView | null): string {
   const params = new URLSearchParams();
@@ -128,6 +131,21 @@ export default function HomePage() {
     }
   }, []);
 
+  // サイドバーの開閉。デスクトップでの好みは localStorage に保存して次回以降復元する。
+  const toggleSidebar = useCallback(() => {
+    setSidebarOpen((v) => {
+      const next = !v;
+      if (!isMobile) {
+        try {
+          window.localStorage.setItem(SIDEBAR_KEY, next ? "1" : "0");
+        } catch {
+          /* localStorage 不可（プライベートモード等）でも開閉自体は動作させる */
+        }
+      }
+      return next;
+    });
+  }, [isMobile]);
+
   // 国カラー設定をローカルから読み込み
   useEffect(() => {
     setFactionColors(loadFactionColors());
@@ -176,12 +194,22 @@ export default function HomePage() {
     }
   }, []);
 
-  // 画面幅に応じてサイドバーの初期表示を切り替え（デスクトップは開、モバイルは閉）
+  // 画面幅に応じてサイドバーの初期表示を切り替え（デスクトップは記憶した好み／既定で開、モバイルは閉）
   useEffect(() => {
     const mql = window.matchMedia("(min-width: 768px)");
-    const apply = (matches: boolean) => {
-      setIsMobile(!matches);
-      setSidebarOpen(matches);
+    // デスクトップでの開閉の好み（保存が無ければ開く）。
+    const readDesktopPref = () => {
+      try {
+        const v = window.localStorage.getItem(SIDEBAR_KEY);
+        return v === null ? true : v === "1";
+      } catch {
+        return true;
+      }
+    };
+    const apply = (isDesktop: boolean) => {
+      setIsMobile(!isDesktop);
+      // デスクトップは保存した好みを復元。モバイルはオーバーレイのため常に閉じる。
+      setSidebarOpen(isDesktop ? readDesktopPref() : false);
     };
     apply(mql.matches);
     const onChange = (e: MediaQueryListEvent) => apply(e.matches);
@@ -492,7 +520,7 @@ export default function HomePage() {
             className="hamburger"
             aria-label={sidebarOpen ? "メニューを閉じる" : "メニューを開く"}
             aria-expanded={sidebarOpen}
-            onClick={() => setSidebarOpen((v) => !v)}
+            onClick={toggleSidebar}
           >
             <span />
             <span />
