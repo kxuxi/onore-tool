@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { StatSummary } from "@/lib/stats";
 import { ChevronLeft, ShareIcon, CheckIcon } from "@/components/icons";
 import { copyText } from "@/lib/clipboard";
@@ -39,6 +39,13 @@ function ShareLinkButton() {
 }
 
 export function DetailHeader({ kind, title, tags, onBack }: HeaderProps) {
+  // 詳細ページへ遷移したら見出しへフォーカスを移す（キーボード／スクリーンリーダー対応）。
+  // kind・title が変わるたびに発火し、武将→兵種などの遷移や戻る操作にも追従する。
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, [kind, title]);
+
   return (
     <div className="detail-head">
       <button type="button" className="btn detail-back" onClick={onBack}>
@@ -47,7 +54,9 @@ export function DetailHeader({ kind, title, tags, onBack }: HeaderProps) {
       </button>
       <div className="detail-title">
         <span className="detail-kind">{kind}</span>
-        <h2>{title}</h2>
+        <h2 ref={headingRef} tabIndex={-1}>
+          {title}
+        </h2>
         {tags && <div className="detail-tags">{tags}</div>}
       </div>
       <ShareLinkButton />
