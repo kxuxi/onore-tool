@@ -61,7 +61,12 @@ export function UnitDetail({
 
       {outcomes.length === 0 ? (
         <div className="empty">
-          この兵種が使われた戦闘履歴がまだありません。
+          <p className="empty-title">この兵種の戦闘データがありません</p>
+          <p className="empty-hint">
+            「{name}」が使われた戦闘履歴が見つかりませんでした。
+            兵種名が変更・削除されたか、共有リンクが古い可能性があります。
+            「戦闘履歴」タブで戦績を登録すると、勝率や相性がここに表示されます。
+          </p>
         </div>
       ) : (
         <>

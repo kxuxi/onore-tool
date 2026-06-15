@@ -91,12 +91,22 @@ export function WarlordDetail({
       <AbilityStats warlord={dbInfo} />
 
       {outcomes.length === 0 ? (
-        <>
+        !dbInfo ? (
           <div className="empty">
-            この武将が登場する戦闘履歴がまだありません。
+            <p className="empty-title">武将が見つかりません</p>
+            <p className="empty-hint">
+              「{name}」は現在のDB・戦闘履歴のどちらにも見つかりませんでした。
+              名前が変更・削除されたか、共有リンクが古い可能性があります。
+            </p>
           </div>
-          <WarlordComment name={name} />
-        </>
+        ) : (
+          <>
+            <div className="empty">
+              この武将が登場する戦闘履歴がまだありません。
+            </div>
+            <WarlordComment name={name} />
+          </>
+        )
       ) : (
         <>
           <StatCards summary={summary} />
