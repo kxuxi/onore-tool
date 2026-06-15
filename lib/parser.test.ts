@@ -49,7 +49,29 @@ describe("extractBattleUrl", () => {
     expect(line).toContain("【1戦目】 1583年4月 04/10 10:23 京都");
     expect(line).toContain("勝利 12");
   });
+
+  it("武将名に含まれる 】（例: 【大空】ユニ）は分割しない", () => {
+    const { line } = extractBattleUrl(
+      "【3戦目】 1687年6月 06/15 09:59 植物公園 サルの修行寺R 【大空】ユニ ミルフィオーレファミリー 武政 万能隊 万能 装A 装B V.S. 敵国 敵将 敵家 武特 騎隊 騎兵 馬 旗 【大空】ユニの勝利 7"
+    );
+    // 戦目】 の後ろだけ空白が入り、【大空】ユニ は 1 トークンのまま保たれる。
+    expect(line).toContain("【3戦目】 1687年6月");
+    expect(line).toContain("サルの修行寺R 【大空】ユニ ミルフィオーレファミリー");
+    expect(line).not.toContain("【大空】 ユニ");
+  });
+
+  it("名前に 】 を含む武将を faction とずれずに解析する", () => {
+    const card = parseBattleCard(
+      "【3戦目】 1687年6月 06/15 09:59 植物公園 サルの修行寺R 【大空】ユニ ミルフィオーレファミリー 武政 万能隊 万能 装A 装B V.S. 敵国 敵将 敵家 武特 騎隊 騎兵 馬 旗 【大空】ユニの勝利 7"
+    );
+    expect(card).not.toBeNull();
+    expect(card!.left.faction).toBe("サルの修行寺R");
+    expect(card!.left.name).toBe("【大空】ユニ");
+    expect(card!.left.family).toBe("ミルフィオーレファミリー");
+    expect(card!.winner).toBe("left");
+  });
 });
+
 
 describe("parseBattleCard", () => {
   it("基本フィールドと勝者（攻撃側）を解析する", () => {

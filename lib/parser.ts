@@ -41,8 +41,9 @@ export function extractBattleUrl(line: string): { line: string; url?: string } {
   }
 
   const normalized = work
-    // 【N戦目】 と直後の年月の境界
-    .replace(/】/g, "】 ")
+    // 【N戦目】 と直後の年月の境界（マーカーの 】 のみ。武将名に含まれる
+    // 【大空】 のような 】 まで区切ると名前が割れてしまうため、戦目】 に限定する。
+    .replace(/(戦目】)/g, "$1 ")
     // 年月 と 月日 の境界
     .replace(/(\d+年\d+月)/g, "$1 ")
     // 時刻(HH:mm) と 場所 の境界

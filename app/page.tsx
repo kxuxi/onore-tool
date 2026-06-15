@@ -6,7 +6,9 @@ import { ScoutTab } from "@/components/tabs/ScoutTab";
 import { DbTab } from "@/components/tabs/DbTab";
 import { DamageTab } from "@/components/tabs/DamageTab";
 import { UnitTab } from "@/components/tabs/UnitTab";
+import { EquipTab } from "@/components/tabs/EquipTab";
 import { FactionTab } from "@/components/tabs/FactionTab";
+import { SwiTab } from "@/components/tabs/SwiTab";
 import { WarlordDetail } from "@/components/detail/WarlordDetail";
 import { UnitDetail } from "@/components/detail/UnitDetail";
 import { fetchState, registerState } from "@/lib/api";
@@ -22,8 +24,10 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "history", label: "戦闘履歴" },
   { key: "scout", label: "偵察検索" },
   { key: "damage", label: "被弾表" },
+  { key: "swi", label: "武将ランキング" },
   { key: "db", label: "DB確認" },
   { key: "units", label: "兵種図鑑" },
+  { key: "equips", label: "武器・品物" },
   { key: "factions", label: "国カラー" },
 ];
 
@@ -232,11 +236,15 @@ export default function HomePage() {
       case "scout":
         return <ScoutTab db={db} onSelectWarlord={selectWarlord} />;
       case "damage":
-        return <DamageTab db={db} />;
+        return <DamageTab db={db} onSelectWarlord={selectWarlord} />;
+      case "swi":
+        return <SwiTab log={battleLog} onSelectWarlord={selectWarlord} />;
       case "db":
         return <DbTab db={db} onSelectWarlord={selectWarlord} />;
       case "units":
         return <UnitTab onSelectUnit={selectUnit} />;
+      case "equips":
+        return <EquipTab log={battleLog} onSelectWarlord={selectWarlord} />;
       case "factions":
         return (
           <FactionTab
@@ -358,7 +366,23 @@ export default function HomePage() {
         </main>
       </div>
 
-      {toast && <div className={"toast " + toast.kind}>{toast.message}</div>}
+      {toast && (
+        <div
+          className={"toast " + toast.kind}
+          role="status"
+          aria-live="polite"
+        >
+          <span className="toast-message">{toast.message}</span>
+          <button
+            type="button"
+            className="toast-close"
+            onClick={() => setToast(null)}
+            aria-label="通知を閉じる"
+          >
+            ×
+          </button>
+        </div>
+      )}
     </div>
   );
 }

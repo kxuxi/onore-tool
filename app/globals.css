@@ -376,6 +376,60 @@ input:focus {
   gap: 8px;
 }
 
+/* 偵察検索のコントロール（未登録のみ表示・コピー） */
+.scout-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 4px 0 8px;
+}
+.scout-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+}
+.scout-toggle input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent, #1d9e75);
+  cursor: pointer;
+}
+
+/* 偵察検索の報告用テキスト（名前［タイプ｜兵種］） */
+.scout-report {
+  margin: 8px 0 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  background: rgba(106, 169, 255, 0.06);
+}
+.scout-report-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.scout-report-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.scout-report-text {
+  width: 100%;
+  resize: vertical;
+  min-height: 64px;
+  font-size: 14px;
+  line-height: 1.8;
+}
+
 .unit-form {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -511,6 +565,17 @@ tbody tr:hover {
   color: var(--muted);
   text-align: center;
   padding: 24px 8px;
+}
+.empty-title {
+  margin: 0 0 6px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+}
+.empty-hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.7;
 }
 
 /* ---------- Sortable / filterable table head ---------- */
@@ -1174,11 +1239,72 @@ tbody tr:hover {
   background: transparent;
   border-color: var(--border);
 }
+/* 状況列のメインステータスは等幅にして開始位置を揃える */
+.status.ready,
+.status.done,
+.status.unknown,
+.status.none {
+  min-width: 64px;
+}
 .status.no-rest {
   color: #fff;
   background: var(--danger-strong);
   border-color: var(--danger-strong);
   margin-left: 4px;
+}
+
+/* 末尾固定（分の1の位が固定・最も軽い） */
+.status.no-rest--loose {
+  background: #2a2418;
+  border-color: #574a26;
+  color: #ffce63;
+}
+
+/* 休養なし（ちょうど60分間隔） */
+.status.no-rest--strict {
+  background: var(--danger-strong);
+  border-color: var(--danger-strong);
+  color: #fff;
+}
+
+/* 5戦連続以上の末尾固定で進化した表示（固定分） */
+.status.no-rest--evolved {
+  background: #7a1020;
+  border-color: #ff5a1f;
+  color: #ffd9a3;
+  box-shadow: 0 0 6px rgba(255, 90, 31, 0.45);
+  letter-spacing: 0.02em;
+}
+
+/* ---------- 固定バッジ凡例 ---------- */
+.badge-legend {
+  margin: 4px 0 0;
+  font-size: 13px;
+}
+.badge-legend > summary {
+  cursor: pointer;
+  color: var(--muted);
+  user-select: none;
+}
+.badge-legend > summary:hover {
+  color: var(--text);
+}
+.badge-legend-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.badge-legend-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.badge-legend-list .muted {
+  font-size: 12px;
 }
 
 /* ---------- Toast ---------- */
@@ -1187,10 +1313,13 @@ tbody tr:hover {
   left: 50%;
   bottom: 24px;
   transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
   background: #2a2f3a;
   border: 1px solid var(--border);
   color: var(--text);
-  padding: 10px 16px;
+  padding: 10px 12px 10px 16px;
   border-radius: 999px;
   font-size: 13px;
   z-index: 50;
@@ -1200,6 +1329,26 @@ tbody tr:hover {
 
 .toast.success { border-color: #2b5b3d; background: #173025; }
 .toast.error { border-color: #5a2a2a; background: #2a1818; }
+
+.toast-close {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+.toast-close:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
 
 /* ---------- Modal ---------- */
 .modal-backdrop {
@@ -1551,3 +1700,547 @@ tbody tr:hover {
 }
 
 .dl-copy.copied { color: var(--success, #4caf50); }
+
+/* ---------- 武将インサイト（相性・ヒートマップ・遍歴・コメント） ---------- */
+
+/* 相性ランキング */
+.rank-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.rank-head {
+  margin: 0 0 8px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+
+.rank-head--good { color: #3ddca6; }
+.rank-head--bad { color: #f08a63; }
+
+.rank-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rank-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--panel-2);
+  border: 0.5px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.rank-no {
+  flex: 0 0 auto;
+  width: 18px;
+  text-align: center;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.rank-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.rank-faction {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.rank-rate {
+  flex: 0 0 auto;
+  font-weight: 700;
+}
+
+.rank-record {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* 兵科別の勝率 */
+.branch-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.branch-row {
+  display: grid;
+  grid-template-columns: 56px 1fr 44px auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.branch-name {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.branch-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  border: 0.5px solid var(--border);
+  overflow: hidden;
+}
+
+.branch-bar-fill {
+  display: block;
+  height: 100%;
+  background: #1d9e75;
+}
+
+.branch-rate {
+  font-weight: 700;
+  text-align: right;
+}
+
+.branch-record {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+@media (max-width: 520px) {
+  .branch-row {
+    grid-template-columns: 48px 1fr 40px;
+  }
+  .branch-record {
+    grid-column: 2 / -1;
+  }
+}
+
+/* 武将別の勝率（名前を上・勝率バーを下） */
+.user-winrate-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.user-winrate-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.user-winrate-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.user-winrate-name {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.user-winrate-meta {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.user-winrate-rate {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+/* 撃破加重指数（SWI）ランキング */
+.swi-list {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.swi-row {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  align-items: start;
+  gap: 12px;
+}
+
+.swi-rank {
+  font-weight: 800;
+  font-size: 18px;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.4;
+}
+
+.swi-row:nth-child(1) .swi-rank {
+  color: #ffce63;
+}
+.swi-row:nth-child(2) .swi-rank {
+  color: #cdd6e0;
+}
+.swi-row:nth-child(3) .swi-rank {
+  color: #e0955a;
+}
+
+.swi-main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.swi-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.swi-name {
+  font-weight: 700;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.swi-value {
+  font-weight: 800;
+  font-size: 16px;
+  color: #1d9e75;
+  font-variant-numeric: tabular-nums;
+}
+
+.swi-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  border: 0.5px solid var(--border);
+  overflow: hidden;
+}
+
+.swi-bar-fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #1d9e75, #2e9e57);
+}
+
+.swi-meta {
+  font-size: 11px;
+  line-height: 1.5;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+}
+.rank-side-active {
+  color: var(--text);
+  font-weight: 600;
+}
+.rank-sep {
+  opacity: 0.5;
+}
+
+/* SWI 算出式・重みの凡例 */
+.swi-formula {
+  margin: 4px 0 0;
+  font-size: 13px;
+}
+.swi-formula > summary {
+  cursor: pointer;
+  color: var(--muted);
+  user-select: none;
+}
+.swi-formula > summary:hover {
+  color: var(--text);
+}
+.swi-formula > p {
+  margin: 8px 0;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.swi-weight-table {
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-top: 4px;
+}
+.swi-weight-table th,
+.swi-weight-table td {
+  border: 1px solid var(--border);
+  padding: 3px 10px;
+  text-align: center;
+}
+.swi-weight-table th {
+  color: var(--muted);
+  font-weight: 600;
+}
+.swi-weight-table td:last-child {
+  color: #1d9e75;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 武器・品物図鑑 */
+.equip-decided {
+  font-size: 11px;
+  margin-left: 4px;
+}
+.equip-split {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.equip-users {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+.equip-users .link-like {
+  font-size: 12px;
+}
+.equip-users .link-like .muted {
+  margin-left: 2px;
+  font-size: 11px;
+}
+
+/* 時間帯・曜日別ヒートマップ */
+.heatmap-wrap {
+  overflow-x: auto;
+}
+
+.heatmap {
+  display: grid;
+  grid-template-columns: auto repeat(8, minmax(20px, 1fr));
+  gap: 3px;
+  min-width: 280px;
+}
+
+.heat-corner {
+  width: 24px;
+}
+
+.heat-col-label {
+  font-size: 10px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.heat-row {
+  display: contents;
+}
+
+.heat-row-label {
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 4px;
+}
+
+.heat-cell {
+  aspect-ratio: 1 / 1;
+  border-radius: 3px;
+  background: var(--panel-2);
+  border: 0.5px solid var(--border);
+}
+
+.heat-legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 11px;
+}
+
+.heat-legend-scale {
+  flex: 0 0 96px;
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(29, 158, 117, 0.18),
+    rgba(29, 158, 117, 1)
+  );
+}
+
+/* 所属国の遍歴 */
+.faction-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.faction-stint {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 0 0 16px 4px;
+}
+
+.faction-stint:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: 14px;
+  bottom: -2px;
+  width: 2px;
+  background: var(--border);
+}
+
+.faction-dot {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+  margin-top: 3px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--panel);
+}
+
+.faction-stint-body {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.faction-stint-name {
+  font-weight: 700;
+}
+
+.faction-stint-years {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.faction-stint-battles {
+  font-size: 11px;
+}
+
+.faction-return-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  color: #ffd479;
+  background: #2a2418;
+  border: 0.5px solid #574a26;
+}
+
+.faction-return-note {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* 一言コメント */
+.comment-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.comment-saved {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--success, #4caf50);
+}
+
+.comment-box {
+  min-height: 96px;
+}
+
+/* 兵種：使用率の推移 */
+.trend-note {
+  margin: 0 0 10px;
+  font-size: 11px;
+}
+
+.trend-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.trend-col {
+  flex: 1 0 28px;
+  min-width: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.trend-bar-track {
+  width: 100%;
+  height: 96px;
+  display: flex;
+  align-items: flex-end;
+  background: var(--panel-2);
+  border: 0.5px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.trend-bar-fill {
+  width: 100%;
+  background: #1d9e75;
+  border-radius: 6px 6px 0 0;
+  transition: height 0.15s ease;
+}
+
+.trend-pct {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.trend-year {
+  font-size: 10px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* ---------- モーション低減（prefers-reduced-motion） ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+

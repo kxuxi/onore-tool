@@ -43,6 +43,12 @@ export function FactionTab({ db, colors, onChange }: Props) {
     setOpenFor(null);
   };
 
+  const resetAll = () => {
+    if (!window.confirm("すべての国カラー設定を初期状態（既定色）に戻しますか？")) return;
+    onChange({});
+    setOpenFor(null);
+  };
+
   const assigned = factions.filter((f) => colors[f]).length;
 
   return (
@@ -52,6 +58,16 @@ export function FactionTab({ db, colors, onChange }: Props) {
         <span className="count-badge">
           {assigned} / {factions.length} 設定済
         </span>
+        {assigned > 0 && (
+          <button
+            type="button"
+            className="btn"
+            onClick={resetAll}
+            title="すべての国カラーを既定色に戻します"
+          >
+            すべてリセット
+          </button>
+        )}
       </div>
       <p className="muted" style={{ margin: 0, fontSize: 13 }}>
         国（勢力）ごとに色を設定します。戦闘履歴カードの勝敗ボーダーと勝者名の色に反映されます。

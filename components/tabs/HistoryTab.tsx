@@ -67,6 +67,24 @@ function sideTags(
   return tags;
 }
 
+/** カードの検索対象テキスト（生テキスト＋表示用に正規化した語）。小文字化済み。 */
+function cardSearchText(
+  record: BattleRecord,
+  card: BattleCard | null
+): string {
+  const parts: string[] = [record.line];
+  if (card) {
+    for (const side of [card.left, card.right]) {
+      if (side.name) parts.push(side.name);
+      if (side.faction) parts.push(side.faction);
+      if (side.branch) parts.push(side.branch);
+      if (side.unit) parts.push(normalizeDisplayToken(side.unit));
+      for (const e of side.equips) parts.push(normalizeDisplayToken(e));
+    }
+  }
+  return parts.join(" ").toLowerCase();
+}
+
 const PLACEHOLDER = `戦闘履歴をここに貼り付けてください。（スマホからのコピー＆ペーストにも対応しています）`;
 
 export function HistoryTab({
@@ -152,12 +170,17 @@ export function HistoryTab({
   // 内容が同一の行（正規化後に一致）は重複表示しないよう除外する。
   const cards = useMemo(() => {
     const seen = new Set<string>();
-    const out: { record: BattleRecord; card: BattleCard | null }[] = [];
+    const out: {
+      record: BattleRecord;
+      card: BattleCard | null;
+      search: string;
+    }[] = [];
     for (const record of log) {
       const key = battleKey(record.line);
       if (key && seen.has(key)) continue;
       if (key) seen.add(key);
-      out.push({ record, card: parseBattleCard(record.line) });
+      const card = parseBattleCard(record.line);
+      out.push({ record, card, search: cardSearchText(record, card) });
     }
     return out;
   }, [log]);
@@ -174,9 +197,10 @@ export function HistoryTab({
 
   // 戦闘時刻順で表示（新しい順 / 古い順）。キーワード・国で絞り込み。
   const visibleLog = useMemo(() => {
-    const k = keyword.trim();
-    const list = cards.filter(({ record, card }) => {
-      if (k && !record.line.includes(k)) return false;
+    const k = keyword.trim().toLowerCase();
+    const list = cards.filter((item) => {
+      if (k && !item.search.includes(k)) return false;
+      const { card } = item;
       if (factionFilter) {
         const f =
           card?.left.faction === factionFilter ||
@@ -226,6 +250,10 @@ export function HistoryTab({
     const start = (page - 1) * PAGE_SIZE;
     return visibleLog.slice(start, start + PAGE_SIZE);
   }, [visibleLog, page]);
+
+  // 表示中の件数範囲（例: 1–20 件目）。
+  const rangeStart = visibleLog.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(page * PAGE_SIZE, visibleLog.length);
 
   return (
     <>
@@ -290,7 +318,9 @@ export function HistoryTab({
         <div className="history-head">
           <h2>登録済み戦闘履歴</h2>
           <span className="count-badge">
-            {visibleLog.length.toLocaleString("ja-JP")} 件
+            {hasActiveFilter
+              ? `全${cards.length.toLocaleString("ja-JP")}件中 ${visibleLog.length.toLocaleString("ja-JP")}件`
+              : `全${cards.length.toLocaleString("ja-JP")}件`}
           </span>
         </div>
 
@@ -371,11 +401,22 @@ export function HistoryTab({
         )}
 
         {visibleLog.length === 0 ? (
-          <div className="empty">
-            {log.length === 0
-              ? "まだ登録された戦闘履歴はありません。"
-              : "条件に一致する履歴がありません。"}
-          </div>
+          log.length === 0 ? (
+            <div className="empty">
+              <p className="empty-title">まだ戦闘履歴がありません</p>
+              <p className="empty-hint">
+                上の入力欄にゲームの戦闘履歴を貼り付けて「登録する」を押すと、
+                ここに一覧表示されます。リンク付きでコピーすれば詳細ページのURLも保持されます。
+              </p>
+            </div>
+          ) : (
+            <div className="empty">
+              <p className="empty-title">条件に一致する履歴がありません</p>
+              <p className="empty-hint">
+                キーワードや国フィルターを変更・解除してください。
+              </p>
+            </div>
+          )
         ) : (
           <>
             <ul className="battle-list">
@@ -402,7 +443,10 @@ export function HistoryTab({
                 <span>前へ</span>
               </button>
               <span className="pager-info">
-                {page} / {totalPages} ページ
+                {rangeStart.toLocaleString("ja-JP")}–
+                {rangeEnd.toLocaleString("ja-JP")} /{" "}
+                {visibleLog.length.toLocaleString("ja-JP")}件（{page} /{" "}
+                {totalPages}）
               </span>
               <button
                 type="button"

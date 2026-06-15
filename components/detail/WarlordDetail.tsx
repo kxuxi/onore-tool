@@ -9,6 +9,10 @@ import {
   summarize,
   unitUsage,
   latestSelfProfile,
+  matchupRanking,
+  branchStats,
+  winHeatmap,
+  factionTimeline,
 } from "@/lib/stats";
 import { PieChart, chartColor } from "@/components/PieChart";
 import { BattleLogList } from "@/components/detail/BattleLogList";
@@ -17,6 +21,13 @@ import {
   StatCards,
   WinRateBar,
 } from "@/components/detail/DetailParts";
+import {
+  MatchupRanking,
+  BranchWinRates,
+  WinHeatmapSection,
+  FactionHistory,
+  WarlordComment,
+} from "@/components/detail/WarlordInsights";
 
 interface Props {
   name: string;
@@ -41,6 +52,10 @@ export function WarlordDetail({
   );
   const summary = useMemo(() => summarize(outcomes), [outcomes]);
   const usage = useMemo(() => unitUsage(outcomes), [outcomes]);
+  const ranking = useMemo(() => matchupRanking(outcomes), [outcomes]);
+  const branches = useMemo(() => branchStats(outcomes), [outcomes]);
+  const heatmap = useMemo(() => winHeatmap(outcomes), [outcomes]);
+  const timeline = useMemo(() => factionTimeline(outcomes), [outcomes]);
 
   // プロフィールは DB を優先し、無ければ直近の戦闘から補完する。
   const dbInfo = lookup(db, name);
@@ -73,13 +88,29 @@ export function WarlordDetail({
       <DetailHeader kind="武将" title={name} tags={tags} onBack={onBack} />
 
       {outcomes.length === 0 ? (
-        <div className="empty">
-          この武将が登場する戦闘履歴がまだありません。
-        </div>
+        <>
+          <div className="empty">
+            この武将が登場する戦闘履歴がまだありません。
+          </div>
+          <WarlordComment name={name} />
+        </>
       ) : (
         <>
           <StatCards summary={summary} />
           <WinRateBar summary={summary} />
+
+          <FactionHistory stints={timeline} />
+
+          <MatchupRanking
+            ranking={ranking}
+            onSelectWarlord={onSelectWarlord}
+          />
+
+          <BranchWinRates branches={branches} />
+
+          <WinHeatmapSection heatmap={heatmap} />
+
+          <WarlordComment name={name} />
 
           <div className="detail-section">
             <h3>使用兵種の割合</h3>

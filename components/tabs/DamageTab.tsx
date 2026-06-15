@@ -12,6 +12,7 @@ import {
 
 interface Props {
   db: WarlordMap;
+  onSelectWarlord: (name: string) => void;
 }
 
 const STATUS_CLASS: Record<ActionStatus, string> = {
@@ -21,7 +22,10 @@ const STATUS_CLASS: Record<ActionStatus, string> = {
   none: "status none",
 };
 
-export function DamageTab({ db }: Props) {
+// 集計・フィルタに表示するステータス（none を除く）。ラベルは ACTION_LABEL から導出。
+const STATUS_SUMMARY_ORDER = ["ready", "unknown", "done"] as const;
+
+export function DamageTab({ db, onSelectWarlord }: Props) {
   const [now, setNow] = useState<Date | null>(null);
   const [statusFilter, setStatusFilter] = useState<"" | ActionStatus>("");
   const [factionFilter, setFactionFilter] = useState("");
@@ -76,23 +80,47 @@ export function DamageTab({ db }: Props) {
       <h2>被弾表（行動状況）</h2>
       <p className="muted" style={{ margin: 0, fontSize: 13 }}>
         各武将の行動時刻からの経過時間で行動状況を判定します。
-        40分以内=行動済み / 40分〜1時間20分=行動可 / 1時間20分以上=不明。
+        40分以内={ACTION_LABEL.done} / 40分〜1時間20分={ACTION_LABEL.ready} /
+        1時間20分以上={ACTION_LABEL.unknown}。
+      </p>
+      <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+        最終更新{" "}
+        {now ? now.toLocaleTimeString("ja-JP", { hour12: false }) : "--:--:--"}
+        （30秒ごとに自動更新）
       </p>
 
       <div className="stat-grid">
-        <div className="stat">
-          <div className="label">行動可</div>
-          <div className="value">{counts.ready}</div>
-        </div>
-        <div className="stat">
-          <div className="label">行動済み</div>
-          <div className="value">{counts.done}</div>
-        </div>
-        <div className="stat">
-          <div className="label">不明</div>
-          <div className="value">{counts.unknown}</div>
-        </div>
+        {STATUS_SUMMARY_ORDER.map((s) => (
+          <div className="stat" key={s}>
+            <div className="label">{ACTION_LABEL[s]}</div>
+            <div className="value">{counts[s]}</div>
+          </div>
+        ))}
       </div>
+
+      <details className="badge-legend">
+        <summary>固定バッジの見方</summary>
+        <ul className="badge-legend-list">
+          <li>
+            <span className="status no-rest no-rest--loose">末尾固定</span>
+            <span className="muted">
+              行動時刻の「分」の1の位が2戦以上そろっている（休養を挟まず連続行動の疑い）。
+            </span>
+          </li>
+          <li>
+            <span className="status no-rest no-rest--strict">休養なし</span>
+            <span className="muted">
+              直近2戦以上がちょうど60分間隔で並んでいる。
+            </span>
+          </li>
+          <li>
+            <span className="status no-rest no-rest--evolved">固定分</span>
+            <span className="muted">
+              末尾固定が5戦以上連続。固定行動の可能性が高い。
+            </span>
+          </li>
+        </ul>
+      </details>
 
       <div className="filter-grid">
         <label className="filter">
@@ -105,9 +133,11 @@ export function DamageTab({ db }: Props) {
             }
           >
             <option value="">すべて</option>
-            <option value="ready">行動可</option>
-            <option value="done">行動済み</option>
-            <option value="unknown">不明</option>
+            {STATUS_SUMMARY_ORDER.map((s) => (
+              <option key={s} value={s}>
+                {ACTION_LABEL[s]}
+              </option>
+            ))}
           </select>
         </label>
         <label className="filter">
@@ -130,7 +160,12 @@ export function DamageTab({ db }: Props) {
       <div className="table-wrap">
         {rows.length === 0 ? (
           <div className="empty">
-            行動時刻が記録された武将がいません。戦闘履歴を登録してください。
+            <p className="empty-title">表示できる行動データがありません</p>
+            <p className="empty-hint">
+              「戦闘履歴」タブで戦績を貼り付けて登録すると、各武将の行動時刻から
+              行動状況を判定してここに表示します。
+              絞り込みを設定している場合はステータス・国の条件を見直してください。
+            </p>
           </div>
         ) : (
           <table>
@@ -153,8 +188,19 @@ export function DamageTab({ db }: Props) {
                     <span className={STATUS_CLASS[info.status]}>
                       {ACTION_LABEL[info.status]}
                     </span>
-                    {info.noRest && (
-                      <span className="status no-rest">休養なし</span>
+                    {info.noRestLabel && (
+                      <span
+                        className={
+                          info.noRestLabel === "固定分"
+                            ? "status no-rest no-rest--evolved"
+                            : info.noRestLabel === "休養なし"
+                              ? "status no-rest no-rest--strict"
+                              : "status no-rest no-rest--loose"
+                        }
+                        title={`末尾固定 ${info.noRestStreak}戦連続 / 休養なし ${info.strictStreak}戦連続`}
+                      >
+                        {info.noRestLabel}
+                      </span>
                     )}
                   </td>
                   <td>
@@ -164,7 +210,16 @@ export function DamageTab({ db }: Props) {
                       <span className="muted">-</span>
                     )}
                   </td>
-                  <td>{w.name}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="link-like"
+                      onClick={() => onSelectWarlord(w.name)}
+                      title={`${w.name} の戦績を見る`}
+                    >
+                      {w.name}
+                    </button>
+                  </td>
                   <td>
                     <span className="tag type">{w.type}</span>
                   </td>

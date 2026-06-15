@@ -1,29 +1,5 @@
-import type { BattleRecord, Warlord, WarlordMap } from "./types";
+import type { Warlord, WarlordMap } from "./types";
 import { parseActionDate } from "./action";
-import { battleKey } from "./parser";
-
-export const STORAGE_KEY = "onore-tool:warlords:v1";
-export const BATTLE_LOG_KEY = "onore-tool:battle-log:v1";
-
-export function loadAll(): WarlordMap {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as unknown;
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      return parsed as WarlordMap;
-    }
-    return {};
-  } catch {
-    return {};
-  }
-}
-
-export function saveAll(map: WarlordMap): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
-}
 
 /**
  * 既存 DB に Warlord 配列をマージ。
@@ -125,61 +101,4 @@ export function lookup(map: WarlordMap, name: string): Warlord | undefined {
   const key = name.trim();
   if (!key) return undefined;
   return map[key];
-}
-
-/* ---------- 戦闘履歴ログ ---------- */
-
-export function loadBattleLog(): BattleRecord[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(BATTLE_LOG_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as unknown;
-    return Array.isArray(parsed) ? (parsed as BattleRecord[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-export function saveBattleLog(log: BattleRecord[]): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(BATTLE_LOG_KEY, JSON.stringify(log));
-}
-
-/** 重複判定用に行テキストを正規化（空白を1つに圧縮） */
-export function normalizeLine(line: string): string {
-  return line.replace(/[\s\u3000]+/g, " ").trim();
-}
-
-/**
- * 戦闘履歴ログに新しいレコードを追加する。
- * 既存および追加分の中で内容が重複する行はスキップする。
- * 重複判定は戦闘の同一性（時刻・場所・武将・勝敗）で行うため、
- * ターン数や URL の有無だけが異なる同一戦闘もスキップされる。
- * @returns 追加後のログ・新規追加数・スキップ数
- */
-export function appendBattleLog(
-  existing: BattleRecord[],
-  incoming: BattleRecord[]
-): { log: BattleRecord[]; added: number; skipped: number } {
-  const seen = new Set(existing.map((r) => battleKey(r.line)));
-  const log = [...existing];
-  let added = 0;
-  let skipped = 0;
-  for (const r of incoming) {
-    const key = battleKey(r.line);
-    if (!key || seen.has(key)) {
-      skipped++;
-      continue;
-    }
-    seen.add(key);
-    log.push(r);
-    added++;
-  }
-  return { log, added, skipped };
-}
-
-export function resetBattleLog(): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.removeItem(BATTLE_LOG_KEY);
 }
