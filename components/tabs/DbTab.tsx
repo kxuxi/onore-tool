@@ -14,7 +14,8 @@ interface Props {
   onSelectFaction: (name: string) => void;
   /** ランキングから解析した能力値を取り込む。更新/新規件数を返す。 */
   onImportStats: (
-    stats: ReturnType<typeof parseWarlordStats>["stats"]
+    stats: ReturnType<typeof parseWarlordStats>["stats"],
+    skipped: number
   ) => Promise<{ updated: number; created: number }>;
 }
 
@@ -157,7 +158,7 @@ export function DbTab({ db, colors, onSelectWarlord, onSelectFaction, onImportSt
     setImporting(true);
     setImportMsg(null);
     try {
-      const { updated, created } = await onImportStats(stats);
+      const { updated, created } = await onImportStats(stats, skipped);
       const parts = [`${updated}件更新`, `${created}件新規`];
       if (skipped > 0) parts.push(`${skipped}行スキップ`);
       setImportMsg({ kind: "ok", text: `取り込み完了：${parts.join(" / ")}` });

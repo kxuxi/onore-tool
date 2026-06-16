@@ -28,9 +28,19 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#0f1115",
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#0f1115" },
+    { media: "(prefers-color-scheme: light)", color: "#f4f6fa" },
+  ],
   viewportFit: "cover",
 };
+
+/**
+ * 初期描画前にテーマを <html data-theme> へ適用し、ちらつき（FOUC）を防ぐ。
+ * 判定ロジックは lib/theme.ts（loadThemePref / resolveTheme）と同一に保つこと。
+ *   キー: onore-tool:theme:v1 / 自動時は 6:00〜18:00 をライト、それ以外をダーク。
+ */
+const THEME_INIT_SCRIPT = `(function(){try{var p=localStorage.getItem("onore-tool:theme:v1");var r;if(p==="light"||p==="dark"){r=p}else{var h=new Date().getHours();r=(h>=6&&h<18)?"light":"dark"}document.documentElement.dataset.theme=r}catch(e){}})();`;
 
 export default function RootLayout({
   children,
@@ -38,7 +48,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ja">
+    <html lang="ja" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body>{children}</body>
     </html>
   );

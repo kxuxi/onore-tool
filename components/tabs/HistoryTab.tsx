@@ -39,6 +39,7 @@ interface Props {
     updated: number;
     parsed: number;
     skipped: number;
+    rejected: number;
   }>;
   log: BattleRecord[];
   factionColors: FactionColorMap;
@@ -121,6 +122,7 @@ export function HistoryTab({
         updated: number;
         parsed: number;
         skipped: number;
+        rejected: number;
       }
     | { kind: "warn"; message: string }
     | { kind: "error"; message: string }
@@ -136,7 +138,9 @@ export function HistoryTab({
         setResult({
           kind: "warn",
           message:
-            "解析できる行が見つかりませんでした。タブ区切り・半角スペース区切りのどちらでも登録できます。",
+            r.rejected > 0
+              ? `項目の過不足が見つかりました。該当の戦闘は登録していません（${r.rejected}件）。攻撃側・防衛側はそれぞれ8項目（勢力名・武将名・家名・タイプ・兵種・兵科・装備1・装備2）かをご確認ください。`
+              : "解析できる行が見つかりませんでした。タブ区切り・半角スペース区切りのどちらでも登録できます。",
         });
         return;
       }
@@ -341,6 +345,12 @@ export function HistoryTab({
               <div className="label">重複スキップ</div>
               <div className="value">{result.skipped}</div>
             </div>
+            {result.rejected > 0 && (
+              <div className="stat">
+                <div className="label">過不足スキップ</div>
+                <div className="value">{result.rejected}</div>
+              </div>
+            )}
           </div>
         )}
         {result?.kind === "warn" && (

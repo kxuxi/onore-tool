@@ -8,19 +8,26 @@ import { DamageTab } from "@/components/tabs/DamageTab";
 import { UnitTab } from "@/components/tabs/UnitTab";
 import { EquipTab } from "@/components/tabs/EquipTab";
 import { NationTab } from "@/components/tabs/NationTab";
-import { FactionTab } from "@/components/tabs/FactionTab";
+import { SettingsTab } from "@/components/tabs/SettingsTab";
 import { SwiTab } from "@/components/tabs/SwiTab";
 import { WarlordDetail } from "@/components/detail/WarlordDetail";
 import { UnitDetail } from "@/components/detail/UnitDetail";
 import { EquipDetail } from "@/components/detail/EquipDetail";
 import { FactionDetail } from "@/components/detail/FactionDetail";
 import { fetchState, registerState, importWarlordStats } from "@/lib/api";
-import { parseBattleEntries } from "@/lib/parser";
+import { parseBattleEntriesChecked } from "@/lib/parser";
 import {
   loadFactionColors,
   saveFactionColors,
   type FactionColorMap,
 } from "@/lib/factionColors";
+import {
+  loadThemePref,
+  saveThemePref,
+  resolveTheme,
+  applyTheme,
+  type ThemePref,
+} from "@/lib/theme";
 import { copyText } from "@/lib/clipboard";
 import { ShareIcon, CheckIcon, RefreshIcon, ChevronUp } from "@/components/icons";
 import type { BattleRecord, TabKey, WarlordMap } from "@/lib/types";
@@ -35,7 +42,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "weapons", label: "武器図鑑" },
   { key: "items", label: "品物図鑑" },
   { key: "nations", label: "国" },
-  { key: "factions", label: "国カラー" },
+  { key: "factions", label: "環境設定" },
 ];
 
 /** 武将 / 兵種 / 武器 / 品物 ページの表示状態 */
@@ -95,6 +102,8 @@ export default function HomePage() {
   const [db, setDb] = useState<WarlordMap>({});
   const [battleLog, setBattleLog] = useState<BattleRecord[]>([]);
   const [factionColors, setFactionColors] = useState<FactionColorMap>({});
+  // テーマの好み（自動 / ライト / ダーク）。実際の適用は data-theme で行う。
+  const [themePref, setThemePref] = useState<ThemePref>("auto");
   // 詳細ページ（武将 / 兵種）はスタックで管理し、相互リンクの「戻る」を自然にする。
   const [detailStack, setDetailStack] = useState<DetailView[]>([]);
   const [hydrated, setHydrated] = useState(false);
@@ -178,6 +187,29 @@ export default function HomePage() {
   // 国カラー設定をローカルから読み込み
   useEffect(() => {
     setFactionColors(loadFactionColors());
+  }, []);
+
+  // テーマの好みをローカルから読み込み、解決して適用する。
+  useEffect(() => {
+    const pref = loadThemePref();
+    setThemePref(pref);
+    applyTheme(resolveTheme(pref));
+  }, []);
+
+  // 「自動」のときは時間帯の境界（昼/夜）をまたいでも追従するよう定期的に再適用する。
+  useEffect(() => {
+    if (themePref !== "auto") return;
+    const id = window.setInterval(() => {
+      applyTheme(resolveTheme("auto"));
+    }, 60_000);
+    return () => window.clearInterval(id);
+  }, [themePref]);
+
+  // テーマの好みを変更して保存・即時適用する。
+  const handleChangeTheme = useCallback((pref: ThemePref) => {
+    setThemePref(pref);
+    saveThemePref(pref);
+    applyTheme(resolveTheme(pref));
   }, []);
 
   // 初回マウント時に URL クエリからタブ・詳細ページを復元（共有リンク・再読込対応）
@@ -342,10 +374,30 @@ export default function HomePage() {
 
   const handleRegister = useCallback(
     async (text: string) => {
-      const entries = parseBattleEntries(text);
+      const { entries, rejected } = parseBattleEntriesChecked(text);
       const warlords = entries.flatMap((e) => e.warlords);
+      const rejectedCount = rejected.length;
+      // 項目の過不足を検出した行は登録せず、トーストで警告する。
+      const rejectMessage =
+        rejectedCount > 0
+          ? `項目の過不足を検出しました（${
+              rejected[0].battleNo ?? "1件目"
+            }: ${rejected[0].reason}${
+              rejectedCount > 1 ? ` ほか${rejectedCount - 1}件` : ""
+            }）。該当の戦闘は登録していません。`
+          : "";
       if (warlords.length === 0) {
-        return { added: 0, updated: 0, parsed: 0, skipped: 0 };
+        // 取り込めるエントリが無い。過不足行があれば警告のみ出す。
+        if (rejectedCount > 0) {
+          setToast({ kind: "error", message: rejectMessage });
+        }
+        return {
+          added: 0,
+          updated: 0,
+          parsed: 0,
+          skipped: 0,
+          rejected: rejectedCount,
+        };
       }
       const now = Date.now();
       const records: BattleRecord[] = entries.map((e) => ({
@@ -357,15 +409,24 @@ export default function HomePage() {
         const res = await registerState(warlords, records);
         setDb(res.db);
         setBattleLog(res.log);
-        setToast({
-          kind: "success",
-          message: `登録: 新規 ${res.added} / 更新 ${res.updated}（履歴 +${res.logAdded} / 重複 ${res.skipped}）`,
-        });
+        if (rejectedCount > 0) {
+          // 正常分は登録しつつ、過不足の警告を優先表示する（エラー扱いで残す）。
+          setToast({
+            kind: "error",
+            message: `${rejectMessage} 正常分（新規 ${res.added} / 更新 ${res.updated}）は登録しました。`,
+          });
+        } else {
+          setToast({
+            kind: "success",
+            message: `登録: 新規 ${res.added} / 更新 ${res.updated}（履歴 +${res.logAdded} / 重複 ${res.skipped}）`,
+          });
+        }
         return {
           added: res.added,
           updated: res.updated,
           parsed: warlords.length,
           skipped: res.skipped,
+          rejected: rejectedCount,
         };
       } catch (e) {
         setToast({ kind: "error", message: "登録に失敗しました" });
@@ -378,14 +439,23 @@ export default function HomePage() {
 
   const handleImportStats = useCallback(
     async (
-      stats: Parameters<typeof importWarlordStats>[0]
+      stats: Parameters<typeof importWarlordStats>[0],
+      skipped = 0
     ): Promise<{ updated: number; created: number }> => {
       const res = await importWarlordStats(stats);
       setDb(res.db);
-      setToast({
-        kind: "success",
-        message: `能力値取り込み: 更新 ${res.updated} / 新規 ${res.created}`,
-      });
+      if (skipped > 0) {
+        // 項目の過不足で取り込めなかった行があれば警告（エラー扱いで残す）。
+        setToast({
+          kind: "error",
+          message: `能力値取り込み: 項目の過不足により ${skipped}行をスキップしました。正常分（更新 ${res.updated} / 新規 ${res.created}）は取り込みました。`,
+        });
+      } else {
+        setToast({
+          kind: "success",
+          message: `能力値取り込み: 更新 ${res.updated} / 新規 ${res.created}`,
+        });
+      }
       return { updated: res.updated, created: res.created };
     },
     []
@@ -546,11 +616,13 @@ export default function HomePage() {
         );
       case "factions":
         return (
-          <FactionTab
+          <SettingsTab
             db={db}
             colors={factionColors}
-            onChange={handleChangeFactionColors}
+            onChangeColors={handleChangeFactionColors}
             onSelectFaction={selectFaction}
+            themePref={themePref}
+            onChangeTheme={handleChangeTheme}
           />
         );
       default:
@@ -561,9 +633,11 @@ export default function HomePage() {
     db,
     battleLog,
     factionColors,
+    themePref,
     handleRegister,
     handleImportStats,
     handleChangeFactionColors,
+    handleChangeTheme,
     selectWarlord,
     selectUnit,
     selectEquip,

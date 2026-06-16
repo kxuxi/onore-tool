@@ -13,6 +13,42 @@
   --warning: #f0b429;
 }
 
+/* ライトテーマ（自動切替＝昼／または手動でライト選択時）。
+   配色は CSS 変数で集中管理しているため、上書きするだけで全体に反映される。 */
+:root[data-theme="light"] {
+  --bg: #f4f6fa;
+  --panel: #ffffff;
+  --panel-2: #eef1f6;
+  --border: #d6dbe4;
+  --text: #1b2230;
+  --muted: #5c6675;
+  --accent: #2f6fe0;
+  --accent-strong: #1f5fd0;
+  --danger: #d6362f;
+  --danger-strong: #bd2a24;
+  --success: #2f9e44;
+  --warning: #b9770a;
+}
+
+/* 一部はダーク前提のハードコード色のため、ライト時のみ個別に上書きする
+   （ヘッダー背景やホバー色が暗いままだと文字が読めなくなるのを防ぐ）。 */
+:root[data-theme="light"] .header {
+  background: rgba(255, 255, 255, 0.92);
+}
+:root[data-theme="light"] .btn:hover {
+  background: var(--border);
+}
+:root[data-theme="light"] .battle-card:hover {
+  border-color: #c4ccd8;
+  background: #e9edf4;
+}
+
+/* 配色をテーマ追従にすると、滑らかに切り替わって見えるようにする。 */
+html,
+body {
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -3067,4 +3103,62 @@ button.tag.faction-link:focus-visible {
     scroll-behavior: auto !important;
   }
 }
+
+/* ---------- 環境設定（テーマ切替） ---------- */
+.theme-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+/* 自動 / ライト / ダーク のセグメント切替。 */
+.theme-seg {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.theme-seg-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.theme-seg-btn:hover {
+  color: var(--text);
+}
+
+.theme-seg-btn.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.theme-seg-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.theme-current {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.theme-current strong {
+  color: var(--text);
+  font-weight: 700;
+}
+
 

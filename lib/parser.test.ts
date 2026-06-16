@@ -4,6 +4,7 @@ import {
   extractBattleUrl,
   parseBattleCard,
   parseBattleLine,
+  parseBattleEntriesChecked,
   normalizeDisplayToken,
   isSpecialToken,
   battleKey,
@@ -256,5 +257,60 @@ describe("battleKey の重複排除", () => {
     const a = battleKey(LINE_PLAIN);
     const d = battleKey(LINE_PLAIN.replace("信長の勝利", "勝頼の勝利"));
     expect(a).not.toBe(d);
+  });
+});
+
+describe("parseBattleEntriesChecked（項目の過不足の検出）", () => {
+  it("正常な行は entries に入り rejected は空", () => {
+    const { entries, rejected } = parseBattleEntriesChecked(LINE_PLAIN);
+    expect(entries).toHaveLength(1);
+    expect(rejected).toHaveLength(0);
+    expect(entries[0].warlords.map((w) => w.name)).toEqual(["信長", "勝頼"]);
+  });
+
+  it("V.S. が無い戦闘エントリは拒否し理由を付ける", () => {
+    const line =
+      "【2戦目】 1583年4月 04/10 10:23 京都 織田 信長 織田家 武特 騎馬隊 騎兵 槍 鎧 武田 勝頼";
+    const { entries, rejected } = parseBattleEntriesChecked(line);
+    expect(entries).toHaveLength(0);
+    expect(rejected).toHaveLength(1);
+    expect(rejected[0].battleNo).toBe("2戦目");
+    expect(rejected[0].reason).toContain("V.S.");
+  });
+
+  it("攻撃側の項目が不足している戦闘は拒否する", () => {
+    const line =
+      "【3戦目】 1583年4月 04/10 10:23 京都 織田 信長 V.S. 武田 勝頼 武田家 統特 騎馬隊 騎兵 馬 旗 信長の勝利 12";
+    const { rejected } = parseBattleEntriesChecked(line);
+    expect(rejected).toHaveLength(1);
+    expect(rejected[0].reason).toContain("攻撃側");
+  });
+
+  it("防衛側の項目が不足している戦闘は拒否する", () => {
+    const line =
+      "【4戦目】 1583年4月 04/10 10:23 京都 織田 信長 織田家 武特 騎馬隊 騎兵 槍 鎧 V.S. 武田 勝頼 武田家";
+    const { rejected } = parseBattleEntriesChecked(line);
+    expect(rejected).toHaveLength(1);
+    expect(rejected[0].reason).toContain("防衛側");
+  });
+
+  it("正常な行と過不足の行が混在しても、正常分だけ取り込み過不足は拒否する", () => {
+    const broken =
+      "【2戦目】 1583年4月 04/10 10:23 京都 織田 信長 V.S. 武田 勝頼";
+    const { entries, rejected } = parseBattleEntriesChecked(
+      `${LINE_PLAIN} ${broken}`
+    );
+    expect(entries).toHaveLength(1);
+    expect(entries[0].warlords[0].name).toBe("信長");
+    expect(rejected).toHaveLength(1);
+    expect(rejected[0].battleNo).toBe("2戦目");
+  });
+
+  it("戦闘エントリの体裁でない断片（メモ等）は対象外で拒否しない", () => {
+    const { entries, rejected } = parseBattleEntriesChecked(
+      "あとで貼り付けるメモ書き"
+    );
+    expect(entries).toHaveLength(0);
+    expect(rejected).toHaveLength(0);
   });
 });

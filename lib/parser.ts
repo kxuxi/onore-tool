@@ -206,24 +206,89 @@ export interface BattleEntry {
   warlords: Warlord[];
 }
 
+/** 取り込めなかった（項目の過不足がある）戦闘セグメント。 */
+export interface RejectedBattle {
+  /** 該当セグメントの生テキスト。 */
+  segment: string;
+  /** 例: "1戦目"。判別できなければ undefined。 */
+  battleNo?: string;
+  /** 取り込めなかった理由（利用者向けメッセージ）。 */
+  reason: string;
+}
+
+/** 解析結果（取り込めた行と、項目の過不足で弾いた行）。 */
+export interface BattleParseResult {
+  entries: BattleEntry[];
+  /** 項目数が想定と合わず取り込めなかった戦闘。 */
+  rejected: RejectedBattle[];
+}
+
+/** セグメントが戦闘エントリの体裁（【N戦目】で始まる）かどうか。 */
+function looksLikeBattleSegment(seg: string): boolean {
+  return /^【[^】]*戦目】/.test(seg.trim());
+}
+
+/** 【N戦目】 から戦目番号（例: "1戦目"）を取り出す。 */
+function battleNoOf(seg: string): string | undefined {
+  const m = seg.trim().match(/^【([^】]*戦目)】/);
+  return m ? m[1] : undefined;
+}
+
 /**
- * 複数行をパースし、解析できた行ごとに
- * 生テキスト・戦闘時刻・武将情報をまとめて返す。
+ * 戦闘エントリの体裁だが取り込めなかった理由を、項目（トークン）数から判定する。
+ * 攻撃側・防衛側はそれぞれ 8 項目（勢力名 武将名 家名 タイプ 兵種名 兵科 装備1 装備2）
+ * が必要で、これに過不足があると登録できない。
  */
-export function parseBattleEntries(text: string): BattleEntry[] {
-  const out: BattleEntry[] = [];
+function battleRejectReason(seg: string): string {
+  const { line: raw } = extractBattleUrl(seg.replace(/\r/g, "").trim());
+  const tokens = raw
+    .split(/[\s\u3000]+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0);
+  const vsIndex = tokens.findIndex((t) => /^v\.?s\.?$/i.test(t));
+  if (vsIndex < 0) return "「V.S.」の区切りが見つかりません";
+  if (vsIndex < 8) return "攻撃側の項目数が不足しています";
+  if (tokens.length < vsIndex + 9) return "防衛側の項目数が不足しています";
+  return "必須項目（武将名・タイプ・兵科）が空です";
+}
+
+/**
+ * 複数行をパースし、取り込めた行と「項目の過不足で取り込めなかった行」を
+ * 分けて返す。戦闘エントリの体裁（【N戦目】で始まる）でない断片は対象外。
+ */
+export function parseBattleEntriesChecked(text: string): BattleParseResult {
+  const entries: BattleEntry[] = [];
+  const rejected: RejectedBattle[] = [];
   for (const seg of splitBattleSegments(text)) {
+    // 前置きのメモ等、戦闘エントリの体裁でない断片は検証対象にしない。
+    if (!looksLikeBattleSegment(seg)) continue;
     const warlords = parseBattleLine(seg);
-    if (warlords.length === 0) continue;
+    if (warlords.length === 0) {
+      // 戦闘の体裁だが攻撃側／防衛側の項目数が想定と合わない（過不足）。
+      rejected.push({
+        segment: seg,
+        battleNo: battleNoOf(seg),
+        reason: battleRejectReason(seg),
+      });
+      continue;
+    }
     // seg はマークダウンのリンク（URL）を含む原文のまま保持し、
     // 保存・表示時に URL を取り出せるようにする。
-    out.push({
+    entries.push({
       line: seg,
       time: warlords[0]?.battleAt,
       warlords,
     });
   }
-  return out;
+  return { entries, rejected };
+}
+
+/**
+ * 複数行をパースし、解析できた行ごとに
+ * 生テキスト・戦闘時刻・武将情報をまとめて返す。
+ */
+export function parseBattleEntries(text: string): BattleEntry[] {
+  return parseBattleEntriesChecked(text).entries;
 }
 
 /** 勝者側 */
