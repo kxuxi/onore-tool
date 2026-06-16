@@ -22,16 +22,21 @@ import {
   saveFactionColors,
   type FactionColorMap,
 } from "@/lib/factionColors";
-import {
-  loadThemePref,
-  saveThemePref,
-  resolveTheme,
-  applyTheme,
-  COLOR_SCHEME_QUERY,
-  type ThemePref,
-  type ResolvedTheme,
-} from "@/lib/theme";
 import { copyText } from "@/lib/clipboard";
+import {
+  TAB_LABELS,
+  TAB_GROUPS,
+  GROUP_OF_TAB,
+  type TabGroupKey,
+} from "@/lib/tabs";
+import {
+  buildPath,
+  navStateFromLocation,
+  type DetailView,
+} from "@/lib/navigation";
+import { useToasts } from "@/lib/useToasts";
+import { useTheme } from "@/lib/useTheme";
+import { ToastStack } from "@/components/Toasts";
 import {
   ShareIcon,
   CheckIcon,
@@ -67,263 +72,18 @@ const TAB_ICONS: Record<TabKey, ReactNode> = {
   factions: <SlidersIcon />,
 };
 
-/** タブ（リーフ）ごとの短いラベル。ページ内サブタブの見出しに使う。 */
-const TAB_LABELS: Record<TabKey, string> = {
-  history: "戦闘履歴",
-  scout: "偵察検索",
-  damage: "被弾表",
-  swi: "ランキング",
-  db: "DB確認",
-  units: "兵種",
-  weapons: "武器",
-  items: "品物",
-  nations: "国",
-  factions: "環境設定",
-};
-
-/** サイドバーのグループキー（似た画面をまとめた単位）。 */
-type TabGroupKey =
-  | "history"
-  | "warlords"
-  | "ranking"
-  | "encyclopedia"
-  | "nations"
-  | "settings";
-
-/**
- * サイドバーのグループ定義。似た画面を1グループにまとめ、複数リーフを持つ
- * グループはページ内のサブタブ（セグメント）で切り替える。
- * リーフ（TabKey）は従来どおり URL `?tab=` の値として使い、共有リンクの互換を保つ。
- */
-const TAB_GROUPS: {
-  key: TabGroupKey;
-  label: string;
-  icon: ReactNode;
-  tabs: TabKey[];
-}[] = [
-  { key: "history", label: "戦闘履歴", icon: <HistoryIcon />, tabs: ["history"] },
-  {
-    key: "warlords",
-    label: "武将",
-    icon: <UsersIcon />,
-    tabs: ["scout", "damage", "db"],
-  },
-  { key: "ranking", label: "ランキング", icon: <TrophyIcon />, tabs: ["swi"] },
-  {
-    key: "encyclopedia",
-    label: "図鑑",
-    icon: <BookIcon />,
-    tabs: ["units", "weapons", "items"],
-  },
-  { key: "nations", label: "国", icon: <FlagIcon />, tabs: ["nations"] },
-  { key: "settings", label: "環境設定", icon: <SlidersIcon />, tabs: ["factions"] },
-];
-
-/** リーフタブ → 所属グループ の逆引き。 */
-const GROUP_OF_TAB: Record<TabKey, TabGroupKey> = TAB_GROUPS.reduce(
-  (acc, g) => {
-    for (const t of g.tabs) acc[t] = g.key;
-    return acc;
-  },
-  {} as Record<TabKey, TabGroupKey>
-);
-
-/** すべての有効なリーフタブキー（URL のタブ検証に使う）。 */
-const ALL_TAB_KEYS: TabKey[] = TAB_GROUPS.flatMap((g) => g.tabs);
-
-/** 武将 / 兵種 / 武器 / 品物 ページの表示状態 */
-type DetailView = {
-  kind: "warlord" | "unit" | "weapon" | "item" | "faction";
-  name: string;
-};
-
-/**
- * 詳細ページの種類ごとの URL スラッグ（パスの一区切り）。
- * タブのスラッグ（複数形・英単語）と衝突しないよう、詳細は単数形にする。
- */
-const DETAIL_SEG: Record<DetailView["kind"], string> = {
-  warlord: "warlord",
-  unit: "unit",
-  weapon: "weapon",
-  item: "item",
-  faction: "nation",
-};
-
-/** URL スラッグ（パス区切り）→ 詳細種類 の逆引き。 */
-const SEG_TO_DETAIL: Record<string, DetailView["kind"]> = Object.entries(
-  DETAIL_SEG
-).reduce(
-  (acc, [kind, seg]) => {
-    acc[seg] = kind as DetailView["kind"];
-    return acc;
-  },
-  {} as Record<string, DetailView["kind"]>
-);
-
-/**
- * 各リーフタブの URL パス区切り（グループ階層を反映した入れ子）。
- * 戦闘履歴は既定なのでルート（空）に割り当てる。
- */
-const TAB_PATH: Record<TabKey, string[]> = {
-  history: [],
-  scout: ["warlords", "scout"],
-  damage: ["warlords", "damage"],
-  db: ["warlords", "db"],
-  swi: ["ranking"],
-  units: ["encyclopedia", "units"],
-  weapons: ["encyclopedia", "weapons"],
-  items: ["encyclopedia", "items"],
-  nations: ["nations"],
-  factions: ["settings"],
-};
-
-/** タブのパス（"warlords/damage" 等）→ TabKey の逆引き。 */
-const PATH_TO_TAB: Record<string, TabKey> = Object.entries(TAB_PATH).reduce(
-  (acc, [tab, segs]) => {
-    acc[segs.join("/")] = tab as TabKey;
-    return acc;
-  },
-  {} as Record<string, TabKey>
-);
-
-/** 旧クエリ（?tab=...）のタブ値 → TabKey（共有リンクの後方互換用）。 */
-const LEGACY_TAB_PARAM: Record<DetailView["kind"], string> = {
-  warlord: "w",
-  unit: "u",
-  weapon: "wp",
-  item: "it",
-  faction: "f",
+/** サイドバーのグループごとのアイコン（JSX なので描画側に置く）。 */
+const GROUP_ICONS: Record<TabGroupKey, ReactNode> = {
+  history: <HistoryIcon />,
+  warlords: <UsersIcon />,
+  ranking: <TrophyIcon />,
+  encyclopedia: <BookIcon />,
+  nations: <FlagIcon />,
+  settings: <SlidersIcon />,
 };
 
 /** デスクトップでのサイドバー開閉の好みを保存する localStorage キー。 */
 const SIDEBAR_KEY = "onore.sidebarOpen";
-
-/** 画面右下に積み重ねて表示する通知トースト。 */
-type ToastMsg = { id: number; kind: "success" | "error"; message: string };
-
-/** トースト自動消去のミリ秒（成功のみ。エラーは手動で閉じるまで残す）。 */
-const TOAST_AUTO_DISMISS_MS = 2400;
-
-/** 1件のトースト。成功は一定時間で自動消去するが、ホバー/フォーカス中は消さない。 */
-function ToastItem({
-  toast,
-  onDismiss,
-}: {
-  toast: ToastMsg;
-  onDismiss: (id: number) => void;
-}) {
-  const [paused, setPaused] = useState(false);
-  useEffect(() => {
-    // エラーは重要なので自動消去しない。ホバー/フォーカス中も消さない。
-    if (toast.kind === "error" || paused) return;
-    const timer = window.setTimeout(
-      () => onDismiss(toast.id),
-      TOAST_AUTO_DISMISS_MS
-    );
-    return () => window.clearTimeout(timer);
-  }, [toast.id, toast.kind, paused, onDismiss]);
-  return (
-    <div
-      className={"toast " + toast.kind}
-      role={toast.kind === "error" ? "alert" : "status"}
-      aria-live={toast.kind === "error" ? "assertive" : "polite"}
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      onFocus={() => setPaused(true)}
-      onBlur={() => setPaused(false)}
-    >
-      <span className="toast-message">{toast.message}</span>
-      <button
-        type="button"
-        className="toast-close"
-        onClick={() => onDismiss(toast.id)}
-        aria-label="通知を閉じる"
-      >
-        ×
-      </button>
-    </div>
-  );
-}
-
-/** タブ・詳細ページの状態を入れ子スラッグのパスへ変換する（共有・履歴で共用）。 */
-function buildPath(tab: TabKey, detail: DetailView | null): string {
-  const segs = [...TAB_PATH[tab]];
-  if (detail) {
-    segs.push(DETAIL_SEG[detail.kind], encodeURIComponent(detail.name));
-  }
-  return "/" + segs.join("/");
-}
-
-/** 旧クエリ（?tab=...&w=... 等）からタブ・詳細スタックを復元する（後方互換）。 */
-function navStateFromSearch(search: string): {
-  tab: TabKey;
-  detailStack: DetailView[];
-} {
-  const params = new URLSearchParams(search);
-  const t = params.get("tab");
-  // 旧「武器・品物」タブ（equips）の共有リンクは武器図鑑へ寄せる。
-  const tabKey = t === "equips" ? "weapons" : t;
-  const tab: TabKey =
-    tabKey && ALL_TAB_KEYS.includes(tabKey as TabKey)
-      ? (tabKey as TabKey)
-      : "history";
-  let detailStack: DetailView[] = [];
-  for (const kind of Object.keys(LEGACY_TAB_PARAM) as DetailView["kind"][]) {
-    const v = params.get(LEGACY_TAB_PARAM[kind]);
-    if (v) {
-      detailStack = [{ kind, name: v }];
-      break;
-    }
-  }
-  return { tab, detailStack };
-}
-
-/** 入れ子スラッグのパスからタブ・詳細スタックを復元する。 */
-function navStateFromPath(pathname: string): {
-  tab: TabKey;
-  detailStack: DetailView[];
-} {
-  const parts = pathname
-    .split("/")
-    .filter(Boolean)
-    .map((p) => {
-      try {
-        return decodeURIComponent(p);
-      } catch {
-        return p;
-      }
-    });
-  let detailStack: DetailView[] = [];
-  let tabParts = parts;
-  // 末尾が「詳細スラッグ + 名前」の 2 区切りなら、それを詳細として切り出す。
-  if (parts.length >= 2) {
-    const segMaybe = parts[parts.length - 2];
-    const kind = SEG_TO_DETAIL[segMaybe];
-    if (kind) {
-      detailStack = [{ kind, name: parts[parts.length - 1] }];
-      tabParts = parts.slice(0, parts.length - 2);
-    }
-  }
-  const tab = PATH_TO_TAB[tabParts.join("/")] ?? "history";
-  return { tab, detailStack };
-}
-
-/** 現在のロケーション（パス優先・旧クエリは後方互換）からナビ状態を復元する。 */
-function navStateFromLocation(loc: {
-  pathname: string;
-  search: string;
-}): { tab: TabKey; detailStack: DetailView[] } {
-  const fromPath = navStateFromPath(loc.pathname);
-  // パスが既定（ルート）で詳細も無いが、旧クエリ付きの共有リンクなら互換解釈する。
-  if (
-    fromPath.tab === "history" &&
-    fromPath.detailStack.length === 0 &&
-    loc.search
-  ) {
-    return navStateFromSearch(loc.search);
-  }
-  return fromPath;
-}
 
 /** 共有DBを最後に取得した時刻を HH:MM 表記にする。 */
 function formatClock(ts: number): string {
@@ -338,28 +98,20 @@ export default function HomePage() {
   const [db, setDb] = useState<WarlordMap>({});
   const [battleLog, setBattleLog] = useState<BattleRecord[]>([]);
   const [factionColors, setFactionColors] = useState<FactionColorMap>({});
-  // テーマの好み（自動 / ライト / ダーク）。実際の適用は data-theme で行う。
-  const [themePref, setThemePref] = useState<ThemePref>("auto");
-  // 現在画面に適用中の解決済みテーマ（ヘッダーの即時トグルのアイコン表示用）。
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme | null>(null);
+  // テーマ（好み・解決結果・切替）はフックに集約。setTheme は従来の onChangeTheme として使う。
+  const {
+    themePref,
+    resolvedTheme,
+    setTheme: handleChangeTheme,
+    toggleTheme,
+  } = useTheme();
   // 詳細ページ（武将 / 兵種）はスタックで管理し、相互リンクの「戻る」を自然にする。
   const [detailStack, setDetailStack] = useState<DetailView[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [toasts, setToasts] = useState<ToastMsg[]>([]);
-  const toastSeq = useRef(0);
-  // トーストを積み増す（最大4件まで。古いものから捨てる）。
-  const pushToast = useCallback(
-    (kind: "success" | "error", message: string) => {
-      const id = ++toastSeq.current;
-      setToasts((prev) => [...prev, { id, kind, message }].slice(-4));
-    },
-    []
-  );
-  const dismissToast = useCallback((id: number) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  }, []);
+  // 通知トーストの状態管理はフックに集約。
+  const { toasts, pushToast, dismissToast } = useToasts();
   // 初期読み込みの失敗表示・再試行用。reloadKey を変えると取得 useEffect が再実行される。
   const [loadError, setLoadError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
@@ -461,56 +213,6 @@ export default function HomePage() {
   useEffect(() => {
     setFactionColors(loadFactionColors());
   }, []);
-
-  // 好みからテーマを解決して <html> へ適用し、見た目の状態も控えておく。
-  const applyThemeResolved = useCallback((pref: ThemePref) => {
-    const r = resolveTheme(pref);
-    applyTheme(r);
-    setResolvedTheme(r);
-  }, []);
-
-  // テーマの好みをローカルから読み込み、解決して適用する。
-  useEffect(() => {
-    const pref = loadThemePref();
-    setThemePref(pref);
-    applyThemeResolved(pref);
-  }, [applyThemeResolved]);
-
-  // 「自動」のときは時間帯の境界（昼/夜）をまたいでも追従するよう定期的に再適用する。
-  useEffect(() => {
-    if (themePref !== "auto") return;
-    const id = window.setInterval(() => {
-      applyThemeResolved("auto");
-    }, 60_000);
-    return () => window.clearInterval(id);
-  }, [themePref, applyThemeResolved]);
-
-  // 「OSに合わせる」のときは、OSの外観設定の変更に即時追従する。
-  useEffect(() => {
-    if (themePref !== "system") return;
-    if (typeof window === "undefined" || !window.matchMedia) return;
-    const mq = window.matchMedia(COLOR_SCHEME_QUERY);
-    const onChange = () => applyThemeResolved("system");
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, [themePref, applyThemeResolved]);
-
-  // テーマの好みを変更して保存・即時適用する。
-  const handleChangeTheme = useCallback(
-    (pref: ThemePref) => {
-      setThemePref(pref);
-      saveThemePref(pref);
-      applyThemeResolved(pref);
-    },
-    [applyThemeResolved]
-  );
-
-  // ヘッダーのワンタップ切替。現在の見た目と逆のテーマを明示指定する
-  //（auto/system からでもライト⇔ダークへ即切替できる）。
-  const toggleTheme = useCallback(() => {
-    const current = resolvedTheme ?? resolveTheme(themePref);
-    handleChangeTheme(current === "dark" ? "light" : "dark");
-  }, [resolvedTheme, themePref, handleChangeTheme]);
 
   // 初回マウント時に URL からタブ・詳細ページを復元（共有リンク・再読込対応）
   const justRestored = useRef(false);
@@ -811,64 +513,38 @@ export default function HomePage() {
     [groupTabs, tab, selectTab]
   );
 
-  // 武将ページを開く（同じ対象が既に最前面なら何もしない）。
+  // 詳細ページ（武将 / 兵種 / 武器 / 品物 / 国）を開く共通処理。
+  // 同じ対象が既に最前面なら積まない。モバイルではサイドバーを閉じる。
+  const openDetail = useCallback(
+    (kind: DetailView["kind"], name: string) => {
+      const n = name.trim();
+      if (!n) return;
+      setDetailStack((s) => {
+        const top = s[s.length - 1];
+        if (top && top.kind === kind && top.name === n) return s;
+        return [...s, { kind, name: n }];
+      });
+      if (isMobile) setSidebarOpen(false);
+    },
+    [isMobile]
+  );
+
+  // 各詳細ページを開く薄いラッパー（子コンポーネントへ渡すコールバックの形に合わせる）。
   const selectWarlord = useCallback(
-    (name: string) => {
-      const n = name.trim();
-      if (!n) return;
-      setDetailStack((s) => {
-        const top = s[s.length - 1];
-        if (top && top.kind === "warlord" && top.name === n) return s;
-        return [...s, { kind: "warlord", name: n }];
-      });
-      if (isMobile) setSidebarOpen(false);
-    },
-    [isMobile]
+    (name: string) => openDetail("warlord", name),
+    [openDetail]
   );
-
-  // 兵種ページを開く。
   const selectUnit = useCallback(
-    (name: string) => {
-      const n = name.trim();
-      if (!n) return;
-      setDetailStack((s) => {
-        const top = s[s.length - 1];
-        if (top && top.kind === "unit" && top.name === n) return s;
-        return [...s, { kind: "unit", name: n }];
-      });
-      if (isMobile) setSidebarOpen(false);
-    },
-    [isMobile]
+    (name: string) => openDetail("unit", name),
+    [openDetail]
   );
-
-  // 武器ページ / 品物ページを開く。
   const selectEquip = useCallback(
-    (name: string, slot: "weapon" | "item") => {
-      const n = name.trim();
-      if (!n) return;
-      setDetailStack((s) => {
-        const top = s[s.length - 1];
-        if (top && top.kind === slot && top.name === n) return s;
-        return [...s, { kind: slot, name: n }];
-      });
-      if (isMobile) setSidebarOpen(false);
-    },
-    [isMobile]
+    (name: string, slot: "weapon" | "item") => openDetail(slot, name),
+    [openDetail]
   );
-
-  // 国（勢力）ページを開く。
   const selectFaction = useCallback(
-    (name: string) => {
-      const n = name.trim();
-      if (!n) return;
-      setDetailStack((s) => {
-        const top = s[s.length - 1];
-        if (top && top.kind === "faction" && top.name === n) return s;
-        return [...s, { kind: "faction", name: n }];
-      });
-      if (isMobile) setSidebarOpen(false);
-    },
-    [isMobile]
+    (name: string) => openDetail("faction", name),
+    [openDetail]
   );
 
   const backDetail = useCallback(() => {
@@ -1136,7 +812,7 @@ export default function HomePage() {
                 onClick={() => selectGroup(g.key)}
               >
                 <span className="nav-item-icon" aria-hidden="true">
-                  {g.icon}
+                  {GROUP_ICONS[g.key]}
                 </span>
                 <span className="nav-item-label">{g.label}</span>
               </button>
@@ -1230,13 +906,7 @@ export default function HomePage() {
         </button>
       )}
 
-      {toasts.length > 0 && (
-        <div className="toast-stack">
-          {toasts.map((t) => (
-            <ToastItem key={t.id} toast={t} onDismiss={dismissToast} />
-          ))}
-        </div>
-      )}
+      <ToastStack toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }
