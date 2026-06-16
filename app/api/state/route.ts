@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { makeErrorResponse } from "@/lib/apiError";
+import { requireAdmin } from "@/lib/authGuard";
 import { mergeWarlords } from "@/lib/storage";
 import { battleKey } from "@/lib/parser";
 import type { BattleRecord, Warlord, WarlordMap } from "@/lib/types";
@@ -141,6 +142,8 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    const denied = requireAdmin();
+    if (denied) return denied;
     let raw: unknown;
     try {
       raw = await req.json();

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { makeErrorResponse } from "@/lib/apiError";
+import { requireAdmin } from "@/lib/authGuard";
 import type { Warlord, WarlordMap } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -99,6 +100,8 @@ function parseBody(body: unknown): { stats: StatInput[] } | { error: string } {
 
 export async function POST(req: Request) {
   try {
+    const denied = requireAdmin();
+    if (denied) return denied;
     let raw: unknown;
     try {
       raw = await req.json();

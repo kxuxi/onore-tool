@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, MutableRefObject } from "react";
 import type { TabKey } from "./types";
-import { TAB_GROUPS, GROUP_OF_TAB, type TabGroupKey } from "./tabs";
+import { TAB_GROUPS, GROUP_OF_TAB, type TabGroup, type TabGroupKey } from "./tabs";
 import {
   buildPath,
   navStateFromLocation,
@@ -15,6 +15,8 @@ export interface AppNavigationState {
   detailStack: DetailView[];
   setDetailStack: React.Dispatch<React.SetStateAction<DetailView[]>>;
   detail: DetailView | null;
+  /** サイドバーに表示するグループ一覧（未ログイン時は公開グループのみ）。 */
+  navGroups: TabGroup[];
   activeGroup: TabGroupKey;
   activeGroupDef: (typeof TAB_GROUPS)[number];
   groupTabs: TabKey[];
@@ -39,6 +41,12 @@ interface UseAppNavigationOptions {
    * モバイルでサイドバーを閉じるなど、ナビゲーションに連動した副作用を渡す。
    */
   onCloseSidebar?: () => void;
+  /**
+   * 閲覧を許可するリーフタブ。指定すると、それ以外のグループはサイドバーから隠し、
+   * 保護タブが選択されたら最初の公開タブへフォールバックする。
+   * undefined（既定）はすべてのタブを許可する（＝管理者 / 認証確認中）。
+   */
+  allowedTabs?: TabKey[];
 }
 
 /**
@@ -52,6 +60,7 @@ interface UseAppNavigationOptions {
  */
 export function useAppNavigation({
   onCloseSidebar,
+  allowedTabs,
 }: UseAppNavigationOptions = {}): AppNavigationState {
   const [tab, setTab] = useState<TabKey>("history");
   const [detailStack, setDetailStack] = useState<DetailView[]>([]);
@@ -77,6 +86,26 @@ export function useAppNavigation({
   const activeGroupDef = TAB_GROUPS.find((g) => g.key === activeGroup)!;
   const groupTabs = activeGroupDef.tabs;
   const hasSubtabs = groupTabs.length > 1;
+
+  // サイドバーに表示するグループ。allowedTabs があれば公開グループのみに絞る。
+  const navGroups = useMemo(
+    () =>
+      allowedTabs
+        ? TAB_GROUPS.filter((g) => g.tabs.some((t) => allowedTabs.includes(t)))
+        : TAB_GROUPS,
+    [allowedTabs]
+  );
+
+  // 未ログインで保護タブが選択されている場合は最初の公開タブへ寄せる。
+  // URL は履歴を汚さないよう replace で正規化する（justRestored 経由）。
+  useEffect(() => {
+    if (!allowedTabs || allowedTabs.includes(tab)) return;
+    const fallback = navGroups[0]?.tabs[0];
+    if (fallback) {
+      justRestored.current = true;
+      setTab(fallback);
+    }
+  }, [allowedTabs, tab, navGroups]);
 
   // タブが変わったら、そのグループの「最後に開いたリーフ」を更新する。
   useEffect(() => {
@@ -162,19 +191,19 @@ export function useAppNavigation({
   // サイドバー（縦のグループ一覧）のキーボード操作（↑↓ / Home / End）
   const onTabKeyDown = useCallback(
     (e: KeyboardEvent<HTMLElement>) => {
-      const idx = TAB_GROUPS.findIndex((g) => g.key === activeGroup);
+      const idx = navGroups.findIndex((g) => g.key === activeGroup);
       let next = -1;
-      if (e.key === "ArrowDown") next = (idx + 1) % TAB_GROUPS.length;
+      if (e.key === "ArrowDown") next = (idx + 1) % navGroups.length;
       else if (e.key === "ArrowUp")
-        next = (idx - 1 + TAB_GROUPS.length) % TAB_GROUPS.length;
+        next = (idx - 1 + navGroups.length) % navGroups.length;
       else if (e.key === "Home") next = 0;
-      else if (e.key === "End") next = TAB_GROUPS.length - 1;
+      else if (e.key === "End") next = navGroups.length - 1;
       else return;
       e.preventDefault();
-      selectGroup(TAB_GROUPS[next].key);
+      selectGroup(navGroups[next].key);
       tabRefs.current[next]?.focus();
     },
-    [activeGroup, selectGroup]
+    [navGroups, activeGroup, selectGroup]
   );
 
   // ページ内サブタブ（横のセグメント）のキーボード操作（←→ / Home / End）
@@ -237,6 +266,7 @@ export function useAppNavigation({
     detailStack,
     setDetailStack,
     detail,
+    navGroups,
     activeGroup,
     activeGroupDef,
     groupTabs,

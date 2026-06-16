@@ -59,3 +59,28 @@ export const GROUP_OF_TAB: Record<TabKey, TabGroupKey> = TAB_GROUPS.reduce(
 
 /** すべての有効なリーフタブキー（URL のタブ検証に使う）。 */
 export const ALL_TAB_KEYS: TabKey[] = TAB_GROUPS.flatMap((g) => g.tabs);
+
+/**
+ * 未ログイン（管理者以外）でも閲覧できるグループ。
+ * 図鑑・ランキング・国の 3 グループのみ公開し、残りは管理者専用にする。
+ */
+export const PUBLIC_TAB_GROUPS: TabGroupKey[] = [
+  "ranking",
+  "encyclopedia",
+  "nations",
+];
+
+/** 公開グループに属する全リーフタブ（URL の公開判定に使う）。 */
+export const PUBLIC_TAB_KEYS: TabKey[] = TAB_GROUPS.filter((g) =>
+  PUBLIC_TAB_GROUPS.includes(g.key)
+).flatMap((g) => g.tabs);
+
+/** 指定グループが未ログインでも閲覧できるか。 */
+export function isPublicGroup(key: TabGroupKey): boolean {
+  return PUBLIC_TAB_GROUPS.includes(key);
+}
+
+/** 指定タブ（リーフ）が未ログインでも閲覧できるか。 */
+export function isPublicTab(key: TabKey): boolean {
+  return PUBLIC_TAB_KEYS.includes(key);
+}

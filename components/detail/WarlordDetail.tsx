@@ -37,6 +37,8 @@ interface Props {
   db: WarlordMap;
   log: BattleRecord[];
   colors: FactionColorMap;
+  /** コメント欄（一言コメント）を表示するか。未ログインでは非表示。 */
+  canComment: boolean;
   onSelectWarlord: (name: string) => void;
   onSelectUnit: (name: string) => void;
   onSelectFaction: (name: string) => void;
@@ -48,6 +50,7 @@ export function WarlordDetail({
   db,
   log,
   colors,
+  canComment,
   onSelectWarlord,
   onSelectUnit,
   onSelectFaction,
@@ -120,7 +123,7 @@ export function WarlordDetail({
             <div className="empty">
               この武将が登場する戦闘履歴がまだありません。
             </div>
-            <WarlordComment name={name} />
+            {canComment && <WarlordComment name={name} />}
           </>
         )
       ) : (
@@ -140,7 +143,7 @@ export function WarlordDetail({
 
           <WinHeatmapSection heatmap={heatmap} />
 
-          <WarlordComment name={name} />
+          {canComment && <WarlordComment name={name} />}
 
           <Section title="使用兵種の割合" mobileCollapsed>
             <div className="pie-block">

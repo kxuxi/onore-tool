@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { makeErrorResponse } from "@/lib/apiError";
+import { requireAdmin } from "@/lib/authGuard";
 import type { UnitType } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -51,6 +52,8 @@ export async function GET() {
 // 兵種を upsert（名前が被ったら上書き、無ければ追加）
 export async function POST(req: Request) {
   try {
+    const denied = requireAdmin();
+    if (denied) return denied;
     let raw: unknown;
     try {
       raw = await req.json();

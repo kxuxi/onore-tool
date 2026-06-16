@@ -74,3 +74,11 @@ export interface UnitType {
   /** ボーナス */
   bonus: string;
 }
+
+/** ログイン中の管理者ユーザー（クライアントが扱う最小限の情報）。 */
+export interface AuthUser {
+  /** ユーザー ID。 */
+  id: number;
+  /** ログイン ID。 */
+  username: string;
+}

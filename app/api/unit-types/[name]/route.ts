@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { makeErrorResponse } from "@/lib/apiError";
+import { requireAdmin } from "@/lib/authGuard";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,8 @@ export async function DELETE(
   { params }: { params: { name: string } }
 ) {
   try {
+    const denied = requireAdmin();
+    if (denied) return denied;
     const name = decodeURIComponent(params.name).trim();
     if (!name) {
       return NextResponse.json({ error: "name は必須です" }, { status: 400 });

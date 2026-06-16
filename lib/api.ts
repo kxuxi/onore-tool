@@ -1,4 +1,5 @@
 import type {
+  AuthUser,
   BattleRecord,
   UnitType,
   Warlord,
@@ -123,4 +124,35 @@ export async function deleteUnitType(name: string): Promise<void> {
   });
   if (!res.ok) throw new Error("兵種の削除に失敗しました");
   invalidateUnitTypesCache();
+}
+
+/** 現在のログイン状態を取得する（未ログインなら null）。 */
+export async function fetchMe(): Promise<AuthUser | null> {
+  const res = await fetch("/api/auth/me", { cache: "no-store" });
+  if (!res.ok) return null;
+  const data = (await res.json()) as { user: AuthUser | null };
+  return data.user ?? null;
+}
+
+/** ログインする。成功でユーザー情報を返し、失敗は例外を投げる。 */
+export async function login(
+  username: string,
+  password: string
+): Promise<AuthUser> {
+  const res = await fetch("/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new Error(data?.error ?? "ログインに失敗しました");
+  }
+  const data = (await res.json()) as { user: AuthUser };
+  return data.user;
+}
+
+/** ログアウトする（セッション Cookie を失効）。 */
+export async function logout(): Promise<void> {
+  await fetch("/api/auth/logout", { method: "POST" });
 }

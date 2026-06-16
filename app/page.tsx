@@ -23,9 +23,10 @@ import {
   type FactionColorMap,
 } from "@/lib/factionColors";
 import { copyText } from "@/lib/clipboard";
-import { TAB_LABELS, TAB_GROUPS, GROUP_OF_TAB, type TabGroupKey } from "@/lib/tabs";
+import { TAB_LABELS, TAB_GROUPS, GROUP_OF_TAB, PUBLIC_TAB_KEYS, type TabGroupKey } from "@/lib/tabs";
 import { useToasts } from "@/lib/useToasts";
 import { useTheme } from "@/lib/useTheme";
+import { useAuth } from "@/lib/useAuth";
 import { useDataSync } from "@/lib/useDataSync";
 import { useAppNavigation } from "@/lib/useAppNavigation";
 import { useSidebarLayout } from "@/lib/useSidebarLayout";
@@ -48,6 +49,8 @@ import {
   FlagIcon,
   SlidersIcon,
   BookIcon,
+  LogInIcon,
+  LogOutIcon,
 } from "@/components/icons";
 import type { BattleRecord, TabKey, WarlordMap } from "@/lib/types";
 
@@ -93,6 +96,8 @@ export default function HomePage() {
     setTheme: handleChangeTheme,
     toggleTheme,
   } = useTheme();
+  // 認証状態（管理者ログイン）
+  const { user, ready: authReady, isAdmin, logout } = useAuth();
   // 共有DB・戦闘履歴の取得・更新
   const {
     db,
@@ -113,12 +118,19 @@ export default function HomePage() {
   const closeSidebarOnMobile = useCallback(() => {
     if (isMobile) setSidebarOpen(false);
   }, [isMobile, setSidebarOpen]);
+  // 未ログイン（管理者以外）が見られるのは公開タブのみ。認証確認中（!authReady）と
+  // 管理者は全タブ許可（undefined）にし、保護タブの URL を不用意にフォールバックしない。
+  const allowedTabs = useMemo(
+    () => (!authReady || isAdmin ? undefined : PUBLIC_TAB_KEYS),
+    [authReady, isAdmin]
+  );
   // タブ・詳細ページの状態と URL 同期
   const {
     tab,
     detailStack,
     setDetailStack,
     detail,
+    navGroups,
     activeGroup,
     activeGroupDef,
     groupTabs,
@@ -134,7 +146,7 @@ export default function HomePage() {
     selectEquip,
     selectFaction,
     backDetail,
-  } = useAppNavigation({ onCloseSidebar: closeSidebarOnMobile });
+  } = useAppNavigation({ onCloseSidebar: closeSidebarOnMobile, allowedTabs });
 
   const [factionColors, setFactionColors] = useState<FactionColorMap>({});
   const [linkCopied, setLinkCopied] = useState(false);
@@ -203,6 +215,15 @@ export default function HomePage() {
       window.setTimeout(() => setLinkCopied(false), 1500);
     }
   }, []);
+
+  const handleLogout = useCallback(async () => {
+    try {
+      await logout();
+      pushToast("success", "ログアウトしました");
+    } catch {
+      pushToast("error", "ログアウトに失敗しました");
+    }
+  }, [logout, pushToast]);
 
   const handleRegister = useCallback(
     async (text: string) => {
@@ -390,6 +411,7 @@ export default function HomePage() {
           db={db}
           log={battleLog}
           colors={factionColors}
+          canComment={isAdmin}
           onSelectWarlord={selectWarlord}
           onSelectUnit={selectUnit}
           onSelectFaction={selectFaction}
@@ -510,6 +532,29 @@ export default function HomePage() {
             {linkCopied ? <CheckIcon /> : <ShareIcon />}
             <span>{linkCopied ? "コピー済み" : "共有"}</span>
           </button>
+          {authReady &&
+            (isAdmin ? (
+              <button
+                type="button"
+                className="btn header-auth"
+                onClick={handleLogout}
+                aria-label={`${user?.username ?? "管理者"} としてログイン中。ログアウトする`}
+                title={`${user?.username ?? "管理者"}（クリックでログアウト）`}
+              >
+                <LogOutIcon />
+                <span>ログアウト</span>
+              </button>
+            ) : (
+              <a
+                className="btn header-auth"
+                href="/login"
+                aria-label="管理者ログイン"
+                title="管理者ログイン"
+              >
+                <LogInIcon />
+                <span>ログイン</span>
+              </a>
+            ))}
         </div>
       </header>
 
@@ -535,7 +580,7 @@ export default function HomePage() {
             aria-label="メインメニュー"
             onKeyDown={onTabKeyDown}
           >
-            {TAB_GROUPS.map((g, i) => (
+            {navGroups.map((g, i) => (
               <button
                 key={g.key}
                 type="button"

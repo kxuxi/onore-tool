@@ -337,6 +337,16 @@ input:focus {
   }
 }
 
+/* ヘッダーのログイン / ログアウトボタン（共有・更新と同じ見た目。リンクの下線は消す）。 */
+.header-auth {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  text-decoration: none;
+}
+
 .header h1 .sub {
   color: var(--muted);
   font-weight: 400;
@@ -2168,9 +2178,11 @@ button.tag.faction-link:focus-visible {
   .header-fetched { display: none; }
   .header-actions { gap: 6px; }
   .header-refresh span,
-  .header-share span { display: none; }
+  .header-share span,
+  .header-auth span { display: none; }
   .header-refresh,
-  .header-share {
+  .header-share,
+  .header-auth {
     gap: 0;
     padding: 6px;
     width: 34px;
@@ -2388,6 +2400,73 @@ button.tag.faction-link:focus-visible {
     flex: 0 0 auto;
     white-space: nowrap;
   }
+}
+
+/* ===== ログインページ（/login） ===== */
+.login-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.login-card {
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 28px 24px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+}
+.login-title {
+  margin: 0;
+  font-size: 20px;
+  text-align: center;
+  letter-spacing: 0.08em;
+  color: var(--text);
+}
+.login-sub {
+  margin: 0 0 6px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+.login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.login-field .text-input {
+  width: 100%;
+}
+.login-submit {
+  margin-top: 4px;
+  width: 100%;
+  justify-content: center;
+}
+.login-error {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #fff;
+  background: var(--danger, #e5484d);
+}
+.login-back {
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+  text-decoration: none;
+}
+.login-back:hover {
+  color: var(--accent);
 }
 
 /* ===== 武将ページ / 兵種ページ ===== */
