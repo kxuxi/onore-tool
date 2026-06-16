@@ -70,11 +70,35 @@ export async function registerState(
   return res.json();
 }
 
-/** 兵種一覧を取得 */
-export async function fetchUnitTypes(): Promise<UnitType[]> {
-  const res = await fetch("/api/unit-types", { cache: "no-store" });
-  if (!res.ok) throw new Error("兵種の取得に失敗しました");
-  return res.json();
+/** 兵種一覧のメモリキャッシュ。画面ごとの重複取得を避ける。
+ *  追加 / 更新 / 削除のたびに失効させ、次回取得で最新を取り直す。 */
+let unitTypesCache: UnitType[] | null = null;
+let unitTypesInflight: Promise<UnitType[]> | null = null;
+
+/** 兵種一覧のキャッシュを破棄する（更新系の後に呼ぶ）。 */
+export function invalidateUnitTypesCache(): void {
+  unitTypesCache = null;
+  unitTypesInflight = null;
+}
+
+/** 兵種一覧を取得（キャッシュ優先）。force=true で必ず再取得する。 */
+export async function fetchUnitTypes(force = false): Promise<UnitType[]> {
+  if (!force && unitTypesCache) return unitTypesCache;
+  // 同時に複数の画面から呼ばれても 1 リクエストに集約する。
+  if (!force && unitTypesInflight) return unitTypesInflight;
+  const inflight = (async () => {
+    const res = await fetch("/api/unit-types", { cache: "no-store" });
+    if (!res.ok) throw new Error("兵種の取得に失敗しました");
+    const data = (await res.json()) as UnitType[];
+    unitTypesCache = data;
+    return data;
+  })();
+  unitTypesInflight = inflight;
+  try {
+    return await inflight;
+  } finally {
+    if (unitTypesInflight === inflight) unitTypesInflight = null;
+  }
 }
 
 /** 兵種を追加 / 更新（名前が被ったら上書き） */
@@ -88,6 +112,7 @@ export async function upsertUnitType(unit: UnitType): Promise<UnitType> {
     const data = await res.json().catch(() => null);
     throw new Error(data?.error ?? "兵種の保存に失敗しました");
   }
+  invalidateUnitTypesCache();
   return res.json();
 }
 
@@ -97,4 +122,5 @@ export async function deleteUnitType(name: string): Promise<void> {
     method: "DELETE",
   });
   if (!res.ok) throw new Error("兵種の削除に失敗しました");
+  invalidateUnitTypesCache();
 }
