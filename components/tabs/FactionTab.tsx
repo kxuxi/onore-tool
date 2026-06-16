@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { WarlordMap } from "@/lib/types";
 import {
   DEFAULT_WIN_LEFT,
@@ -50,6 +50,16 @@ export function FactionTab({ db, colors, onChange }: Props) {
   };
 
   const assigned = factions.filter((f) => colors[f]).length;
+
+  // パレットを開いている間は Escape で閉じられるようにする（キーボード操作対応）。
+  useEffect(() => {
+    if (!openFor) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenFor(null);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [openFor]);
 
   return (
     <section className="panel">
