@@ -3439,13 +3439,15 @@ button.tag.faction-link:focus-visible {
 
 .heatmap {
   display: grid;
-  grid-template-columns: auto repeat(8, minmax(20px, 1fr));
+  /* セルが横幅いっぱいに伸びて大きくなりすぎないよう上限幅を設け、全体は内容幅で左寄せにする。 */
+  grid-template-columns: auto repeat(8, minmax(14px, 22px));
   gap: 3px;
-  min-width: 280px;
+  width: max-content;
+  max-width: 100%;
 }
 
 .heat-corner {
-  width: 24px;
+  width: 20px;
 }
 
 .heat-col-label {
