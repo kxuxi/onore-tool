@@ -414,10 +414,28 @@ function splitGluedResult(
 }
 
 /**
+ * パース結果のメモ化キャッシュ。`parseBattleCard` は行テキストに対して純粋なため、
+ * 同じ行の再解析（統計関数の繰り返し呼び出し・再描画）を避けてコストを下げる。
+ * 返すカードは読み取り専用前提で共有する（呼び出し側で変更しないこと）。
+ */
+const battleCardCache = new Map<string, BattleCard | null>();
+const BATTLE_CARD_CACHE_MAX = 5000;
+
+/**
  * 1 戦闘行をカード表示用に解析する。解析できない行は null。
- * トークン構造は parseBattleLine と同じ規則に従う。
+ * トークン構造は parseBattleLine と同じ規則に従う。結果はメモ化される。
  */
 export function parseBattleCard(line: string): BattleCard | null {
+  const cached = battleCardCache.get(line);
+  if (cached !== undefined) return cached;
+  const result = computeBattleCard(line);
+  // 上限を超えたら丸ごと破棄して無制限な肥大化を防ぐ（単純な世代式）。
+  if (battleCardCache.size >= BATTLE_CARD_CACHE_MAX) battleCardCache.clear();
+  battleCardCache.set(line, result);
+  return result;
+}
+
+function computeBattleCard(line: string): BattleCard | null {
   const { line: raw, url } = extractBattleUrl(line.replace(/\r/g, "").trim());
   if (!raw) return null;
 
