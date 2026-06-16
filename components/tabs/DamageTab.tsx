@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { WarlordMap } from "@/lib/types";
-import { SearchIcon, FilterIcon, CloseIcon } from "@/components/icons";
+import { FilterIcon, CloseIcon } from "@/components/icons";
+import { SearchBox } from "@/components/SearchBox";
 import { factionBadgeStyle, type FactionColorMap } from "@/lib/factionColors";
 import {
   ACTION_LABEL,
@@ -163,20 +164,11 @@ export function DamageTab({ db, colors, onSelectWarlord }: Props) {
       </details>
 
       <div className="search-row">
-        <div className="search-box">
-          <span className="search-icon">
-            <SearchIcon />
-          </span>
-          <input
-            type="search"
-            className="text-input search-input"
-            placeholder="武将名で絞り込み"
-            value={nameQuery}
-            onChange={(e) => setNameQuery(e.target.value)}
-            autoCapitalize="off"
-            autoCorrect="off"
-          />
-        </div>
+        <SearchBox
+          value={nameQuery}
+          onChange={setNameQuery}
+          placeholder="武将名で絞り込み"
+        />
         <button
           type="button"
           className={

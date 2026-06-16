@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import type { BattleRecord } from "@/lib/types";
 import { weaponStats, itemStats, formatWinRate } from "@/lib/stats";
-import { SearchIcon, FilterIcon, CloseIcon } from "@/components/icons";
+import { FilterIcon, CloseIcon } from "@/components/icons";
+import { SearchBox } from "@/components/SearchBox";
 
 /** 集計する装備枠。weapon=装備1 / item=装備2。 */
 export type EquipVariant = "weapon" | "item";
@@ -125,20 +126,11 @@ export function EquipTab({ log, onSelectWarlord, onSelectEquip, variant }: Props
       </p>
 
       <div className="search-row">
-        <div className="search-box">
-          <span className="search-icon">
-            <SearchIcon />
-          </span>
-          <input
-            type="search"
-            className="text-input search-input"
-            placeholder={copy.searchPlaceholder}
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            autoCapitalize="off"
-            autoCorrect="off"
-          />
-        </div>
+        <SearchBox
+          value={keyword}
+          onChange={setKeyword}
+          placeholder={copy.searchPlaceholder}
+        />
         <button
           type="button"
           className={

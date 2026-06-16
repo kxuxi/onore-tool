@@ -21,7 +21,6 @@ import {
 } from "@/lib/factionColors";
 import { htmlToMarkdown, copyText } from "@/lib/clipboard";
 import {
-  SearchIcon,
   FilterIcon,
   TrophyIcon,
   ChevronLeft,
@@ -32,6 +31,7 @@ import {
   CopyIcon,
   CheckIcon,
 } from "@/components/icons";
+import { SearchBox } from "@/components/SearchBox";
 
 interface Props {
   onRegister: (text: string) => Promise<{
@@ -376,20 +376,11 @@ export function HistoryTab({
         </div>
 
         <div className="search-row">
-          <div className="search-box">
-            <span className="search-icon">
-              <SearchIcon />
-            </span>
-            <input
-              type="search"
-              className="text-input search-input"
-              placeholder="履歴を絞り込み（武将名など）"
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              autoCapitalize="off"
-              autoCorrect="off"
-            />
-          </div>
+          <SearchBox
+            value={keyword}
+            onChange={setKeyword}
+            placeholder="履歴を絞り込み（武将名など）"
+          />
           <button
             type="button"
             className="btn sort-toggle"

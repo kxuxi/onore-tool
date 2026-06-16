@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import type { BattleRecord, WarlordMap } from "@/lib/types";
 import { factionSummaries, formatWinRate } from "@/lib/stats";
 import { factionNameStyle, type FactionColorMap } from "@/lib/factionColors";
-import { SearchIcon } from "@/components/icons";
+import { SearchBox } from "@/components/SearchBox";
 
 interface Props {
   db: WarlordMap;
@@ -76,18 +76,11 @@ export function NationTab({ db, log, colors, onSelectFaction }: Props) {
       </p>
 
       <div className="search-row">
-        <div className="search-box">
-          <span className="search-icon">
-            <SearchIcon />
-          </span>
-          <input
-            type="search"
-            className="text-input search-input"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="国名で検索"
-          />
-        </div>
+        <SearchBox
+          value={query}
+          onChange={setQuery}
+          placeholder="国名で検索"
+        />
         <label className="sort-toggle">
           <span className="muted" style={{ fontSize: 12 }}>
             並べ替え

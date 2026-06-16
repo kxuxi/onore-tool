@@ -5,7 +5,8 @@ import type { WarlordMap } from "@/lib/types";
 import { copyText } from "@/lib/clipboard";
 import { parseWarlordStats } from "@/lib/warlordStats";
 import { factionBadgeStyle, type FactionColorMap } from "@/lib/factionColors";
-import { SearchIcon, FilterIcon, CloseIcon } from "@/components/icons";
+import { FilterIcon, CloseIcon } from "@/components/icons";
+import { SearchBox } from "@/components/SearchBox";
 
 interface Props {
   db: WarlordMap;
@@ -264,20 +265,11 @@ export function DbTab({ db, colors, onSelectWarlord, onSelectFaction, onImportSt
       </p>
 
       <div className="search-row">
-        <div className="search-box">
-          <span className="search-icon">
-            <SearchIcon />
-          </span>
-          <input
-            type="search"
-            className="text-input search-input"
-            placeholder="武将名で絞り込み"
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            autoCapitalize="off"
-            autoCorrect="off"
-          />
-        </div>
+        <SearchBox
+          value={keyword}
+          onChange={setKeyword}
+          placeholder="武将名で絞り込み"
+        />
         <button
           type="button"
           className={

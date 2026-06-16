@@ -1052,6 +1052,41 @@ mark.hl {
 .search-input {
   width: 100%;
   padding-left: 36px;
+  padding-right: 34px;
+}
+
+/* 各ブラウザのネイティブ検索クリアは隠し、独自の×ボタンに統一する。 */
+.search-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.search-clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.search-clear:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.search-clear-icon {
+  width: 14px;
+  height: 14px;
 }
 
 .filter-toggle {

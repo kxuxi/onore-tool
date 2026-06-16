@@ -10,7 +10,8 @@ import {
   splitGoodAgainst,
   BASE_STAT_OPTIONS,
 } from "@/lib/unitTypeForm";
-import { SearchIcon, FilterIcon, CloseIcon } from "@/components/icons";
+import { FilterIcon, CloseIcon } from "@/components/icons";
+import { SearchBox } from "@/components/SearchBox";
 
 type SortKey =
   | "name"
@@ -175,20 +176,11 @@ export function UnitTab({
       </p>
 
       <div className="search-row">
-        <div className="search-box">
-          <span className="search-icon">
-            <SearchIcon />
-          </span>
-          <input
-            type="search"
-            className="text-input search-input"
-            placeholder="兵種名で絞り込み"
-            value={filters.name ?? ""}
-            onChange={(e) => setFilter("name", e.target.value)}
-            autoCapitalize="off"
-            autoCorrect="off"
-          />
-        </div>
+        <SearchBox
+          value={filters.name ?? ""}
+          onChange={(v) => setFilter("name", v)}
+          placeholder="兵種名で絞り込み"
+        />
         <button
           type="button"
           className={

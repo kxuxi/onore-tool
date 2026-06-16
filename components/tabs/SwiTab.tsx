@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import type { BattleRecord } from "@/lib/types";
-import { SearchIcon, FilterIcon, CloseIcon } from "@/components/icons";
+import { FilterIcon, CloseIcon } from "@/components/icons";
+import { SearchBox } from "@/components/SearchBox";
 import {
   warlordRanking,
   rankMetricValue,
@@ -147,18 +148,11 @@ export function SwiTab({ log, onSelectWarlord }: Props) {
       </details>
 
       <div className="search-row">
-        <div className="search-box">
-          <span className="search-icon">
-            <SearchIcon />
-          </span>
-          <input
-            type="search"
-            className="text-input search-input"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="武将名で検索"
-          />
-        </div>
+        <SearchBox
+          value={query}
+          onChange={setQuery}
+          placeholder="武将名で検索"
+        />
         <button
           type="button"
           className={
