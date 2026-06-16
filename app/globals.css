@@ -1510,6 +1510,43 @@ mark.hl {
   outline-offset: 2px;
 }
 
+/* カスタムHEX入力（パレットの下段） */
+.palette-custom {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.palette-custom-label {
+  font-size: 12px;
+  flex: 0 0 auto;
+}
+
+.custom-color {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.custom-hex {
+  width: 96px;
+  flex: 0 0 auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-transform: uppercase;
+}
+
+.palette-apply {
+  flex: 0 0 auto;
+}
+
 .mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;

@@ -18,8 +18,32 @@ interface Props {
   onSelectFaction: (name: string) => void;
 }
 
+/** 入力された文字列を #RRGGBB（大文字）へ正規化する。3桁/6桁・先頭#の有無に対応。
+ *  妥当な16進カラーでなければ null を返す。 */
+function normalizeHex(input: string): string | null {
+  const s = input.trim().replace(/^#/, "");
+  if (/^[0-9a-fA-F]{6}$/.test(s)) return "#" + s.toUpperCase();
+  if (/^[0-9a-fA-F]{3}$/.test(s)) {
+    return (
+      "#" +
+      s
+        .split("")
+        .map((c) => c + c)
+        .join("")
+        .toUpperCase()
+    );
+  }
+  return null;
+}
+
 export function FactionTab({ db, colors, onChange, onSelectFaction }: Props) {
   const [openFor, setOpenFor] = useState<string | null>(null);
+  // カスタムHEX入力の作業値（パレットを開いている国の現在色で初期化）。
+  const [customHex, setCustomHex] = useState("");
+
+  useEffect(() => {
+    setCustomHex(openFor ? colors[openFor] ?? "" : "");
+  }, [openFor, colors]);
 
   const factions = useMemo(
     () =>
@@ -150,6 +174,45 @@ export function FactionTab({ db, colors, onChange, onSelectFaction }: Props) {
                             onClick={() => setColor(f, c.value)}
                           />
                         ))}
+                      </div>
+                      <div className="palette-custom">
+                        <span className="palette-custom-label muted">
+                          カスタム
+                        </span>
+                        <input
+                          type="color"
+                          className="custom-color"
+                          value={normalizeHex(customHex) ?? current ?? "#888888"}
+                          onChange={(e) => setCustomHex(e.target.value)}
+                          aria-label={`${f} のカスタム色を選択`}
+                        />
+                        <input
+                          type="text"
+                          className="text-input custom-hex"
+                          value={customHex}
+                          onChange={(e) => setCustomHex(e.target.value)}
+                          onKeyDown={(e) => {
+                            const hex = normalizeHex(customHex);
+                            if (e.key === "Enter" && hex) setColor(f, hex);
+                          }}
+                          placeholder="#RRGGBB"
+                          maxLength={7}
+                          spellCheck={false}
+                          autoCapitalize="off"
+                          autoCorrect="off"
+                          aria-label={`${f} のカスタムHEX`}
+                        />
+                        <button
+                          type="button"
+                          className="btn btn-primary palette-apply"
+                          onClick={() => {
+                            const hex = normalizeHex(customHex);
+                            if (hex) setColor(f, hex);
+                          }}
+                          disabled={!normalizeHex(customHex)}
+                        >
+                          適用
+                        </button>
                       </div>
                     </div>
                   )}
