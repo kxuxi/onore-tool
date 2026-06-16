@@ -3146,6 +3146,66 @@ button.tag.faction-link:focus-visible {
   white-space: nowrap;
 }
 
+/* ---------- 読み込み中スケルトン ---------- */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--text) 8%, transparent),
+    transparent
+  );
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton-title {
+  height: 24px;
+  width: 40%;
+  min-width: 160px;
+  margin-bottom: 18px;
+}
+
+.skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.skeleton-stat {
+  height: 64px;
+}
+
+.skeleton-line {
+  height: 14px;
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.skeleton-line--80 {
+  width: 80%;
+}
+
+.skeleton-line--60 {
+  width: 60%;
+}
+
 /* ---------- モーション低減（prefers-reduced-motion） ---------- */
 @media (prefers-reduced-motion: reduce) {
   *,

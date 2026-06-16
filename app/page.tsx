@@ -802,10 +802,18 @@ export default function HomePage() {
           tabIndex={-1}
         >
           {!hydrated ? (
-            <div className="panel">
-              <p className="muted" style={{ margin: 0 }}>
-                読み込み中…
-              </p>
+            <div className="panel" aria-busy="true" aria-live="polite">
+              <span className="sr-only">読み込み中…</span>
+              <div className="skeleton skeleton-title" />
+              <div className="skeleton-grid" aria-hidden="true">
+                <div className="skeleton skeleton-stat" />
+                <div className="skeleton skeleton-stat" />
+                <div className="skeleton skeleton-stat" />
+                <div className="skeleton skeleton-stat" />
+              </div>
+              <div className="skeleton skeleton-line" />
+              <div className="skeleton skeleton-line skeleton-line--80" />
+              <div className="skeleton skeleton-line skeleton-line--60" />
             </div>
           ) : loadError ? (
             <div className="panel">
