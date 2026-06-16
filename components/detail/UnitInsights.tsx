@@ -1,16 +1,12 @@
 "use client";
 
+import { formatWinRate } from "@/lib/stats";
 import type {
   OpponentUnitStat,
   UnitMatchupRanking as UnitMatchupRankingData,
   UsageTrendPoint,
   UserWinRate,
 } from "@/lib/stats";
-
-/** 勝率を百分率の文字列にする（決着が無ければ "—"）。 */
-function pctLabel(rate: number, decided: number): string {
-  return decided > 0 ? `${Math.round(rate * 100)}%` : "—";
-}
 
 /* ---------- 相性の良い／苦手な敵兵種 ---------- */
 
@@ -36,7 +32,7 @@ function UnitRankRow({
           {stat.unit}
         </button>
       </span>
-      <span className="rank-rate">{pctLabel(stat.winRate, stat.decided)}</span>
+      <span className="rank-rate">{formatWinRate(stat.winRate, stat.decided)}</span>
       <span className="rank-record">
         {stat.wins}勝{stat.losses}敗
       </span>
@@ -117,7 +113,7 @@ export function UserWinRateList({
               </button>
               <span className="user-winrate-meta">
                 <span className="user-winrate-rate">
-                  {pctLabel(u.winRate, u.decided)}
+                  {formatWinRate(u.winRate, u.decided)}
                 </span>
                 <span className="muted">
                   {u.wins}勝{u.losses}敗（{u.battles}戦）
