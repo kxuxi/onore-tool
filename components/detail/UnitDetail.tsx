@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
-import type { BattleRecord } from "@/lib/types";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { BattleRecord, UnitType } from "@/lib/types";
 import {
   collectUnitBattles,
   summarize,
@@ -10,6 +10,8 @@ import {
   unitUsageTrend,
   unitBranchLabel,
 } from "@/lib/stats";
+import { fetchUnitTypes } from "@/lib/api";
+import { parseReqStats, splitGoodAgainst } from "@/lib/unitTypeForm";
 import { BattleLogList } from "@/components/detail/BattleLogList";
 import {
   DetailHeader,
@@ -21,6 +23,7 @@ import {
   UserWinRateList,
   UsageTrend,
 } from "@/components/detail/UnitInsights";
+import { UnitEditModal } from "@/components/tabs/UnitEditModal";
 
 interface Props {
   name: string;
@@ -48,6 +51,39 @@ export function UnitDetail({
   const users = useMemo(() => userWinRates(outcomes), [outcomes]);
   const trend = useMemo(() => unitUsageTrend(log, name), [log, name]);
 
+  // 兵種マスタ（図鑑データ）を取得。詳細画面で内容の表示と編集に使う。
+  const [units, setUnits] = useState<UnitType[]>([]);
+  const [editing, setEditing] = useState(false);
+
+  const reloadUnits = useCallback(async () => {
+    try {
+      setUnits(await fetchUnitTypes());
+    } catch {
+      /* マスタ取得失敗時は戦績のみ表示する（致命的ではない） */
+    }
+  }, []);
+
+  useEffect(() => {
+    reloadUnits();
+  }, [reloadUnits]);
+
+  const unit = useMemo(
+    () => units.find((u) => u.name === name),
+    [units, name]
+  );
+
+  const statOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          units.map((u) => parseReqStats(u.reqStats).stat).filter(Boolean)
+        )
+      ),
+    [units]
+  );
+
+  const goodAgainst = unit ? splitGoodAgainst(unit.goodAgainst) : [];
+
   return (
     <section className="panel detail-panel">
       <DetailHeader
@@ -56,15 +92,89 @@ export function UnitDetail({
         tags={
           branch ? <span className="tag branch">{branch}</span> : undefined
         }
+        actions={
+          unit ? (
+            <button
+              type="button"
+              className="btn"
+              onClick={() => setEditing(true)}
+            >
+              編集
+            </button>
+          ) : undefined
+        }
         onBack={onBack}
       />
+
+      {unit && (
+        <div className="detail-section">
+          <h3>兵種データ</h3>
+          <dl className="unit-spec">
+            <div className="spec-row">
+              <dt>種類</dt>
+              <dd>{unit.category || "—"}</dd>
+            </div>
+            <div className="spec-row">
+              <dt>攻撃</dt>
+              <dd>{unit.attack}</dd>
+            </div>
+            <div className="spec-row">
+              <dt>防御</dt>
+              <dd>{unit.defense}</dd>
+            </div>
+            <div className="spec-row">
+              <dt>雇用</dt>
+              <dd>{unit.cost || "—"}</dd>
+            </div>
+            <div className="spec-row">
+              <dt>技術</dt>
+              <dd>{unit.tech || "—"}</dd>
+            </div>
+            <div className="spec-row">
+              <dt>年数</dt>
+              <dd>{unit.years || "—"}</dd>
+            </div>
+            <div className="spec-row">
+              <dt>必要能力値</dt>
+              <dd>{unit.reqStats || "—"}</dd>
+            </div>
+            <div className="spec-row">
+              <dt>得意兵種</dt>
+              <dd>
+                {goodAgainst.length > 0 ? (
+                  <span className="tag-list">
+                    {goodAgainst.map((g) => (
+                      <span key={g} className="tag unit">
+                        {g}
+                      </span>
+                    ))}
+                  </span>
+                ) : (
+                  "—"
+                )}
+              </dd>
+            </div>
+            <div className="spec-row">
+              <dt>施設/国宝</dt>
+              <dd>{unit.facility || "—"}</dd>
+            </div>
+            <div className="spec-row spec-wide">
+              <dt>特殊攻撃</dt>
+              <dd>{unit.special || "—"}</dd>
+            </div>
+            <div className="spec-row spec-wide">
+              <dt>ボーナス</dt>
+              <dd>{unit.bonus || "—"}</dd>
+            </div>
+          </dl>
+        </div>
+      )}
 
       {outcomes.length === 0 ? (
         <div className="empty">
           <p className="empty-title">この兵種の戦闘データがありません</p>
           <p className="empty-hint">
             「{name}」が使われた戦闘履歴が見つかりませんでした。
-            兵種名が変更・削除されたか、共有リンクが古い可能性があります。
             「戦闘履歴」タブで戦績を登録すると、勝率や相性がここに表示されます。
           </p>
         </div>
@@ -92,6 +202,23 @@ export function UnitDetail({
             />
           </div>
         </>
+      )}
+
+      {editing && unit && (
+        <UnitEditModal
+          initial={unit}
+          isNew={false}
+          statOptions={statOptions}
+          onClose={() => setEditing(false)}
+          onSaved={() => {
+            setEditing(false);
+            reloadUnits();
+          }}
+          onDeleted={() => {
+            setEditing(false);
+            onBack();
+          }}
+        />
       )}
     </section>
   );

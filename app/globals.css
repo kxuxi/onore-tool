@@ -578,20 +578,6 @@ input:focus {
   min-height: 60px;
 }
 
-.req-stats-group {
-  display: flex;
-  gap: 8px;
-}
-
-.req-stats-group .select {
-  flex: 0 0 45%;
-}
-
-.req-stats-group .text-input {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
 .filter {
   display: flex;
   flex-direction: column;
@@ -610,6 +596,36 @@ input:focus {
 .filter .text-input {
   flex: 0 0 auto;
   width: 100%;
+}
+
+/* 複合フィールド（雇用=金/米セレクタ+金額 / 年数=数値+「年」 / 必要能力値=種類+数値）。
+   セレクタは内容幅・数値入力は伸縮にして、セレクタが幅100%で入力欄に重なる不具合を防ぐ。
+   .filter .text-input より後ろに置いて同詳細度の打ち消しに勝たせる。 */
+.field-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.field-inline .inline-select {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 88px;
+  max-width: 55%;
+}
+
+.field-inline .text-input {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+}
+
+.field-inline .field-suffix {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 14px;
+  white-space: nowrap;
 }
 
 .select {
@@ -1755,6 +1771,17 @@ mark.hl {
   justify-content: flex-end;
 }
 
+/* 兵種フォームは項目数が多く 2 カラムで表示するため、削除確認等の小モーダルより広くする。 */
+.unit-modal {
+  max-width: 560px;
+}
+
+.form-error {
+  margin: 0;
+  color: var(--danger, #ff6b6b);
+  font-size: 13px;
+}
+
 /* ---------- Small screens ---------- */
 @media (max-width: 767px) {
   /* モバイル: サイドバーはオーバーレイ式ドロワー */
@@ -1988,6 +2015,20 @@ mark.hl {
   border-color: var(--success, #4caf50);
 }
 
+/* 戻るボタンと見出しの右側に、操作ボタン群（編集など）と共有ボタンをまとめる。
+   margin-left:auto はラッパーへ移し、内側の共有ボタンの auto は打ち消す。 */
+.detail-head-actions {
+  flex: 0 0 auto;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.detail-head-actions .detail-share {
+  margin-left: 0;
+}
+
 .detail-title {
   min-width: 0;
 }
@@ -2048,6 +2089,54 @@ mark.hl {
 .detail-section h3 {
   margin: 0 0 12px;
   font-size: 15px;
+}
+
+/* 兵種詳細のマスタ情報（種類・攻撃・防御・雇用 など）を 2 カラムの定義リストで表示。 */
+.unit-spec {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 16px;
+  margin: 0;
+}
+
+.unit-spec .spec-row {
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  align-items: baseline;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 0.5px solid var(--border);
+  min-width: 0;
+}
+
+.unit-spec .spec-wide {
+  grid-column: 1 / -1;
+}
+
+.unit-spec dt {
+  margin: 0;
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+
+.unit-spec dd {
+  margin: 0;
+  font-size: 14px;
+  word-break: break-word;
+  min-width: 0;
+}
+
+.unit-spec dd .tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+@media (max-width: 600px) {
+  .unit-spec {
+    grid-template-columns: 1fr;
+  }
 }
 
 .pie-block {

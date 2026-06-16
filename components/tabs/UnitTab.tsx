@@ -2,27 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { UnitType } from "@/lib/types";
+import { fetchUnitTypes } from "@/lib/api";
+import { UnitEditModal } from "@/components/tabs/UnitEditModal";
 import {
-  deleteUnitType,
-  fetchUnitTypes,
-  upsertUnitType,
-} from "@/lib/api";
-import { useModalA11y } from "@/lib/useModalA11y";
-
-const EMPTY: UnitType = {
-  name: "",
-  category: "",
-  goodAgainst: "",
-  attack: 0,
-  defense: 0,
-  cost: "",
-  tech: "",
-  years: "",
-  reqStats: "",
-  facility: "",
-  special: "",
-  bonus: "",
-};
+  EMPTY_UNIT,
+  parseReqStats,
+  splitGoodAgainst,
+  BASE_STAT_OPTIONS,
+} from "@/lib/unitTypeForm";
 
 type SortKey =
   | "name"
@@ -52,31 +39,6 @@ const COLUMNS: {
   { key: "bonus", label: "ボーナス", filter: "text" },
 ];
 
-/** 必要能力値セレクタの基本候補 */
-const BASE_STAT_OPTIONS = ["統率", "武力", "知力", "政治"];
-
-/** "弓兵:壁:" のような区切り文字列を ["弓兵", "壁"] に分解 */
-function splitGoodAgainst(value: string): string[] {
-  return value
-    .split(/[:：]/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
-/** "武力:40" を { stat: "武力", num: "40" } に分解 */
-function parseReqStats(value: string): { stat: string; num: string } {
-  const m = value.match(/^\s*([^:：]+)[:：]\s*(.*)$/);
-  if (m) return { stat: m[1].trim(), num: m[2].trim() };
-  return { stat: value.trim(), num: "" };
-}
-
-/** ステータス名と数値を "武力:40" 形式に再構成 */
-function composeReqStats(stat: string, num: string): string {
-  const s = stat.trim();
-  if (!s) return "";
-  return `${s}:${num.trim()}`;
-}
-
 export function UnitTab({
   onSelectUnit,
 }: {
@@ -87,21 +49,8 @@ export function UnitTab({
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [filters, setFilters] = useState<Partial<Record<SortKey, string>>>({});
-  const [editing, setEditing] = useState<UnitType | null>(null);
-  const [isNew, setIsNew] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
-
-  // 削除確認は編集モーダルの上に重なって開くため、最前面のモーダルだけ
-  // フォーカストラップを有効にする（背面の編集モーダルは無効化）。
-  const formModalRef = useModalA11y<HTMLDivElement>(
-    !!editing && !confirmDelete,
-    () => closeForm()
-  );
-  const deleteModalRef = useModalA11y<HTMLDivElement>(!!confirmDelete, () =>
-    setConfirmDelete(null)
-  );
 
   const reload = async () => {
     setLoading(true);
@@ -189,62 +138,8 @@ export function UnitTab({
   const hasFilter = Object.values(filters).some((v) => !!v && !!v.trim());
 
   const openNew = () => {
-    setEditing({ ...EMPTY });
-    setIsNew(true);
-    setError(null);
+    setAdding(true);
   };
-
-  const openEdit = (u: UnitType) => {
-    setEditing({ ...u });
-    setIsNew(false);
-    setError(null);
-  };
-
-  const closeForm = () => {
-    setEditing(null);
-    setIsNew(false);
-    setError(null);
-  };
-
-  const handleSave = async () => {
-    if (!editing) return;
-    if (!editing.name.trim()) {
-      setError("兵種名は必須です");
-      return;
-    }
-    setBusy(true);
-    try {
-      await upsertUnitType({ ...editing, name: editing.name.trim() });
-      await reload();
-      closeForm();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "保存に失敗しました");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleDelete = async (name: string) => {
-    setBusy(true);
-    try {
-      await deleteUnitType(name);
-      await reload();
-      setConfirmDelete(null);
-      closeForm();
-    } catch {
-      setError("削除に失敗しました");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const update = <K extends keyof UnitType>(key: K, value: UnitType[K]) => {
-    setEditing((cur) => (cur ? { ...cur, [key]: value } : cur));
-  };
-
-  const reqStats = editing
-    ? parseReqStats(editing.reqStats)
-    : { stat: "", num: "" };
 
   return (
     <section className="panel">
@@ -274,7 +169,7 @@ export function UnitTab({
         )}
       </div>
 
-      {error && !editing && <p className="muted">{error}</p>}
+      {error && <p className="muted">{error}</p>}
 
       <p className="sr-only" role="status" aria-live="polite">
         {filtered.length.toLocaleString("ja-JP")}件の兵種を表示
@@ -301,7 +196,6 @@ export function UnitTab({
                   </th>
                 );
               })}
-              <th></th>
             </tr>
             <tr className="filter-row">
               {COLUMNS.map((col) => {
@@ -341,14 +235,13 @@ export function UnitTab({
                   </th>
                 );
               })}
-              <th></th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
                 <td
-                  colSpan={COLUMNS.length + 1}
+                  colSpan={COLUMNS.length}
                   className="muted"
                   style={{ padding: 16, textAlign: "center" }}
                 >
@@ -358,7 +251,7 @@ export function UnitTab({
             ) : filtered.length === 0 ? (
               <tr>
                 <td
-                  colSpan={COLUMNS.length + 1}
+                  colSpan={COLUMNS.length}
                   className="muted"
                   style={{ padding: 16, textAlign: "center" }}
                 >
@@ -369,7 +262,7 @@ export function UnitTab({
               filtered.map((u) => (
                 <tr
                   key={u.name}
-                  onClick={() => openEdit(u)}
+                  onClick={() => onSelectUnit(u.name)}
                   style={{ cursor: "pointer" }}
                 >
                   <td>
@@ -380,7 +273,7 @@ export function UnitTab({
                         e.stopPropagation();
                         onSelectUnit(u.name);
                       }}
-                      title={`${u.name} の戦績を見る`}
+                      title={`${u.name} の詳細を見る`}
                     >
                       {u.name}
                     </button>
@@ -416,18 +309,6 @@ export function UnitTab({
                   <td className="muted" style={{ fontSize: 12 }}>
                     {u.bonus || "-"}
                   </td>
-                  <td>
-                    <button
-                      type="button"
-                      className="btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openEdit(u);
-                      }}
-                    >
-                      編集
-                    </button>
-                  </td>
                 </tr>
               ))
             )}
@@ -435,231 +316,17 @@ export function UnitTab({
         </table>
       </div>
 
-      {editing && (
-        <div
-          className="modal-backdrop"
-          onClick={closeForm}
-          role="presentation"
-        >
-          <div
-            ref={formModalRef}
-            className="modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="unit-form-title"
-            onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: 560, width: "92%" }}
-          >
-            <h3 id="unit-form-title">
-              {isNew ? "兵種を追加" : `兵種を編集: ${editing.name}`}
-            </h3>
-
-            <div className="unit-form">
-              <label className="filter">
-                <span>兵種名 *</span>
-                <input
-                  className="text-input"
-                  value={editing.name}
-                  onChange={(e) => update("name", e.target.value)}
-                  placeholder="例: カノン砲"
-                />
-              </label>
-              <label className="filter">
-                <span>種類</span>
-                <input
-                  className="text-input"
-                  value={editing.category}
-                  onChange={(e) => update("category", e.target.value)}
-                  placeholder="例: 弓兵"
-                />
-              </label>
-              <label className="filter">
-                <span>得意兵種</span>
-                <input
-                  className="text-input"
-                  value={editing.goodAgainst}
-                  onChange={(e) => update("goodAgainst", e.target.value)}
-                  placeholder="例: 歩兵:壁:"
-                />
-              </label>
-              <label className="filter">
-                <span>攻撃</span>
-                <input
-                  type="number"
-                  className="text-input"
-                  value={editing.attack}
-                  onChange={(e) =>
-                    update("attack", Number(e.target.value) || 0)
-                  }
-                />
-              </label>
-              <label className="filter">
-                <span>防御</span>
-                <input
-                  type="number"
-                  className="text-input"
-                  value={editing.defense}
-                  onChange={(e) =>
-                    update("defense", Number(e.target.value) || 0)
-                  }
-                />
-              </label>
-              <label className="filter">
-                <span>雇用金</span>
-                <input
-                  className="text-input"
-                  value={editing.cost}
-                  onChange={(e) => update("cost", e.target.value)}
-                  placeholder="例: 金:600"
-                />
-              </label>
-              <label className="filter">
-                <span>技術</span>
-                <input
-                  className="text-input"
-                  value={editing.tech}
-                  onChange={(e) => update("tech", e.target.value)}
-                />
-              </label>
-              <label className="filter">
-                <span>年数</span>
-                <input
-                  className="text-input"
-                  value={editing.years}
-                  onChange={(e) => update("years", e.target.value)}
-                  placeholder="例: 36年"
-                />
-              </label>
-              <label className="filter">
-                <span>必要能力値</span>
-                <div className="req-stats-group">
-                  <select
-                    className="select"
-                    value={reqStats.stat}
-                    onChange={(e) =>
-                      update(
-                        "reqStats",
-                        composeReqStats(e.target.value, reqStats.num)
-                      )
-                    }
-                  >
-                    <option value="">なし</option>
-                    {statOptions.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    type="number"
-                    className="text-input"
-                    value={reqStats.num}
-                    onChange={(e) =>
-                      update(
-                        "reqStats",
-                        composeReqStats(reqStats.stat, e.target.value)
-                      )
-                    }
-                    aria-label="必要能力値の数値"
-                    placeholder="数値"
-                    disabled={!reqStats.stat}
-                  />
-                </div>
-              </label>
-              <label className="filter">
-                <span>施設/国宝</span>
-                <input
-                  className="text-input"
-                  value={editing.facility}
-                  onChange={(e) => update("facility", e.target.value)}
-                  placeholder="例: 鉄工所,南蛮町"
-                />
-              </label>
-              <label className="filter" style={{ gridColumn: "1 / -1" }}>
-                <span>特殊攻撃</span>
-                <textarea
-                  className="text-input"
-                  rows={3}
-                  value={editing.special}
-                  onChange={(e) => update("special", e.target.value)}
-                />
-              </label>
-              <label className="filter" style={{ gridColumn: "1 / -1" }}>
-                <span>ボーナス</span>
-                <input
-                  className="text-input"
-                  value={editing.bonus}
-                  onChange={(e) => update("bonus", e.target.value)}
-                  placeholder="例: 兵種アタック+12%"
-                />
-              </label>
-            </div>
-
-            {error && <p className="muted">{error}</p>}
-
-            <div className="row" style={{ marginTop: 12 }}>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={handleSave}
-                disabled={busy}
-              >
-                {busy ? "保存中…" : isNew ? "追加する" : "保存する"}
-              </button>
-              <button type="button" className="btn" onClick={closeForm}>
-                キャンセル
-              </button>
-              {!isNew && (
-                <button
-                  type="button"
-                  className="btn btn-danger"
-                  onClick={() => setConfirmDelete(editing.name)}
-                  disabled={busy}
-                  style={{ marginLeft: "auto" }}
-                >
-                  削除
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {confirmDelete && (
-        <div
-          className="modal-backdrop"
-          onClick={() => setConfirmDelete(null)}
-          role="presentation"
-        >
-          <div
-            ref={deleteModalRef}
-            className="modal"
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="unit-delete-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 id="unit-delete-title">兵種を削除しますか？</h3>
-            <p>「{confirmDelete}」を削除します。この操作は元に戻せません。</p>
-            <div className="row">
-              <button
-                type="button"
-                className="btn"
-                onClick={() => setConfirmDelete(null)}
-              >
-                キャンセル
-              </button>
-              <button
-                type="button"
-                className="btn btn-danger"
-                onClick={() => handleDelete(confirmDelete)}
-                disabled={busy}
-              >
-                削除する
-              </button>
-            </div>
-          </div>
-        </div>
+      {adding && (
+        <UnitEditModal
+          initial={EMPTY_UNIT}
+          isNew
+          statOptions={statOptions}
+          onClose={() => setAdding(false)}
+          onSaved={() => {
+            setAdding(false);
+            reload();
+          }}
+        />
       )}
     </section>
   );

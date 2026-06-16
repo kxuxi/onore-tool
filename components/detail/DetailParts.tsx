@@ -9,6 +9,7 @@ interface HeaderProps {
   kind: string;
   title: string;
   tags?: ReactNode;
+  actions?: ReactNode;
   onBack: () => void;
 }
 
@@ -38,7 +39,7 @@ function ShareLinkButton() {
   );
 }
 
-export function DetailHeader({ kind, title, tags, onBack }: HeaderProps) {
+export function DetailHeader({ kind, title, tags, actions, onBack }: HeaderProps) {
   // 詳細ページへ遷移したら見出しへフォーカスを移す（キーボード／スクリーンリーダー対応）。
   // kind・title が変わるたびに発火し、武将→兵種などの遷移や戻る操作にも追従する。
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -59,7 +60,10 @@ export function DetailHeader({ kind, title, tags, onBack }: HeaderProps) {
         </h2>
         {tags && <div className="detail-tags">{tags}</div>}
       </div>
-      <ShareLinkButton />
+      <div className="detail-head-actions">
+        {actions}
+        <ShareLinkButton />
+      </div>
     </div>
   );
 }
