@@ -285,6 +285,15 @@ input:focus {
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
+.header-theme {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  width: 34px;
+  height: 34px;
+}
 .header-refresh {
   flex: 0 0 auto;
   display: inline-flex;

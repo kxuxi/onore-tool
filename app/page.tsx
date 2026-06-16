@@ -28,9 +28,17 @@ import {
   applyTheme,
   COLOR_SCHEME_QUERY,
   type ThemePref,
+  type ResolvedTheme,
 } from "@/lib/theme";
 import { copyText } from "@/lib/clipboard";
-import { ShareIcon, CheckIcon, RefreshIcon, ChevronUp } from "@/components/icons";
+import {
+  ShareIcon,
+  CheckIcon,
+  RefreshIcon,
+  ChevronUp,
+  SunIcon,
+  MoonIcon,
+} from "@/components/icons";
 import type { BattleRecord, TabKey, WarlordMap } from "@/lib/types";
 
 const TABS: { key: TabKey; label: string }[] = [
@@ -160,6 +168,8 @@ export default function HomePage() {
   const [factionColors, setFactionColors] = useState<FactionColorMap>({});
   // テーマの好み（自動 / ライト / ダーク）。実際の適用は data-theme で行う。
   const [themePref, setThemePref] = useState<ThemePref>("auto");
+  // 現在画面に適用中の解決済みテーマ（ヘッダーの即時トグルのアイコン表示用）。
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme | null>(null);
   // 詳細ページ（武将 / 兵種）はスタックで管理し、相互リンクの「戻る」を自然にする。
   const [detailStack, setDetailStack] = useState<DetailView[]>([]);
   const [hydrated, setHydrated] = useState(false);
@@ -258,38 +268,55 @@ export default function HomePage() {
     setFactionColors(loadFactionColors());
   }, []);
 
+  // 好みからテーマを解決して <html> へ適用し、見た目の状態も控えておく。
+  const applyThemeResolved = useCallback((pref: ThemePref) => {
+    const r = resolveTheme(pref);
+    applyTheme(r);
+    setResolvedTheme(r);
+  }, []);
+
   // テーマの好みをローカルから読み込み、解決して適用する。
   useEffect(() => {
     const pref = loadThemePref();
     setThemePref(pref);
-    applyTheme(resolveTheme(pref));
-  }, []);
+    applyThemeResolved(pref);
+  }, [applyThemeResolved]);
 
   // 「自動」のときは時間帯の境界（昼/夜）をまたいでも追従するよう定期的に再適用する。
   useEffect(() => {
     if (themePref !== "auto") return;
     const id = window.setInterval(() => {
-      applyTheme(resolveTheme("auto"));
+      applyThemeResolved("auto");
     }, 60_000);
     return () => window.clearInterval(id);
-  }, [themePref]);
+  }, [themePref, applyThemeResolved]);
 
   // 「OSに合わせる」のときは、OSの外観設定の変更に即時追従する。
   useEffect(() => {
     if (themePref !== "system") return;
     if (typeof window === "undefined" || !window.matchMedia) return;
     const mq = window.matchMedia(COLOR_SCHEME_QUERY);
-    const onChange = () => applyTheme(resolveTheme("system"));
+    const onChange = () => applyThemeResolved("system");
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
-  }, [themePref]);
+  }, [themePref, applyThemeResolved]);
 
   // テーマの好みを変更して保存・即時適用する。
-  const handleChangeTheme = useCallback((pref: ThemePref) => {
-    setThemePref(pref);
-    saveThemePref(pref);
-    applyTheme(resolveTheme(pref));
-  }, []);
+  const handleChangeTheme = useCallback(
+    (pref: ThemePref) => {
+      setThemePref(pref);
+      saveThemePref(pref);
+      applyThemeResolved(pref);
+    },
+    [applyThemeResolved]
+  );
+
+  // ヘッダーのワンタップ切替。現在の見た目と逆のテーマを明示指定する
+  //（auto/system からでもライト⇔ダークへ即切替できる）。
+  const toggleTheme = useCallback(() => {
+    const current = resolvedTheme ?? resolveTheme(themePref);
+    handleChangeTheme(current === "dark" ? "light" : "dark");
+  }, [resolvedTheme, themePref, handleChangeTheme]);
 
   // 初回マウント時に URL クエリからタブ・詳細ページを復元（共有リンク・再読込対応）
   const justRestored = useRef(false);
@@ -804,6 +831,23 @@ export default function HomePage() {
               最終取得 {formatClock(lastFetchedAt)}
             </span>
           )}
+          <button
+            type="button"
+            className="btn header-theme"
+            onClick={toggleTheme}
+            aria-label={
+              resolvedTheme === "dark"
+                ? "ライトモードに切り替え"
+                : "ダークモードに切り替え"
+            }
+            title={
+              resolvedTheme === "dark"
+                ? "ライトモードに切り替え"
+                : "ダークモードに切り替え"
+            }
+          >
+            {resolvedTheme === "dark" ? <SunIcon /> : <MoonIcon />}
+          </button>
           <button
             type="button"
             className={"btn header-refresh" + (refreshing ? " is-refreshing" : "")}
