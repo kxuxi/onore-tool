@@ -12,6 +12,9 @@ import type { BattleRecord, WarlordMap } from "./types";
 export type SideKey = "left" | "right";
 export type OutcomeResult = "win" | "loss" | "other";
 
+/** 戦闘ログ一覧の 1 ページあたり表示件数（戦闘履歴・武将/兵種詳細で共通）。 */
+export const BATTLE_LOG_PAGE_SIZE = 20;
+
 /** 1 戦闘を「ある側（武将 / 兵種）の視点」で見た結果 */
 export interface BattleOutcome {
   record: BattleRecord;

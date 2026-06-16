@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { makeErrorResponse } from "@/lib/apiError";
 import type { Warlord, WarlordMap } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -51,18 +52,7 @@ async function loadMap(): Promise<WarlordMap> {
   return map;
 }
 
-function errorResponse(context: string, err: unknown) {
-  console.error(`[api/warlord-stats] ${context} failed:`, err);
-  const isDev = process.env.NODE_ENV !== "production";
-  if (isDev) {
-    const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: message, context }, { status: 500 });
-  }
-  return NextResponse.json(
-    { error: "サーバー内部エラーが発生しました。" },
-    { status: 500 }
-  );
-}
+const errorResponse = makeErrorResponse("api/warlord-stats");
 
 function badRequest(message: string) {
   return NextResponse.json({ error: message }, { status: 400 });

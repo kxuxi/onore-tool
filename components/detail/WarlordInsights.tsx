@@ -66,7 +66,7 @@ function RankRow({
       </span>
       <span className="rank-rate">{formatWinRate(stat.winRate, stat.decided)}</span>
       <span className="rank-record">
-        {stat.wins}勝{stat.losses}敗
+        {stat.wins.toLocaleString("ja-JP")}勝{stat.losses.toLocaleString("ja-JP")}敗
       </span>
     </li>
   );
@@ -150,8 +150,8 @@ export function BranchWinRates({ branches }: { branches: BranchStat[] }) {
                 {formatWinRate(b.winRate, b.decided)}
               </span>
               <span className="branch-record">
-                {b.wins}勝{b.losses}敗
-                <span className="muted">（{b.battles}戦）</span>
+                {b.wins.toLocaleString("ja-JP")}勝{b.losses.toLocaleString("ja-JP")}敗
+                <span className="muted">（{b.battles.toLocaleString("ja-JP")}戦）</span>
               </span>
             </li>
           );
@@ -183,10 +183,12 @@ function heatTitle(
 ): string {
   const range = `${day} ${startHour}時台`;
   if (cell.battles === 0) return `${range}・戦闘なし`;
-  return `${range}・${cell.wins}勝${cell.losses}敗（勝率 ${formatWinRate(
+  return `${range}・${cell.wins.toLocaleString("ja-JP")}勝${cell.losses.toLocaleString(
+    "ja-JP"
+  )}敗（勝率 ${formatWinRate(
     cell.winRate,
     cell.decided
-  )} / ${cell.battles}戦）`;
+  )} / ${cell.battles.toLocaleString("ja-JP")}戦）`;
 }
 
 export function WinHeatmapSection({ heatmap }: { heatmap: WinHeatmap }) {
@@ -264,7 +266,7 @@ export function FactionHistory({
               )}
               <span className="faction-stint-years">{stintYears(s)}</span>
               <span className="muted faction-stint-battles">
-                {s.battles}戦
+                {s.battles.toLocaleString("ja-JP")}戦
               </span>
             </span>
           </li>
@@ -313,6 +315,7 @@ export function WarlordComment({ name }: { name: string }) {
         className="comment-box"
         value={text}
         placeholder="この武将についてのメモ（強さ・クセ・対策など）を自由に記録できます。"
+        aria-label="一言コメント"
         onChange={(e) => setText(e.target.value)}
         onBlur={() => persist(text)}
       />
@@ -322,9 +325,9 @@ export function WarlordComment({ name }: { name: string }) {
 
 /* ---------- 能力値（ランキング取り込み） ---------- */
 
-/** 計略などの数値を表示用文字列にする（小数はそのまま、整数は整数表記）。 */
+/** 計略などの数値を表示用文字列にする（String() が整数・小数のどちらも適切に表記する）。 */
 function formatStatValue(value: number): string {
-  return Number.isInteger(value) ? String(value) : String(value);
+  return String(value);
 }
 
 /**

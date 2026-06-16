@@ -99,7 +99,7 @@ export function NationTab({ db, log, colors, onSelectFaction }: Props) {
           </select>
         </label>
         <span className="count-badge">
-          {view.length} / {summaries.length} 国
+          {view.length.toLocaleString("ja-JP")} / {summaries.length.toLocaleString("ja-JP")} 国
         </span>
       </div>
 
@@ -139,10 +139,14 @@ export function NationTab({ db, log, colors, onSelectFaction }: Props) {
                     </span>
                   </div>
                   <div className="nation-meta">
-                    <span className="tag">{f.members}人</span>
+                    <span className="tag">{f.members.toLocaleString("ja-JP")}人</span>
                     <span className="muted">
-                      {f.battles}戦
-                      {f.decided > 0 ? `・${f.wins}勝${f.losses}敗` : ""}
+                      {f.battles.toLocaleString("ja-JP")}戦
+                      {f.decided > 0
+                        ? `・${f.wins.toLocaleString("ja-JP")}勝${f.losses.toLocaleString(
+                            "ja-JP"
+                          )}敗`
+                        : ""}
                     </span>
                   </div>
                   <span

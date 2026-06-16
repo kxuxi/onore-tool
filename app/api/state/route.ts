@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { makeErrorResponse } from "@/lib/apiError";
 import { mergeWarlords } from "@/lib/storage";
 import { battleKey } from "@/lib/parser";
 import type { BattleRecord, Warlord, WarlordMap } from "@/lib/types";
@@ -86,20 +87,7 @@ async function loadLog(): Promise<BattleRecord[]> {
   }));
 }
 
-function errorResponse(context: string, err: unknown) {
-  // 詳細は常にサーバーログにのみ出力する。
-  console.error(`[api/state] ${context} failed:`, err);
-  // 本番では内部情報（DB接続文字列・スキーマ等）の漏えいを防ぐため汎用文言のみ返す。
-  const isDev = process.env.NODE_ENV !== "production";
-  if (isDev) {
-    const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: message, context }, { status: 500 });
-  }
-  return NextResponse.json(
-    { error: "サーバー内部エラーが発生しました。" },
-    { status: 500 }
-  );
-}
+const errorResponse = makeErrorResponse("api/state");
 
 function badRequest(message: string) {
   return NextResponse.json({ error: message }, { status: 400 });

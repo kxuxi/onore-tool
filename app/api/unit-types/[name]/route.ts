@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { makeErrorResponse } from "@/lib/apiError";
 
 export const dynamic = "force-dynamic";
+
+const errorResponse = makeErrorResponse("api/unit-types/[name]");
 
 // 兵種を名前で削除
 export async function DELETE(
@@ -13,18 +16,10 @@ export async function DELETE(
     if (!name) {
       return NextResponse.json({ error: "name は必須です" }, { status: 400 });
     }
-    await prisma.unitType.deleteMany({ where: { name } });
-    return NextResponse.json({ ok: true });
+    const res = await prisma.unitType.deleteMany({ where: { name } });
+    // 実際に削除された件数を返し、存在しない名前の削除を呼び出し側が判別できるようにする。
+    return NextResponse.json({ ok: true, deleted: res.count });
   } catch (err) {
-    // 詳細はサーバーログにのみ出力し、本番では汎用文言のみ返す。
-    console.error("[api/unit-types/[name]] DELETE failed:", err);
-    if (process.env.NODE_ENV !== "production") {
-      const message = err instanceof Error ? err.message : String(err);
-      return NextResponse.json({ error: message }, { status: 500 });
-    }
-    return NextResponse.json(
-      { error: "サーバー内部エラーが発生しました。" },
-      { status: 500 }
-    );
+    return errorResponse("DELETE", err);
   }
 }

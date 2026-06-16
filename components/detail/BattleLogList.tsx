@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { normalizeDisplayToken } from "@/lib/parser";
-import { outcomeYear } from "@/lib/stats";
+import { outcomeYear, BATTLE_LOG_PAGE_SIZE as PAGE_SIZE } from "@/lib/stats";
 import type { BattleOutcome, OutcomeResult } from "@/lib/stats";
 import type { BattleSide } from "@/lib/parser";
 import { copyText } from "@/lib/clipboard";
@@ -13,9 +13,6 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "@/components/icons";
-
-/** 1 ページあたりの戦闘ログ表示件数。 */
-const PAGE_SIZE = 20;
 
 interface Props {
   outcomes: BattleOutcome[];

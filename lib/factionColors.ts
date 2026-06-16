@@ -74,7 +74,12 @@ export function loadFactionColors(): FactionColorMap {
 
 export function saveFactionColors(map: FactionColorMap): void {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(KEY, JSON.stringify(map));
+  try {
+    window.localStorage.setItem(KEY, JSON.stringify(map));
+  } catch {
+    // 容量超過(QuotaExceededError)やプライベートモード等で書き込みに失敗しても
+    // 致命的ではないため、load 側と対称に握りつぶす。
+  }
 }
 
 /**
@@ -98,34 +103,6 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
   const n = Number.parseInt(h, 16);
   if (Number.isNaN(n)) return null;
   return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
-}
-
-/** sRGB チャンネルをリニア輝度へ変換（WCAG 相対輝度用）。 */
-function srgbChannel(c: number): number {
-  const s = c / 255;
-  return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
-}
-
-/** RGB の相対輝度（0～1）。 */
-function luminance(r: number, g: number, b: number): number {
-  return 0.2126 * srgbChannel(r) + 0.7152 * srgbChannel(g) + 0.0722 * srgbChannel(b);
-}
-
-/**
- * 暗い国色を黒背景の画面でも読めるよう白へ寄せて明度を確保する。
- * 明るい色はそのまま返す。返り値は `rgb(r, g, b)` 文字列。
- */
-export function readableOnDark(hex: string): string {
-  const rgb = hexToRgb(hex);
-  if (!rgb) return hex;
-  let { r, g, b } = rgb;
-  const target = 0.38;
-  for (let i = 0; i < 8 && luminance(r, g, b) < target; i++) {
-    r = Math.round(r + (255 - r) * 0.22);
-    g = Math.round(g + (255 - g) * 0.22);
-    b = Math.round(b + (255 - b) * 0.22);
-  }
-  return `rgb(${r}, ${g}, ${b})`;
 }
 
 /**

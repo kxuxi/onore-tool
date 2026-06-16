@@ -28,6 +28,7 @@ export function SearchBox({
         aria-label={ariaLabel ?? placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        enterKeyHint="search"
         autoCapitalize="off"
         autoCorrect="off"
       />

@@ -51,10 +51,10 @@ export function PieChart({
       ? "データなし"
       : data
           .slice(0, 3)
-          .map((d) => `${d.label} ${d.value}`)
+          .map((d) => `${d.label} ${d.value.toLocaleString("ja-JP")}`)
           .join("、") +
         (data.length > 3 ? " ほか" : "") +
-        `（全${total}）`;
+        `（全${total.toLocaleString("ja-JP")}）`;
 
   return (
     <svg
@@ -89,7 +89,7 @@ export function PieChart({
                 strokeDasharray={`${len} ${circ - len}`}
                 strokeDashoffset={-offset}
               >
-                <title>{`${d.label}: ${d.value}`}</title>
+                <title>{`${d.label}: ${d.value.toLocaleString("ja-JP")}`}</title>
               </circle>
             );
             offset += len;
@@ -103,7 +103,7 @@ export function PieChart({
         textAnchor="middle"
         className="pie-center-num"
       >
-        {centerLabel ?? total}
+        {centerLabel ?? total.toLocaleString("ja-JP")}
       </text>
       <text
         x={cx}

@@ -169,7 +169,14 @@ export function UnitTab({
         </button>
       </div>
 
-      {error && <p className="muted">{error}</p>}
+      {error && (
+        <p className="muted" role="alert">
+          {error}{" "}
+          <button type="button" className="link-like" onClick={reload}>
+            再試行
+          </button>
+        </p>
+      )}
 
       <p className="sr-only" role="status" aria-live="polite">
         {filtered.length.toLocaleString("ja-JP")}件の兵種を表示

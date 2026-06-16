@@ -35,7 +35,7 @@ function UnitRankRow({
       </span>
       <span className="rank-rate">{formatWinRate(stat.winRate, stat.decided)}</span>
       <span className="rank-record">
-        {stat.wins}勝{stat.losses}敗
+        {stat.wins.toLocaleString("ja-JP")}勝{stat.losses.toLocaleString("ja-JP")}敗
       </span>
     </li>
   );

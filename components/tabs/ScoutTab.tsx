@@ -83,6 +83,12 @@ export function ScoutTab({ db, colors, onSelectWarlord }: Props) {
   const foundCount = rows.filter((r) => r.found).length;
   const unregisteredCount = rows.length - foundCount;
 
+  // 入力名のうち重複として除外した件数（同名は1回だけ集計する）。
+  const duplicateCount = useMemo(() => {
+    const names = splitNames(text);
+    return names.length - new Set(names).size;
+  }, [text]);
+
   const handleCopy = async () => {
     if (visibleRows.length === 0) return;
     const header = ["国", "武将名", "タイプ", "兵科", "兵種"].join("\t");
@@ -136,6 +142,7 @@ export function ScoutTab({ db, colors, onSelectWarlord }: Props) {
         value={text}
         onChange={(e) => setText(e.target.value)}
         placeholder={`例:\n織田信長 武田勝頼 上杉謙信\n徳川家康`}
+        aria-label="偵察リスト（武将名）の入力"
         spellCheck={false}
         autoCapitalize="off"
         autoCorrect="off"
@@ -155,6 +162,12 @@ export function ScoutTab({ db, colors, onSelectWarlord }: Props) {
             入力 <strong>{rows.length}</strong>件（登録済{" "}
             <strong>{foundCount}</strong> / 未登録{" "}
             <strong>{unregisteredCount}</strong>）
+            {duplicateCount > 0 && (
+              <span className="muted">
+                {" "}
+                ・重複 {duplicateCount}件を除外
+              </span>
+            )}
           </span>
         )}
       </div>

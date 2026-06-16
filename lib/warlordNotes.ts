@@ -23,7 +23,12 @@ export function loadWarlordNotes(): WarlordNotes {
 
 function saveWarlordNotes(notes: WarlordNotes): void {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(KEY, JSON.stringify(notes));
+  try {
+    window.localStorage.setItem(KEY, JSON.stringify(notes));
+  } catch {
+    // 容量超過(QuotaExceededError)やプライベートモード等で書き込みに失敗しても
+    // 致命的ではないため、load 側と対称に握りつぶす。
+  }
 }
 
 /** 指定武将のコメントを取得する（無ければ空文字）。 */

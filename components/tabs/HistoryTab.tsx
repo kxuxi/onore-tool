@@ -33,6 +33,7 @@ import {
   CheckIcon,
 } from "@/components/icons";
 import { SearchBox } from "@/components/SearchBox";
+import { BATTLE_LOG_PAGE_SIZE as PAGE_SIZE } from "@/lib/stats";
 
 interface Props {
   onRegister: (text: string) => Promise<{
@@ -47,8 +48,6 @@ interface Props {
   onSelectWarlord: (name: string) => void;
   onSelectUnit: (name: string) => void;
 }
-
-const PAGE_SIZE = 20;
 
 /** 片側の装備・兵種タグを組み立てる（兵種 → 兵科 → 装備）。
  * `unit: true` のタグ（兵種名）は兵種ページへ遷移できる。 */
@@ -319,6 +318,7 @@ export function HistoryTab({
             }
           }}
           placeholder={PLACEHOLDER}
+          aria-label="戦闘履歴の貼り付け"
           spellCheck={false}
           autoCapitalize="off"
           autoCorrect="off"

@@ -10,6 +10,8 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "ONORE",
     description:
       "ゲーム「己鯖」の戦闘履歴から武将のタイプ・兵科を登録し、偵察リストから即座に検索できるツール。",
+    id: "/",
+    scope: "/",
     start_url: "/",
     display: "standalone",
     background_color: "#0f1115",

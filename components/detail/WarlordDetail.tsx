@@ -170,7 +170,7 @@ export function WarlordDetail({
                         </button>
                       )}
                       <span className="pie-legend-val">
-                        {u.count}戦 ({pct}%)
+                        {u.count.toLocaleString("ja-JP")}戦 ({pct}%)
                       </span>
                     </li>
                   );
