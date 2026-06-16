@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { formatWinRate } from "@/lib/stats";
 import { Section } from "@/components/detail/Section";
 import type {
@@ -146,6 +147,20 @@ export function UserWinRateList({
 export function UsageTrend({ points }: { points: UsageTrendPoint[] }) {
   // 使用実績が 1 件も無い、または期間が 1 点しか無い場合は推移にならないため非表示。
   const meaningful = points.filter((p) => p.unitBattles > 0);
+  const chartRef = useRef<HTMLDivElement>(null);
+  // 年は左（古い）→右（新しい）の並び。最新の状況を初期表示にするため、
+  // マウント時・セクション展開（display:none→block）・リサイズ時に右端へスクロールする。
+  useEffect(() => {
+    const el = chartRef.current;
+    if (!el) return;
+    const scrollToEnd = () => {
+      el.scrollLeft = el.scrollWidth;
+    };
+    scrollToEnd();
+    const ro = new ResizeObserver(scrollToEnd);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [points]);
   if (meaningful.length === 0 || points.length < 2) return null;
   const maxRate = Math.max(...points.map((p) => p.rate), 0.0001);
   return (
@@ -153,7 +168,7 @@ export function UsageTrend({ points }: { points: UsageTrendPoint[] }) {
       <p className="trend-note muted">
         各年の全戦闘のうち、この兵種が登場した割合。
       </p>
-      <div className="trend-chart">
+      <div className="trend-chart" ref={chartRef}>
         {points.map((p) => {
           const h = Math.round((p.rate / maxRate) * 100);
           return (
