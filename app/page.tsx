@@ -63,6 +63,53 @@ const DETAIL_PARAM: Record<DetailView["kind"], string> = {
 /** デスクトップでのサイドバー開閉の好みを保存する localStorage キー。 */
 const SIDEBAR_KEY = "onore.sidebarOpen";
 
+/** 画面右下に積み重ねて表示する通知トースト。 */
+type ToastMsg = { id: number; kind: "success" | "error"; message: string };
+
+/** トースト自動消去のミリ秒（成功のみ。エラーは手動で閉じるまで残す）。 */
+const TOAST_AUTO_DISMISS_MS = 2400;
+
+/** 1件のトースト。成功は一定時間で自動消去するが、ホバー/フォーカス中は消さない。 */
+function ToastItem({
+  toast,
+  onDismiss,
+}: {
+  toast: ToastMsg;
+  onDismiss: (id: number) => void;
+}) {
+  const [paused, setPaused] = useState(false);
+  useEffect(() => {
+    // エラーは重要なので自動消去しない。ホバー/フォーカス中も消さない。
+    if (toast.kind === "error" || paused) return;
+    const timer = window.setTimeout(
+      () => onDismiss(toast.id),
+      TOAST_AUTO_DISMISS_MS
+    );
+    return () => window.clearTimeout(timer);
+  }, [toast.id, toast.kind, paused, onDismiss]);
+  return (
+    <div
+      className={"toast " + toast.kind}
+      role={toast.kind === "error" ? "alert" : "status"}
+      aria-live={toast.kind === "error" ? "assertive" : "polite"}
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocus={() => setPaused(true)}
+      onBlur={() => setPaused(false)}
+    >
+      <span className="toast-message">{toast.message}</span>
+      <button
+        type="button"
+        className="toast-close"
+        onClick={() => onDismiss(toast.id)}
+        aria-label="通知を閉じる"
+      >
+        ×
+      </button>
+    </div>
+  );
+}
+
 /** タブ・詳細ページの状態を共有用 URL クエリへ変換する。 */
 function buildShareQuery(tab: TabKey, detail: DetailView | null): string {
   const params = new URLSearchParams();
@@ -109,10 +156,19 @@ export default function HomePage() {
   const [hydrated, setHydrated] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [toast, setToast] = useState<{
-    kind: "success" | "error";
-    message: string;
-  } | null>(null);
+  const [toasts, setToasts] = useState<ToastMsg[]>([]);
+  const toastSeq = useRef(0);
+  // トーストを積み増す（最大4件まで。古いものから捨てる）。
+  const pushToast = useCallback(
+    (kind: "success" | "error", message: string) => {
+      const id = ++toastSeq.current;
+      setToasts((prev) => [...prev, { id, kind, message }].slice(-4));
+    },
+    []
+  );
+  const dismissToast = useCallback((id: number) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
   // 初期読み込みの失敗表示・再試行用。reloadKey を変えると取得 useEffect が再実行される。
   const [loadError, setLoadError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
@@ -141,7 +197,7 @@ export default function HomePage() {
       .catch(() => {
         if (!active) return;
         setLoadError(true);
-        setToast({ kind: "error", message: "データの読み込みに失敗しました" });
+        pushToast("error", "データの読み込みに失敗しました");
       })
       .finally(() => {
         if (active) setHydrated(true);
@@ -149,7 +205,7 @@ export default function HomePage() {
     return () => {
       active = false;
     };
-  }, [reloadKey]);
+  }, [reloadKey, pushToast]);
 
   // 読み込み失敗時の再試行（取得 useEffect を再実行する）。
   const reload = useCallback(() => setReloadKey((k) => k + 1), []);
@@ -161,13 +217,13 @@ export default function HomePage() {
       const state = await fetchState();
       setDb(state.db);
       setBattleLog(state.log);
-      setToast({ kind: "success", message: "最新の状態に更新しました" });
+      pushToast("success", "最新の状態に更新しました");
     } catch {
-      setToast({ kind: "error", message: "更新に失敗しました" });
+      pushToast("error", "更新に失敗しました");
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [pushToast]);
 
   // サイドバーの開閉。デスクトップでの好みは localStorage に保存して次回以降復元する。
   const toggleSidebar = useCallback(() => {
@@ -309,14 +365,6 @@ export default function HomePage() {
     return () => mql.removeEventListener("change", onChange);
   }, []);
 
-  // トースト自動消去（エラーは内容が重要なため手動で閉じるまで残す）
-  useEffect(() => {
-    if (!toast) return;
-    if (toast.kind === "error") return;
-    const id = window.setTimeout(() => setToast(null), 2400);
-    return () => window.clearTimeout(id);
-  }, [toast]);
-
   // Escape で詳細ページを1つ戻る／モバイルのサイドバーを閉じる。
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -389,7 +437,7 @@ export default function HomePage() {
       if (warlords.length === 0) {
         // 取り込めるエントリが無い。過不足行があれば警告のみ出す。
         if (rejectedCount > 0) {
-          setToast({ kind: "error", message: rejectMessage });
+          pushToast("error", rejectMessage);
         }
         return {
           added: 0,
@@ -411,15 +459,15 @@ export default function HomePage() {
         setBattleLog(res.log);
         if (rejectedCount > 0) {
           // 正常分は登録しつつ、過不足の警告を優先表示する（エラー扱いで残す）。
-          setToast({
-            kind: "error",
-            message: `${rejectMessage} 正常分（新規 ${res.added} / 更新 ${res.updated}）は登録しました。`,
-          });
+          pushToast(
+            "error",
+            `${rejectMessage} 正常分（新規 ${res.added} / 更新 ${res.updated}）は登録しました。`
+          );
         } else {
-          setToast({
-            kind: "success",
-            message: `登録: 新規 ${res.added} / 更新 ${res.updated}（履歴 +${res.logAdded} / 重複 ${res.skipped}）`,
-          });
+          pushToast(
+            "success",
+            `登録: 新規 ${res.added} / 更新 ${res.updated}（履歴 +${res.logAdded} / 重複 ${res.skipped}）`
+          );
         }
         return {
           added: res.added,
@@ -429,12 +477,12 @@ export default function HomePage() {
           rejected: rejectedCount,
         };
       } catch (e) {
-        setToast({ kind: "error", message: "登録に失敗しました" });
+        pushToast("error", "登録に失敗しました");
         // 呼び出し側（HistoryTab）で入力を保持しエラー表示できるよう再送出する。
         throw e;
       }
     },
-    []
+    [pushToast]
   );
 
   const handleImportStats = useCallback(
@@ -446,19 +494,19 @@ export default function HomePage() {
       setDb(res.db);
       if (skipped > 0) {
         // 項目の過不足で取り込めなかった行があれば警告（エラー扱いで残す）。
-        setToast({
-          kind: "error",
-          message: `能力値取り込み: 項目の過不足により ${skipped}行をスキップしました。正常分（更新 ${res.updated} / 新規 ${res.created}）は取り込みました。`,
-        });
+        pushToast(
+          "error",
+          `能力値取り込み: 項目の過不足により ${skipped}行をスキップしました。正常分（更新 ${res.updated} / 新規 ${res.created}）は取り込みました。`
+        );
       } else {
-        setToast({
-          kind: "success",
-          message: `能力値取り込み: 更新 ${res.updated} / 新規 ${res.created}`,
-        });
+        pushToast(
+          "success",
+          `能力値取り込み: 更新 ${res.updated} / 新規 ${res.created}`
+        );
       }
       return { updated: res.updated, created: res.created };
     },
-    []
+    [pushToast]
   );
 
   const selectTab = useCallback(
@@ -845,21 +893,11 @@ export default function HomePage() {
         </button>
       )}
 
-      {toast && (
-        <div
-          className={"toast " + toast.kind}
-          role={toast.kind === "error" ? "alert" : "status"}
-          aria-live={toast.kind === "error" ? "assertive" : "polite"}
-        >
-          <span className="toast-message">{toast.message}</span>
-          <button
-            type="button"
-            className="toast-close"
-            onClick={() => setToast(null)}
-            aria-label="通知を閉じる"
-          >
-            ×
-          </button>
+      {toasts.length > 0 && (
+        <div className="toast-stack">
+          {toasts.map((t) => (
+            <ToastItem key={t.id} toast={t} onDismiss={dismissToast} />
+          ))}
         </div>
       )}
     </div>

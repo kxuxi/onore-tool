@@ -1759,11 +1759,22 @@ button.tag.faction-link:focus-visible {
 }
 
 /* ---------- Toast ---------- */
-.toast {
+.toast-stack {
   position: fixed;
   left: 50%;
   bottom: 24px;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 50;
+  max-width: min(92vw, 560px);
+  pointer-events: none;
+}
+
+.toast {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1773,9 +1784,9 @@ button.tag.faction-link:focus-visible {
   padding: 10px 12px 10px 16px;
   border-radius: 999px;
   font-size: 13px;
-  z-index: 50;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
   animation: fade-in 0.15s ease;
+  pointer-events: auto;
 }
 
 .toast.success { border-color: #2b5b3d; background: #173025; }
