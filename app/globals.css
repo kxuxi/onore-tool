@@ -43,6 +43,60 @@
   background: #e9edf4;
 }
 
+/* タグ（タイプ/兵科/兵種/国/警告）はダーク前提の濃い背景なので、
+   ライトでは淡い背景＋濃い文字に差し替えて視認性を確保する。 */
+:root[data-theme="light"] .tag.type {
+  color: #8a5a00;
+  border-color: #ecd9a3;
+  background: #fbf0d2;
+}
+:root[data-theme="light"] .tag.branch {
+  color: #156f4c;
+  border-color: #a9e0c6;
+  background: #d8f3e6;
+}
+:root[data-theme="light"] .tag.unit {
+  color: #5a3cae;
+  border-color: #d1c3f0;
+  background: #ece6fb;
+}
+:root[data-theme="light"] .tag.faction {
+  color: #b03372;
+  border-color: #f3c2d8;
+  background: #fce0ec;
+}
+:root[data-theme="light"] .tag.warn {
+  color: var(--danger-strong);
+  border-color: #f3c0bd;
+  background: #fde4e3;
+}
+
+/* 行動状況バッジ（被弾表）。暗い「未行動・末尾固定・固定分」をライト向けに。 */
+:root[data-theme="light"] .status.unknown,
+:root[data-theme="light"] .status.no-rest--loose {
+  color: #8a5a00;
+  border-color: #ecd9a3;
+  background: #fbf0d2;
+}
+:root[data-theme="light"] .status.no-rest--evolved {
+  color: #fff;
+  background: #c81e1e;
+  border-color: #ff7a3c;
+  box-shadow: 0 0 6px rgba(200, 30, 30, 0.35);
+}
+
+/* アクセント淡色チップ（件数・カード内バッジ）はライトのアクセント色に合わせる。 */
+:root[data-theme="light"] .count-badge,
+:root[data-theme="light"] .bc-badge {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 32%, transparent);
+}
+
+/* 行ホバーは白の半透明だとライトで見えないため、淡い陰影にする。 */
+:root[data-theme="light"] tbody tr:hover {
+  background: rgba(17, 24, 39, 0.035);
+}
+
 /* 配色をテーマ追従にすると、滑らかに切り替わって見えるようにする。 */
 html,
 body {

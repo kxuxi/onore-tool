@@ -138,7 +138,9 @@ export function factionNameStyle(
 ): CSSProperties | undefined {
   const hex = faction ? colors[faction] : undefined;
   if (!hex) return undefined;
-  return { color: readableOnDark(hex) };
+  // ライト/ダーク両対応: 国色を現在のテーマ文字色(--text)へ少し寄せ、
+  // どちらの背景でも読めるコントラストにする（color-mix はテーマに自動追従）。
+  return { color: `color-mix(in srgb, ${hex} 64%, var(--text))` };
 }
 
 /**
@@ -152,12 +154,12 @@ export function factionBadgeStyle(
 ): CSSProperties | undefined {
   const hex = faction ? colors[faction] : undefined;
   if (!hex) return undefined;
-  const rgb = hexToRgb(hex);
-  if (!rgb) return undefined;
-  const { r, g, b } = rgb;
+  if (!hexToRgb(hex)) return undefined;
+  // 文字は国色をテーマ文字色へ寄せて読みやすく、枠線・背景は国色の淡いチントにする。
+  // color-mix が --text / transparent を参照するためライト/ダークへ自動追従する。
   return {
-    color: readableOnDark(hex),
-    borderColor: `rgba(${r}, ${g}, ${b}, 0.55)`,
-    background: `rgba(${r}, ${g}, ${b}, 0.16)`,
+    color: `color-mix(in srgb, ${hex} 60%, var(--text))`,
+    borderColor: `color-mix(in srgb, ${hex} 50%, transparent)`,
+    background: `color-mix(in srgb, ${hex} 18%, transparent)`,
   };
 }
