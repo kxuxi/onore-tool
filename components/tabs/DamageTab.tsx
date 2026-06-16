@@ -259,23 +259,25 @@ export function DamageTab({ db, colors, onSelectWarlord }: Props) {
               {rows.map(({ w, info }) => (
                 <tr key={w.name}>
                   <td className="cell-block" data-label="状況">
-                    <span className={STATUS_CLASS[info.status]}>
-                      {ACTION_LABEL[info.status]}
-                    </span>
-                    {info.noRestLabel && (
-                      <span
-                        className={
-                          info.noRestLabel === "固定分"
-                            ? "status no-rest no-rest--evolved"
-                            : info.noRestLabel === "休養なし"
-                              ? "status no-rest no-rest--strict"
-                              : "status no-rest no-rest--loose"
-                        }
-                        title={`末尾固定 ${info.noRestStreak}戦連続 / 休養なし ${info.strictStreak}戦連続`}
-                      >
-                        {info.noRestLabel}
+                    <span className="status-stack">
+                      <span className={STATUS_CLASS[info.status]}>
+                        {ACTION_LABEL[info.status]}
                       </span>
-                    )}
+                      {info.noRestLabel && (
+                        <span
+                          className={
+                            info.noRestLabel === "固定分"
+                              ? "status no-rest no-rest--evolved"
+                              : info.noRestLabel === "休養なし"
+                                ? "status no-rest no-rest--strict"
+                                : "status no-rest no-rest--loose"
+                          }
+                          title={`末尾固定 ${info.noRestStreak}戦連続 / 休養なし ${info.strictStreak}戦連続`}
+                        >
+                          {info.noRestLabel}
+                        </span>
+                      )}
+                    </span>
                   </td>
                   <td data-label="国">
                     {w.faction ? (
