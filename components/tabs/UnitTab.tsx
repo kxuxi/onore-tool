@@ -10,6 +10,7 @@ import {
   splitGoodAgainst,
   BASE_STAT_OPTIONS,
 } from "@/lib/unitTypeForm";
+import { SearchIcon, FilterIcon, CloseIcon } from "@/components/icons";
 
 type SortKey =
   | "name"
@@ -49,6 +50,7 @@ export function UnitTab({
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [filters, setFilters] = useState<Partial<Record<SortKey, string>>>({});
+  const [showFilter, setShowFilter] = useState(false);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -136,6 +138,12 @@ export function UnitTab({
   };
 
   const hasFilter = Object.values(filters).some((v) => !!v && !!v.trim());
+  // 検索ボックス（兵種名）とは別管理の項目フィルター。「フィルター」ボタンの強調用。
+  const hasDropdownFilter = Object.entries(filters).some(
+    ([k, v]) => k !== "name" && !!v && !!v.trim()
+  );
+
+  const clearFilters = () => setFilters({});
 
   const openNew = () => {
     setAdding(true);
@@ -158,15 +166,6 @@ export function UnitTab({
         <button type="button" className="btn btn-primary" onClick={openNew}>
           兵種を追加
         </button>
-        {hasFilter && (
-          <button
-            type="button"
-            className="btn"
-            onClick={() => setFilters({})}
-          >
-            フィルタをクリア
-          </button>
-        )}
       </div>
 
       {error && <p className="muted">{error}</p>}
@@ -174,6 +173,138 @@ export function UnitTab({
       <p className="sr-only" role="status" aria-live="polite">
         {filtered.length.toLocaleString("ja-JP")}件の兵種を表示
       </p>
+
+      <div className="search-row">
+        <div className="search-box">
+          <span className="search-icon">
+            <SearchIcon />
+          </span>
+          <input
+            type="search"
+            className="text-input search-input"
+            placeholder="兵種名で絞り込み"
+            value={filters.name ?? ""}
+            onChange={(e) => setFilter("name", e.target.value)}
+            autoCapitalize="off"
+            autoCorrect="off"
+          />
+        </div>
+        <button
+          type="button"
+          className={
+            "btn filter-toggle" +
+            (showFilter || hasDropdownFilter ? " active" : "")
+          }
+          onClick={() => setShowFilter((v) => !v)}
+          aria-expanded={showFilter}
+        >
+          <FilterIcon />
+          <span>フィルター</span>
+        </button>
+        {hasFilter && (
+          <button
+            type="button"
+            className="btn clear-filters"
+            onClick={clearFilters}
+            title="絞り込み条件をすべて解除"
+          >
+            <CloseIcon />
+            <span>解除</span>
+          </button>
+        )}
+      </div>
+
+      {showFilter && (
+        <div className="filter-grid">
+          <label className="filter">
+            <span>種類</span>
+            <select
+              className="select"
+              value={filters.category ?? ""}
+              onChange={(e) => setFilter("category", e.target.value)}
+            >
+              <option value="">すべて</option>
+              {categories.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="filter">
+            <span>得意兵種</span>
+            <select
+              className="select"
+              value={filters.goodAgainst ?? ""}
+              onChange={(e) => setFilter("goodAgainst", e.target.value)}
+            >
+              <option value="">すべて</option>
+              {goodAgainstOptions.map((g) => (
+                <option key={g} value={g}>
+                  {g}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="filter">
+            <span>攻撃</span>
+            <input
+              className="text-input"
+              inputMode="numeric"
+              value={filters.attack ?? ""}
+              onChange={(e) => setFilter("attack", e.target.value)}
+              placeholder="数値で絞り込み"
+              autoCapitalize="off"
+              autoCorrect="off"
+            />
+          </label>
+          <label className="filter">
+            <span>防御</span>
+            <input
+              className="text-input"
+              inputMode="numeric"
+              value={filters.defense ?? ""}
+              onChange={(e) => setFilter("defense", e.target.value)}
+              placeholder="数値で絞り込み"
+              autoCapitalize="off"
+              autoCorrect="off"
+            />
+          </label>
+          <label className="filter">
+            <span>雇用</span>
+            <input
+              className="text-input"
+              value={filters.cost ?? ""}
+              onChange={(e) => setFilter("cost", e.target.value)}
+              placeholder="例: 金:600"
+              autoCapitalize="off"
+              autoCorrect="off"
+            />
+          </label>
+          <label className="filter">
+            <span>必要能力値</span>
+            <input
+              className="text-input"
+              value={filters.reqStats ?? ""}
+              onChange={(e) => setFilter("reqStats", e.target.value)}
+              placeholder="例: 統率"
+              autoCapitalize="off"
+              autoCorrect="off"
+            />
+          </label>
+          <label className="filter">
+            <span>ボーナス</span>
+            <input
+              className="text-input"
+              value={filters.bonus ?? ""}
+              onChange={(e) => setFilter("bonus", e.target.value)}
+              placeholder="ボーナスで絞り込み"
+              autoCapitalize="off"
+              autoCorrect="off"
+            />
+          </label>
+        </div>
+      )}
 
       <div className="table-wrap">
         <table className="unit-table">
@@ -193,45 +324,6 @@ export function UnitTab({
                         {active ? (sortDir === "asc" ? "▲" : "▼") : "⇅"}
                       </span>
                     </button>
-                  </th>
-                );
-              })}
-            </tr>
-            <tr className="filter-row">
-              {COLUMNS.map((col) => {
-                const options =
-                  col.filter === "select"
-                    ? categories
-                    : col.filter === "tokens"
-                    ? goodAgainstOptions
-                    : null;
-                return (
-                  <th key={col.key}>
-                    {options ? (
-                      <select
-                        className="col-filter"
-                        value={filters[col.key] ?? ""}
-                        onChange={(e) => setFilter(col.key, e.target.value)}
-                        aria-label={`${col.label}で絞り込み`}
-                      >
-                        <option value="">すべて</option>
-                        {options.map((o) => (
-                          <option key={o} value={o}>
-                            {o}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        className="col-filter"
-                        value={filters[col.key] ?? ""}
-                        onChange={(e) => setFilter(col.key, e.target.value)}
-                        placeholder="絞り込み"
-                        aria-label={`${col.label}で絞り込み`}
-                        autoCapitalize="off"
-                        autoCorrect="off"
-                      />
-                    )}
                   </th>
                 );
               })}
