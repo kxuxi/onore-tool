@@ -7,6 +7,7 @@ import { DbTab } from "@/components/tabs/DbTab";
 import { DamageTab } from "@/components/tabs/DamageTab";
 import { UnitTab } from "@/components/tabs/UnitTab";
 import { EquipTab } from "@/components/tabs/EquipTab";
+import { NationTab } from "@/components/tabs/NationTab";
 import { FactionTab } from "@/components/tabs/FactionTab";
 import { SwiTab } from "@/components/tabs/SwiTab";
 import { WarlordDetail } from "@/components/detail/WarlordDetail";
@@ -33,6 +34,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "units", label: "兵種図鑑" },
   { key: "weapons", label: "武器図鑑" },
   { key: "items", label: "品物図鑑" },
+  { key: "nations", label: "国" },
   { key: "factions", label: "国カラー" },
 ];
 
@@ -521,6 +523,14 @@ export default function HomePage() {
             onSelectEquip={(name) => selectEquip(name, "item")}
           />
         );
+      case "nations":
+        return (
+          <NationTab
+            db={db}
+            log={battleLog}
+            onSelectFaction={selectFaction}
+          />
+        );
       case "factions":
         return (
           <FactionTab
@@ -579,7 +589,6 @@ export default function HomePage() {
           log={battleLog}
           onSelectWarlord={selectWarlord}
           onSelectUnit={selectUnit}
-          onSelectFaction={selectFaction}
           onBack={backDetail}
         />
       );

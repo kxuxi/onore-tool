@@ -1,18 +1,17 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { BattleRecord, WarlordMap } from "@/lib/types";
 import {
   collectFactionBattles,
   summarize,
-  factionMatchupRanking,
-  userWinRates,
+  factionMemberStats,
+  latestUnitsByBranch,
   branchStats,
-  unitUsage,
   formatWinRate,
 } from "@/lib/stats";
-import type { OpponentFactionStat, UserWinRate } from "@/lib/stats";
-import { PieChart, chartColor } from "@/components/PieChart";
+import type { FactionMemberStat, BranchLatestUnits } from "@/lib/stats";
+import { copyText } from "@/lib/clipboard";
 import { BattleLogList } from "@/components/detail/BattleLogList";
 import {
   DetailHeader,
@@ -27,16 +26,16 @@ interface Props {
   log: BattleRecord[];
   onSelectWarlord: (name: string) => void;
   onSelectUnit: (name: string) => void;
-  onSelectFaction: (name: string) => void;
   onBack: () => void;
 }
 
-/** 所属武将（DB 名簿）＋この国での戦績を組み合わせた 1 行分のデータ。 */
+/** 所属武将（DB 名簿）＋この国での在籍区間の戦績を組み合わせた 1 行分のデータ。 */
 interface MemberRow {
   name: string;
   type?: string;
   branch?: string;
-  stat?: UserWinRate;
+  /** その国に所属してから（最後に加入してから今まで）の戦績。 */
+  stat?: FactionMemberStat;
 }
 
 export function FactionDetail({
@@ -45,31 +44,31 @@ export function FactionDetail({
   log,
   onSelectWarlord,
   onSelectUnit,
-  onSelectFaction,
   onBack,
 }: Props) {
+  // 国全体の戦績（誰がこの国で戦ったかを問わず、この国の旗で戦った全戦闘）。
   const outcomes = useMemo(
     () => collectFactionBattles(log, name),
     [log, name]
   );
   const summary = useMemo(() => summarize(outcomes), [outcomes]);
-  const matchup = useMemo(() => factionMatchupRanking(outcomes), [outcomes]);
-  const usage = useMemo(() => unitUsage(outcomes), [outcomes]);
   const branches = useMemo(() => branchStats(outcomes), [outcomes]);
 
-  // 所属武将：DB の名簿（現在この国に所属）を基本に、無ければ戦闘履歴から補完する。
+  // 所属武将：現在この国に居る武将を、その国に所属してからの戦績だけで集計する。
+  // 渡り歩いてきた武将は、最後に加入してから今までの在籍区間のみを採用する。
   const members = useMemo<MemberRow[]>(() => {
     const target = name.trim();
-    const winMap = new Map<string, UserWinRate>();
-    for (const u of userWinRates(outcomes)) winMap.set(u.name, u);
+    const statMap = new Map<string, FactionMemberStat>();
+    for (const s of factionMemberStats(log, target)) statMap.set(s.name, s);
 
+    // DB 名簿（現在この国に所属）を基本に、無ければ戦歴から補完する。
     const roster = Object.values(db).filter(
       (w) => (w.faction ?? "").trim() === target
     );
     const names =
       roster.length > 0
         ? roster.map((w) => w.name)
-        : Array.from(winMap.keys());
+        : Array.from(statMap.keys());
 
     const rows = names.map((n) => {
       const w = db[n];
@@ -77,7 +76,7 @@ export function FactionDetail({
         name: n,
         type: w?.type,
         branch: w?.branch,
-        stat: winMap.get(n),
+        stat: statMap.get(n),
       };
     });
     // 戦闘数の多い順 → 名前順。戦績の無い武将は後ろへ。
@@ -87,18 +86,15 @@ export function FactionDetail({
       if (ab !== bb) return bb - ab;
       return a.name.localeCompare(b.name, "ja");
     });
-  }, [db, outcomes, name]);
+  }, [db, log, name]);
 
-  const pieData = useMemo(
-    () =>
-      usage.map((u, i) => ({
-        label: u.name,
-        value: u.count,
-        color: chartColor(i),
-      })),
-    [usage]
-  );
-  const usageTotal = usage.reduce((s, u) => s + u.count, 0);
+  // 現在の主力兵種：所属武将が最新で使っている兵種を兵科ごとにまとめる。
+  const latestUnits = useMemo<BranchLatestUnits[]>(() => {
+    const stats = members
+      .map((m) => m.stat)
+      .filter((s): s is FactionMemberStat => !!s);
+    return latestUnitsByBranch(stats);
+  }, [members]);
 
   const tags = (
     <>
@@ -120,7 +116,7 @@ export function FactionDetail({
           <p className="empty-title">この国のデータがありません</p>
           <p className="empty-hint">
             「{name}」が登場する戦闘履歴・所属武将が見つかりませんでした。
-            「戦闘履歴」タブで戦績を登録すると、勝率や相性がここに表示されます。
+            「戦闘履歴」タブで戦績を登録すると、勝率や主力兵種がここに表示されます。
           </p>
         </div>
       ) : (
@@ -129,63 +125,16 @@ export function FactionDetail({
             <>
               <StatCards summary={summary} />
               <WinRateBar summary={summary} />
-
-              <FactionMatchupRanking
-                best={matchup.best}
-                worst={matchup.worst}
-                currentFaction={name}
-                onSelectFaction={onSelectFaction}
-              />
             </>
           )}
+
+          <LatestUnits groups={latestUnits} onSelectUnit={onSelectUnit} />
 
           <FactionMembers members={members} onSelectWarlord={onSelectWarlord} />
 
           {outcomes.length > 0 && (
             <>
               <BranchWinRates branches={branches} />
-
-              {usage.length > 0 && (
-                <div className="detail-section">
-                  <h3>使用兵種の割合</h3>
-                  <div className="pie-block">
-                    <PieChart data={pieData} />
-                    <ul className="pie-legend">
-                      {usage.map((u, i) => {
-                        const pct =
-                          usageTotal > 0
-                            ? Math.round((u.count / usageTotal) * 100)
-                            : 0;
-                        return (
-                          <li key={u.name} className="pie-legend-item">
-                            <span
-                              className="pie-dot"
-                              style={{ background: chartColor(i) }}
-                            />
-                            {u.name === "不明" ? (
-                              <span className="pie-legend-name muted">
-                                不明
-                              </span>
-                            ) : (
-                              <button
-                                type="button"
-                                className="pie-legend-name link-like"
-                                onClick={() => onSelectUnit(u.name)}
-                                title={`${u.name} の戦績を見る`}
-                              >
-                                {u.name}
-                              </button>
-                            )}
-                            <span className="pie-legend-val">
-                              {u.count}戦 ({pct}%)
-                            </span>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                </div>
-              )}
 
               <div className="detail-section">
                 <h3>戦闘ログ（{outcomes.length}件）</h3>
@@ -203,96 +152,97 @@ export function FactionDetail({
   );
 }
 
-/* ---------- 対戦国との相性 ---------- */
+/* ---------- 現在の主力兵種（所属武将の最新使用兵種） ---------- */
 
-function FactionRankRow({
-  rank,
-  stat,
-  onSelectFaction,
+function LatestUnits({
+  groups,
+  onSelectUnit,
 }: {
-  rank: number;
-  stat: OpponentFactionStat;
-  onSelectFaction: (name: string) => void;
+  groups: BranchLatestUnits[];
+  onSelectUnit: (name: string) => void;
 }) {
-  return (
-    <li className="rank-row">
-      <span className="rank-no">{rank}</span>
-      <span className="rank-name">
-        <button
-          type="button"
-          className="link-like"
-          onClick={() => onSelectFaction(stat.faction)}
-          title={`${stat.faction} の戦績を見る`}
-        >
-          {stat.faction}
-        </button>
-      </span>
-      <span className="rank-rate">
-        {formatWinRate(stat.winRate, stat.decided)}
-      </span>
-      <span className="rank-record">
-        {stat.wins}勝{stat.losses}敗
-      </span>
-    </li>
+  const [copied, setCopied] = useState<"idle" | "ok" | "fail">("idle");
+
+  // 国へ報告するための主力兵種テキスト。兵科ごとに 1 行で「兵種: 人数」を並べる。
+  const reportText = useMemo(
+    () =>
+      groups
+        .map(
+          (g) =>
+            `【${g.branch}】` +
+            g.units.map((u) => `${u.unit}: ${u.count}`).join(", ")
+        )
+        .join("\n"),
+    [groups]
   );
-}
 
-function FactionMatchupRanking({
-  best,
-  worst,
-  currentFaction,
-  onSelectFaction,
-}: {
-  best: OpponentFactionStat[];
-  worst: OpponentFactionStat[];
-  currentFaction: string;
-  onSelectFaction: (name: string) => void;
-}) {
-  if (best.length === 0 && worst.length === 0) return null;
-  // 自国どうしの対戦（同士討ち）は相性表から除外する。
-  const filterSelf = (arr: OpponentFactionStat[]) =>
-    arr.filter((s) => s.faction !== currentFaction);
-  const bestList = filterSelf(best);
-  const worstList = filterSelf(worst);
-  if (bestList.length === 0 && worstList.length === 0) return null;
+  const handleCopy = async () => {
+    if (!reportText) return;
+    const ok = await copyText(reportText);
+    setCopied(ok ? "ok" : "fail");
+    window.setTimeout(() => setCopied("idle"), 1800);
+  };
+
+  if (groups.length === 0) return null;
+  const memberTotal = groups.reduce((s, g) => s + g.total, 0);
+
   return (
     <div className="detail-section">
-      <h3>対戦国との相性</h3>
-      <div className="rank-cols">
-        <div className="rank-col">
-          <h4 className="rank-head rank-head--good">相性の良い国</h4>
-          {bestList.length > 0 ? (
-            <ol className="rank-list">
-              {bestList.map((s, i) => (
-                <FactionRankRow
-                  key={s.faction}
-                  rank={i + 1}
-                  stat={s}
-                  onSelectFaction={onSelectFaction}
-                />
+      <h3>現在の主力兵種</h3>
+      <p className="detail-note muted">
+        所属武将が最後の出陣で使っていた兵種を、兵科ごとに集計しています（数字は人数）。
+      </p>
+      <ul className="latest-units">
+        {groups.map((g) => (
+          <li key={g.branch} className="latest-units-row">
+            <span className="latest-units-branch">
+              {g.branch}
+              <span className="latest-units-total">{g.total}</span>
+            </span>
+            <span className="latest-units-units">
+              {g.units.map((u) => (
+                <button
+                  key={u.unit}
+                  type="button"
+                  className="latest-unit-chip"
+                  onClick={() => onSelectUnit(u.unit)}
+                  title={`${u.unit} の戦績を見る`}
+                >
+                  <span className="latest-unit-name">{u.unit}</span>
+                  <span className="latest-unit-count">{u.count}</span>
+                </button>
               ))}
-            </ol>
-          ) : (
-            <p className="muted rank-empty">勝ち越している国はまだありません。</p>
-          )}
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      <div className="scout-report">
+        <div className="scout-report-head">
+          <span className="scout-report-title">
+            報告用テキスト（兵科｜兵種: 人数）
+            <span className="scout-report-count">{memberTotal}人</span>
+          </span>
+          <button
+            type="button"
+            className="btn"
+            onClick={handleCopy}
+            disabled={!reportText}
+          >
+            {copied === "ok"
+              ? "コピーしました"
+              : copied === "fail"
+                ? "コピーできませんでした"
+                : "報告用をコピー"}
+          </button>
         </div>
-        <div className="rank-col">
-          <h4 className="rank-head rank-head--bad">苦手な国</h4>
-          {worstList.length > 0 ? (
-            <ol className="rank-list">
-              {worstList.map((s, i) => (
-                <FactionRankRow
-                  key={s.faction}
-                  rank={i + 1}
-                  stat={s}
-                  onSelectFaction={onSelectFaction}
-                />
-              ))}
-            </ol>
-          ) : (
-            <p className="muted rank-empty">負け越している国はまだありません。</p>
-          )}
-        </div>
+        <textarea
+          className="scout-report-text"
+          readOnly
+          value={reportText}
+          rows={Math.min(groups.length + 1, 8)}
+          onFocus={(e) => e.currentTarget.select()}
+        />
       </div>
     </div>
   );
@@ -311,6 +261,9 @@ function FactionMembers({
   return (
     <div className="detail-section">
       <h3>所属武将（{members.length}人）</h3>
+      <p className="detail-note muted">
+        勝率はこの国に所属してから（最後に加入してから今まで）の戦績です。
+      </p>
       <ul className="user-winrate-list">
         {members.map((m) => {
           const s = m.stat;

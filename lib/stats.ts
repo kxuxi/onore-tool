@@ -7,7 +7,7 @@ import {
   type BattleWinner,
 } from "./parser";
 import { parseActionDate } from "./action";
-import type { BattleRecord } from "./types";
+import type { BattleRecord, WarlordMap } from "./types";
 
 export type SideKey = "left" | "right";
 export type OutcomeResult = "win" | "loss" | "other";
@@ -503,88 +503,229 @@ export function collectFactionBattles(
   return sortByTimeDesc(out);
 }
 
-/** 対戦相手の国ごとの戦績。 */
-export interface OpponentFactionStat {
+/** 国（勢力）一覧 1 行分の集計。 */
+export interface FactionSummary {
   faction: string;
+  /** 現在この国に所属している武将の人数（DB 名簿）。 */
+  members: number;
+  /** この国の旗で戦った戦闘数（同士討ちは左右で 2 件）。 */
   battles: number;
   wins: number;
   losses: number;
-  others: number;
   decided: number;
   winRate: number;
 }
 
-/** 相手の国ごとに、注目国視点の勝敗を集計する。 */
-export function opponentFactionStats(
-  outcomes: BattleOutcome[]
-): OpponentFactionStat[] {
-  const map = new Map<string, OpponentFactionStat>();
-  for (const o of outcomes) {
-    const faction = o.opponent.faction?.trim();
-    if (!faction) continue;
-    let s = map.get(faction);
-    if (!s) {
-      s = {
-        faction,
-        battles: 0,
-        wins: 0,
-        losses: 0,
-        others: 0,
-        decided: 0,
-        winRate: 0,
-      };
-      map.set(faction, s);
+/**
+ * 全戦闘履歴と DB 名簿から、国（勢力）ごとの一覧を集計する。
+ * 戦歴・名簿のいずれかに登場する国をすべて対象にし、戦闘数の多い順
+ * （同数なら勝率の高い順 → 名前順）に並べて返す。
+ */
+export function factionSummaries(
+  log: BattleRecord[],
+  db: WarlordMap
+): FactionSummary[] {
+  const agg = new Map<
+    string,
+    { battles: number; wins: number; losses: number }
+  >();
+  const ensure = (faction: string) => {
+    let a = agg.get(faction);
+    if (!a) {
+      a = { battles: 0, wins: 0, losses: 0 };
+      agg.set(faction, a);
     }
-    s.battles++;
-    if (o.result === "win") s.wins++;
-    else if (o.result === "loss") s.losses++;
-    else s.others++;
+    return a;
+  };
+  for (const { card } of dedupedCards(log)) {
+    for (const side of ["left", "right"] as SideKey[]) {
+      const s = side === "left" ? card.left : card.right;
+      const faction = s.faction?.trim();
+      if (!faction) continue;
+      const a = ensure(faction);
+      a.battles++;
+      const r = outcomeForSide(card.winner, side);
+      if (r === "win") a.wins++;
+      else if (r === "loss") a.losses++;
+    }
   }
-  const arr = Array.from(map.values());
-  for (const s of arr) {
-    s.decided = s.wins + s.losses;
-    s.winRate = s.decided > 0 ? s.wins / s.decided : 0;
-  }
-  return arr;
-}
 
-/** 相性の良い／苦手な対戦国ランキング。 */
-export interface FactionMatchupRanking {
-  best: OpponentFactionStat[];
-  worst: OpponentFactionStat[];
+  // 現在の所属人数（DB 名簿）。
+  const members = new Map<string, number>();
+  for (const w of Object.values(db)) {
+    const faction = w.faction?.trim();
+    if (!faction) continue;
+    members.set(faction, (members.get(faction) ?? 0) + 1);
+  }
+
+  // 戦歴・名簿のどちらかに出てくる国をすべて対象にする。
+  const names = new Set<string>([...agg.keys(), ...members.keys()]);
+  const out: FactionSummary[] = [];
+  for (const faction of names) {
+    const a = agg.get(faction) ?? { battles: 0, wins: 0, losses: 0 };
+    const decided = a.wins + a.losses;
+    out.push({
+      faction,
+      members: members.get(faction) ?? 0,
+      battles: a.battles,
+      wins: a.wins,
+      losses: a.losses,
+      decided,
+      winRate: decided > 0 ? a.wins / decided : 0,
+    });
+  }
+  return out.sort(
+    (a, b) =>
+      b.battles - a.battles ||
+      b.winRate - a.winRate ||
+      a.faction.localeCompare(b.faction, "ja")
+  );
 }
 
 /**
- * 対戦国を勝率順に並べ、相性の良い／苦手な国 TOP3 を返す。
- * 勝敗が確定した対戦が 1 度でもある国のみ対象。
- * - 相性の良い国 = 勝ち越している国（勝率 > 50%）を勝率の高い順に。
- * - 苦手な国 = 負け越している国（勝率 < 50%）を勝率の低い順に。
- * 勝率 50%（五分）の国はどちらにも含めない（同じ国が両方に出ない）。
+ * 現在その国に所属する武将 1 人分の「在籍区間」の戦績。
+ * 渡り歩いてきた武将を考慮し、最後にその国へ加入してから今までの
+ * 連続した在籍区間のみを対象にする（過去に一度離れて出戻った場合、
+ * 古い在籍ぶんは含めない）。
  */
-export function factionMatchupRanking(
-  outcomes: BattleOutcome[],
-  top = 3
-): FactionMatchupRanking {
-  const decided = opponentFactionStats(outcomes).filter((s) => s.decided > 0);
-  const best = decided
-    .filter((s) => s.winRate > 0.5)
-    .sort(
-      (a, b) =>
-        b.winRate - a.winRate ||
-        b.decided - a.decided ||
-        b.battles - a.battles
-    )
-    .slice(0, top);
-  const worst = decided
-    .filter((s) => s.winRate < 0.5)
-    .sort(
-      (a, b) =>
-        a.winRate - b.winRate ||
-        b.decided - a.decided ||
-        b.battles - a.battles
-    )
-    .slice(0, top);
-  return { best, worst };
+export interface FactionMemberStat {
+  name: string;
+  /** 現在の在籍区間での戦闘数 */
+  battles: number;
+  wins: number;
+  losses: number;
+  decided: number;
+  winRate: number;
+  /** 現在の在籍区間で最後に使った兵種（正規化済み）。不明なら undefined。 */
+  latestUnit?: string;
+  /** 最後に使った兵種の兵科。不明なら undefined。 */
+  latestBranch?: string;
+}
+
+/**
+ * 指定した国に「今も所属している武将」ごとに、現在の在籍区間の戦績を集計する。
+ *
+ * 渡り歩いてきた武将がいるため、各武将の全戦闘履歴をたどり、最後にその国で
+ * 戦った時点から連続してその国に居た区間だけを採用する。これにより、別の国に
+ * 居たときの戦績や、過去に一度離れる前の古い在籍ぶんは集計から除外される。
+ * latestUnit / latestBranch には、その区間で最後に出陣したときの兵種を入れる。
+ */
+export function factionMemberStats(
+  log: BattleRecord[],
+  faction: string
+): FactionMemberStat[] {
+  const target = faction.trim();
+  const cards = dedupedCards(log);
+
+  // 1. この国で 1 度でも戦ったことのある武将名を集める。
+  const participants = new Set<string>();
+  for (const { card } of cards) {
+    if (card.left.faction?.trim() === target && card.left.name?.trim())
+      participants.add(card.left.name.trim());
+    if (card.right.faction?.trim() === target && card.right.name?.trim())
+      participants.add(card.right.name.trim());
+  }
+  if (participants.size === 0) return [];
+
+  // 2. 参加武将の全戦闘履歴を集める（所属の変化を追うため他国での戦いも含む）。
+  const history = new Map<string, BattleOutcome[]>();
+  for (const { record, card } of cards) {
+    for (const side of ["left", "right"] as SideKey[]) {
+      const s = side === "left" ? card.left : card.right;
+      const name = s.name?.trim();
+      if (!name || !participants.has(name)) continue;
+      const arr = history.get(name) ?? [];
+      arr.push(makeOutcome(record, card, side));
+      history.set(name, arr);
+    }
+  }
+
+  // 3. 各武将について、最後にその国で戦った時点から連続する在籍区間を集計する。
+  const out: FactionMemberStat[] = [];
+  for (const [name, all] of history) {
+    const sorted = sortByTimeDesc(all); // 新しい順
+    const start = sorted.findIndex((o) => o.self.faction?.trim() === target);
+    if (start === -1) continue;
+    const stint: BattleOutcome[] = [];
+    for (let i = start; i < sorted.length; i++) {
+      if (sorted[i].self.faction?.trim() === target) stint.push(sorted[i]);
+      else break; // 別の国に移る直前まで（＝現在の在籍区間）
+    }
+    let wins = 0;
+    let losses = 0;
+    for (const o of stint) {
+      if (o.result === "win") wins++;
+      else if (o.result === "loss") losses++;
+    }
+    const decided = wins + losses;
+    const latest = stint[0];
+    out.push({
+      name,
+      battles: stint.length,
+      wins,
+      losses,
+      decided,
+      winRate: decided > 0 ? wins / decided : 0,
+      latestUnit: latest?.self.unit
+        ? normalizeDisplayToken(latest.self.unit)
+        : undefined,
+      latestBranch: latest?.self.branch?.trim() || undefined,
+    });
+  }
+  return out.sort(
+    (a, b) =>
+      b.battles - a.battles ||
+      b.winRate - a.winRate ||
+      a.name.localeCompare(b.name, "ja")
+  );
+}
+
+/** 兵科ごとにまとめた「最新使用兵種」の内訳。 */
+export interface BranchLatestUnits {
+  /** 兵科名（不明・空欄は "その他"）。 */
+  branch: string;
+  /** この兵科を最新で使っている人数の合計。 */
+  total: number;
+  /** 兵種ごとの人数（多い順）。 */
+  units: { unit: string; count: number }[];
+}
+
+/**
+ * 武将ごとの「最新で使っている兵種」を兵科別に集計する。
+ * 各エントリ（1 武将）の最新兵種を 1 票として数え、兵科 → 兵種の順にまとめる。
+ * 兵科は人数の多い順（"その他" は末尾）、兵種は各兵科内で人数の多い順。
+ */
+export function latestUnitsByBranch(
+  members: { latestBranch?: string; latestUnit?: string }[]
+): BranchLatestUnits[] {
+  const OTHER = "その他";
+  const map = new Map<string, Map<string, number>>();
+  for (const m of members) {
+    const unit = m.latestUnit?.trim();
+    if (!unit) continue;
+    const branch = m.latestBranch?.trim() || OTHER;
+    let units = map.get(branch);
+    if (!units) {
+      units = new Map<string, number>();
+      map.set(branch, units);
+    }
+    units.set(unit, (units.get(unit) ?? 0) + 1);
+  }
+  const arr: BranchLatestUnits[] = Array.from(map.entries()).map(
+    ([branch, units]) => {
+      const list = Array.from(units.entries())
+        .map(([unit, count]) => ({ unit, count }))
+        .sort((a, b) => b.count - a.count || a.unit.localeCompare(b.unit, "ja"));
+      const total = list.reduce((s, u) => s + u.count, 0);
+      return { branch, total, units: list };
+    }
+  );
+  return arr.sort((a, b) => {
+    const ao = a.branch === OTHER ? 1 : 0;
+    const bo = b.branch === OTHER ? 1 : 0;
+    if (ao !== bo) return ao - bo; // "その他" は末尾
+    return b.total - a.total || a.branch.localeCompare(b.branch, "ja");
+  });
 }
 
 /* ---------- 兵種ページ：相性の良い／苦手な敵兵種 ---------- */

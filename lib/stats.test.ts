@@ -8,8 +8,9 @@ import {
   winHeatmap,
   factionTimeline,
   collectFactionBattles,
-  opponentFactionStats,
-  factionMatchupRanking,
+  factionSummaries,
+  factionMemberStats,
+  latestUnitsByBranch,
   unitMatchupRanking,
   userWinRates,
   unitUsageTrend,
@@ -19,7 +20,7 @@ import {
   itemStats,
   formatWinRate,
 } from "./stats";
-import type { BattleRecord } from "./types";
+import type { BattleRecord, WarlordMap } from "./types";
 
 /**
  * テスト用の戦闘行を組み立てる。
@@ -317,7 +318,7 @@ describe("factionTimeline", () => {
   });
 });
 
-describe("collectFactionBattles / factionMatchupRanking", () => {
+describe("collectFactionBattles", () => {
   const fw = (
     year: number,
     opp: string,
@@ -351,22 +352,143 @@ describe("collectFactionBattles / factionMatchupRanking", () => {
     expect(outcomes).toHaveLength(6);
     expect(outcomes.every((o) => o.self.faction === "織田")).toBe(true);
   });
+});
 
-  it("対戦国ごとに勝敗を集計する", () => {
-    const stats = opponentFactionStats(outcomes);
-    const takeda = stats.find((s) => s.faction === "武田")!;
-    expect(takeda.battles).toBe(2);
-    expect(takeda.wins).toBe(2);
-    expect(takeda.winRate).toBeCloseTo(1);
+describe("factionMemberStats", () => {
+  // 武将名・兵種・兵科・所属国・勝敗を制御できる戦闘行ビルダー。
+  // 並び順は savedAt（大きいほど新しい）で決まるよう、時刻は固定にする。
+  const line = (opts: {
+    self: string;
+    faction: string;
+    unit: string;
+    branch: string;
+    opp: string;
+    result: string;
+  }) =>
+    `【1戦目】 1600年4月 04/10 10:00 京都 ${opts.faction} ${opts.self} 某家 武特 ${opts.unit} ${opts.branch} 槍 鎧 V.S. 敵国 ${opts.opp} 敵家 統特 騎馬隊 騎兵 馬 旗 ${opts.result} 12`;
+
+  it("現在の在籍区間のみ集計し、出戻り前の古い在籍ぶんは除外する", () => {
+    // 渡辺: 織田(勝) → 武田 → 織田(勝) → 織田(負) と渡り歩いた出戻り武将。
+    // 現在の在籍区間は最後の織田2戦のみ（古い織田1戦は除外）。
+    const log: BattleRecord[] = [
+      rec(line({ self: "渡辺", faction: "織田", unit: "母衣衆", branch: "騎兵", opp: "A", result: "渡辺の勝利" }), 1),
+      rec(line({ self: "渡辺", faction: "武田", unit: "母衣衆", branch: "騎兵", opp: "B", result: "渡辺の勝利" }), 2),
+      rec(line({ self: "渡辺", faction: "織田", unit: "南蛮象騎兵", branch: "騎兵", opp: "C", result: "渡辺の勝利" }), 3),
+      rec(line({ self: "渡辺", faction: "織田", unit: "南蛮象騎兵", branch: "騎兵", opp: "D", result: "Dの勝利" }), 4),
+      // 山田: ずっと織田。弓兵ロングボウ。最新は savedAt=7。
+      rec(line({ self: "山田", faction: "織田", unit: "丸木弓足軽", branch: "弓兵", opp: "E", result: "山田の勝利" }), 5),
+      rec(line({ self: "山田", faction: "織田", unit: "丸木弓足軽", branch: "弓兵", opp: "F", result: "Fの勝利" }), 6),
+      rec(line({ self: "山田", faction: "織田", unit: "ロングボウ", branch: "弓兵", opp: "G", result: "山田の勝利" }), 7),
+    ];
+    const stats = factionMemberStats(log, "織田");
+    const watanabe = stats.find((s) => s.name === "渡辺")!;
+    expect(watanabe.battles).toBe(2); // 出戻り後の織田2戦のみ
+    expect(watanabe.wins).toBe(1);
+    expect(watanabe.losses).toBe(1);
+    expect(watanabe.latestUnit).toBe("南蛮象騎兵");
+    expect(watanabe.latestBranch).toBe("騎兵");
+
+    const yamada = stats.find((s) => s.name === "山田")!;
+    expect(yamada.battles).toBe(3);
+    expect(yamada.wins).toBe(2);
+    expect(yamada.latestUnit).toBe("ロングボウ"); // 最新の使用兵種
+    expect(yamada.latestBranch).toBe("弓兵");
   });
 
-  it("相性ランキングは勝ち越し/負け越しで分け、五分は除外する", () => {
-    const r = factionMatchupRanking(outcomes);
-    expect(r.best.map((s) => s.faction)).toEqual(["武田"]); // 100%
-    expect(r.worst.map((s) => s.faction)).toEqual(["上杉"]); // 0%
-    // 北条(1勝1敗=50%)は五分なのでどちらにも入らない
-    expect(r.best.map((s) => s.faction)).not.toContain("北条");
-    expect(r.worst.map((s) => s.faction)).not.toContain("北条");
+  it("現在は別の国にいる武将（出戻りなし）は集計対象外", () => {
+    // 佐藤: 織田 → 武田 と移籍。武田が現在の所属なので織田の在籍区間は古いぶんのみ。
+    const log: BattleRecord[] = [
+      rec(line({ self: "佐藤", faction: "織田", unit: "母衣衆", branch: "騎兵", opp: "A", result: "佐藤の勝利" }), 1),
+      rec(line({ self: "佐藤", faction: "武田", unit: "母衣衆", branch: "騎兵", opp: "B", result: "佐藤の勝利" }), 2),
+    ];
+    // 織田から見ると、佐藤の最後の織田戦(savedAt=1)以降は武田なので在籍区間は1戦。
+    const oda = factionMemberStats(log, "織田").find((s) => s.name === "佐藤")!;
+    expect(oda.battles).toBe(1);
+    // 武田から見ると現在の在籍区間は1戦。
+    const takeda = factionMemberStats(log, "武田").find((s) => s.name === "佐藤")!;
+    expect(takeda.battles).toBe(1);
+    expect(takeda.latestUnit).toBe("母衣衆");
+  });
+});
+
+describe("latestUnitsByBranch", () => {
+  it("兵科ごとに最新使用兵種を集計し、その他は末尾に置く", () => {
+    const groups = latestUnitsByBranch([
+      { latestBranch: "弓兵", latestUnit: "ロングボウ" },
+      { latestBranch: "弓兵", latestUnit: "ロングボウ" },
+      { latestBranch: "弓兵", latestUnit: "剛弓" },
+      { latestBranch: "騎兵", latestUnit: "南蛮象" },
+      { latestBranch: "万能", latestUnit: "梓巫女" },
+      { latestUnit: "ぬりかべ" }, // 兵科不明 → その他
+      { latestBranch: "弓兵" }, // 兵種なし → 無視
+    ]);
+    expect(groups[0].branch).toBe("弓兵"); // 人数最多（3）
+    expect(groups[0].total).toBe(3);
+    expect(groups[0].units).toEqual([
+      { unit: "ロングボウ", count: 2 },
+      { unit: "剛弓", count: 1 },
+    ]);
+    expect(groups[groups.length - 1].branch).toBe("その他"); // 末尾
+    expect(groups.find((g) => g.branch === "その他")!.units).toEqual([
+      { unit: "ぬりかべ", count: 1 },
+    ]);
+  });
+});
+
+describe("factionSummaries", () => {
+  // 左右の国・武将名・勝敗を制御できる戦闘行ビルダー。
+  const line = (opts: {
+    lf: string;
+    ln: string;
+    rf: string;
+    rn: string;
+    result: string;
+  }) =>
+    `【1戦目】 1600年4月 04/10 10:00 京都 ${opts.lf} ${opts.ln} 某家 武特 騎馬隊 騎兵 槍 鎧 V.S. ${opts.rf} ${opts.rn} 敵家 統特 騎馬隊 騎兵 馬 旗 ${opts.result} 12`;
+
+  const w = (name: string, faction: string): WarlordMap[string] => ({
+    name,
+    faction,
+    type: "武特",
+    branch: "騎兵",
+    updatedAt: 0,
+  });
+
+  it("国ごとに戦闘数・勝敗・人数を集計し、戦闘数→勝率順に並べる", () => {
+    // 織田 2勝1敗 / 武田 1勝2敗（同じ戦闘の裏返し）。上杉は名簿のみで戦歴なし。
+    const log: BattleRecord[] = [
+      rec(line({ lf: "織田", ln: "信長", rf: "武田", rn: "勝頼", result: "信長の勝利" }), 1),
+      rec(line({ lf: "織田", ln: "光秀", rf: "武田", rn: "信玄", result: "光秀の勝利" }), 2),
+      rec(line({ lf: "織田", ln: "秀吉", rf: "武田", rn: "昌幸", result: "昌幸の勝利" }), 3),
+    ];
+    const db: WarlordMap = {
+      信長: w("信長", "織田"),
+      光秀: w("光秀", "織田"),
+      秀吉: w("秀吉", "織田"),
+      勝頼: w("勝頼", "武田"),
+      謙信: w("謙信", "上杉"), // 戦歴のない国（名簿のみ）
+    };
+    const list = factionSummaries(log, db);
+    expect(list.map((f) => f.faction)).toEqual(["織田", "武田", "上杉"]);
+
+    const oda = list[0];
+    expect(oda.battles).toBe(3);
+    expect(oda.wins).toBe(2);
+    expect(oda.losses).toBe(1);
+    expect(oda.members).toBe(3);
+    expect(oda.winRate).toBeCloseTo(2 / 3, 5);
+
+    const takeda = list[1];
+    expect(takeda.battles).toBe(3);
+    expect(takeda.wins).toBe(1);
+    expect(takeda.losses).toBe(2);
+    expect(takeda.members).toBe(1); // 勝頼のみ DB 登録
+
+    const uesugi = list[2];
+    expect(uesugi.battles).toBe(0);
+    expect(uesugi.members).toBe(1);
+    expect(uesugi.decided).toBe(0);
+    expect(uesugi.winRate).toBe(0);
   });
 });
 
