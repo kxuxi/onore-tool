@@ -9,6 +9,7 @@ import {
   normalizeDisplayToken,
   extractBattleUrl,
   battleKey,
+  parseBattleEntriesChecked,
   type BattleCard,
   type BattleSide,
 } from "@/lib/parser";
@@ -128,6 +129,16 @@ export function HistoryTab({
     | { kind: "error"; message: string }
   >(null);
   const [busy, setBusy] = useState(false);
+  // 入力中の体感を保つため、プレビュー集計は遅延値で行う。
+  const deferredText = useDeferredValue(text);
+  // 登録前に「何件取り込めるか」を事前集計して表示する（貼り付けの取りこぼし検知用）。
+  const preview = useMemo(() => {
+    if (!deferredText.trim()) return null;
+    const { entries, rejected } = parseBattleEntriesChecked(deferredText);
+    let warlords = 0;
+    for (const e of entries) warlords += e.warlords.length;
+    return { battles: entries.length, warlords, rejected: rejected.length };
+  }, [deferredText]);
 
   const handleRegister = async () => {
     if (busy) return;
@@ -312,6 +323,23 @@ export function HistoryTab({
           autoCapitalize="off"
           autoCorrect="off"
         />
+        {preview && (
+          <p
+            className="paste-preview"
+            aria-live="polite"
+            style={{ margin: "8px 0 0", fontSize: 13 }}
+          >
+            <span className="muted">登録プレビュー:</span> 戦闘{" "}
+            <strong>{preview.battles}</strong>件 / 武将{" "}
+            <strong>{preview.warlords}</strong>名
+            {preview.rejected > 0 && (
+              <span className="paste-preview-warn">
+                {" "}
+                ・ 項目過不足 {preview.rejected}件（登録対象外）
+              </span>
+            )}
+          </p>
+        )}
         <div className="row">
           <button
             type="button"

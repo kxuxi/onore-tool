@@ -3192,6 +3192,12 @@ button.tag.faction-link:focus-visible {
   white-space: nowrap;
 }
 
+/* ---------- 戦闘履歴 貼り付けプレビュー ---------- */
+.paste-preview-warn {
+  color: var(--warning);
+  font-weight: 600;
+}
+
 /* ---------- 読み込み中スケルトン ---------- */
 .skeleton {
   position: relative;
