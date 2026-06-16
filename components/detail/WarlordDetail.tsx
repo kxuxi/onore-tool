@@ -36,6 +36,7 @@ interface Props {
   log: BattleRecord[];
   onSelectWarlord: (name: string) => void;
   onSelectUnit: (name: string) => void;
+  onSelectFaction: (name: string) => void;
   onBack: () => void;
 }
 
@@ -45,6 +46,7 @@ export function WarlordDetail({
   log,
   onSelectWarlord,
   onSelectUnit,
+  onSelectFaction,
   onBack,
 }: Props) {
   const outcomes = useMemo(
@@ -78,7 +80,16 @@ export function WarlordDetail({
 
   const tags = (
     <>
-      {faction && <span className="tag faction">{faction}</span>}
+      {faction && (
+        <button
+          type="button"
+          className="tag faction faction-link"
+          onClick={() => onSelectFaction(faction)}
+          title={`${faction} の成績を見る`}
+        >
+          {faction}
+        </button>
+      )}
       {type && <span className="tag type">{type}</span>}
       {branch && <span className="tag branch">{branch}</span>}
     </>

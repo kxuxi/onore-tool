@@ -1418,6 +1418,18 @@ mark.hl {
   background: var(--danger-strong);
 }
 
+/* クリック可能な国タグ（ボタン）。色は .tag.faction を継承する。 */
+button.tag.faction-link {
+  font-family: inherit;
+  cursor: pointer;
+}
+button.tag.faction-link:hover,
+button.tag.faction-link:focus-visible {
+  filter: brightness(1.18);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 /* クリックできるタグ（図鑑から個別ページへ遷移）。見た目は tag のまま。 */
 .tag-btn {
   cursor: pointer;

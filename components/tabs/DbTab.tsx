@@ -9,6 +9,7 @@ import { SearchIcon, FilterIcon, CloseIcon } from "@/components/icons";
 interface Props {
   db: WarlordMap;
   onSelectWarlord: (name: string) => void;
+  onSelectFaction: (name: string) => void;
   /** ランキングから解析した能力値を取り込む。更新/新規件数を返す。 */
   onImportStats: (
     stats: ReturnType<typeof parseWarlordStats>["stats"]
@@ -37,7 +38,7 @@ function formatUpdatedAt(ms: number): string {
   });
 }
 
-export function DbTab({ db, onSelectWarlord, onImportStats }: Props) {
+export function DbTab({ db, onSelectWarlord, onSelectFaction, onImportStats }: Props) {
   const [keyword, setKeyword] = useState("");
   const [faction, setFaction] = useState("");
   const [type, setType] = useState("");
@@ -433,7 +434,14 @@ export function DbTab({ db, onSelectWarlord, onImportStats }: Props) {
                 <tr key={w.name}>
                   <td data-label="国">
                     {w.faction ? (
-                      <span className="tag faction">{w.faction}</span>
+                      <button
+                        type="button"
+                        className="tag faction faction-link"
+                        onClick={() => onSelectFaction(w.faction!)}
+                        title={`${w.faction} の成績を見る`}
+                      >
+                        {w.faction}
+                      </button>
                     ) : (
                       <span className="muted">-</span>
                     )}

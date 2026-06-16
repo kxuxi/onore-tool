@@ -482,6 +482,111 @@ export function factionTimeline(outcomes: BattleOutcome[]): FactionStint[] {
   return stints;
 }
 
+/* ---------- 国（勢力）ページ ---------- */
+
+/**
+ * 指定した国が参戦した戦闘を、その国の視点で集める。
+ * 1 戦闘で左右両軍が同じ国（同士討ち）の場合は 2 件になる。
+ */
+export function collectFactionBattles(
+  log: BattleRecord[],
+  faction: string
+): BattleOutcome[] {
+  const target = faction.trim();
+  const out: BattleOutcome[] = [];
+  for (const { record, card } of dedupedCards(log)) {
+    if (card.left.faction?.trim() === target)
+      out.push(makeOutcome(record, card, "left"));
+    if (card.right.faction?.trim() === target)
+      out.push(makeOutcome(record, card, "right"));
+  }
+  return sortByTimeDesc(out);
+}
+
+/** 対戦相手の国ごとの戦績。 */
+export interface OpponentFactionStat {
+  faction: string;
+  battles: number;
+  wins: number;
+  losses: number;
+  others: number;
+  decided: number;
+  winRate: number;
+}
+
+/** 相手の国ごとに、注目国視点の勝敗を集計する。 */
+export function opponentFactionStats(
+  outcomes: BattleOutcome[]
+): OpponentFactionStat[] {
+  const map = new Map<string, OpponentFactionStat>();
+  for (const o of outcomes) {
+    const faction = o.opponent.faction?.trim();
+    if (!faction) continue;
+    let s = map.get(faction);
+    if (!s) {
+      s = {
+        faction,
+        battles: 0,
+        wins: 0,
+        losses: 0,
+        others: 0,
+        decided: 0,
+        winRate: 0,
+      };
+      map.set(faction, s);
+    }
+    s.battles++;
+    if (o.result === "win") s.wins++;
+    else if (o.result === "loss") s.losses++;
+    else s.others++;
+  }
+  const arr = Array.from(map.values());
+  for (const s of arr) {
+    s.decided = s.wins + s.losses;
+    s.winRate = s.decided > 0 ? s.wins / s.decided : 0;
+  }
+  return arr;
+}
+
+/** 相性の良い／苦手な対戦国ランキング。 */
+export interface FactionMatchupRanking {
+  best: OpponentFactionStat[];
+  worst: OpponentFactionStat[];
+}
+
+/**
+ * 対戦国を勝率順に並べ、相性の良い／苦手な国 TOP3 を返す。
+ * 勝敗が確定した対戦が 1 度でもある国のみ対象。
+ * - 相性の良い国 = 勝ち越している国（勝率 > 50%）を勝率の高い順に。
+ * - 苦手な国 = 負け越している国（勝率 < 50%）を勝率の低い順に。
+ * 勝率 50%（五分）の国はどちらにも含めない（同じ国が両方に出ない）。
+ */
+export function factionMatchupRanking(
+  outcomes: BattleOutcome[],
+  top = 3
+): FactionMatchupRanking {
+  const decided = opponentFactionStats(outcomes).filter((s) => s.decided > 0);
+  const best = decided
+    .filter((s) => s.winRate > 0.5)
+    .sort(
+      (a, b) =>
+        b.winRate - a.winRate ||
+        b.decided - a.decided ||
+        b.battles - a.battles
+    )
+    .slice(0, top);
+  const worst = decided
+    .filter((s) => s.winRate < 0.5)
+    .sort(
+      (a, b) =>
+        a.winRate - b.winRate ||
+        b.decided - a.decided ||
+        b.battles - a.battles
+    )
+    .slice(0, top);
+  return { best, worst };
+}
+
 /* ---------- 兵種ページ：相性の良い／苦手な敵兵種 ---------- */
 
 /** 注目兵種から見た、ある敵兵種に対する戦績。 */

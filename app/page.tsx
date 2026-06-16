@@ -12,6 +12,7 @@ import { SwiTab } from "@/components/tabs/SwiTab";
 import { WarlordDetail } from "@/components/detail/WarlordDetail";
 import { UnitDetail } from "@/components/detail/UnitDetail";
 import { EquipDetail } from "@/components/detail/EquipDetail";
+import { FactionDetail } from "@/components/detail/FactionDetail";
 import { fetchState, registerState, importWarlordStats } from "@/lib/api";
 import { parseBattleEntries } from "@/lib/parser";
 import {
@@ -37,7 +38,7 @@ const TABS: { key: TabKey; label: string }[] = [
 
 /** 武将 / 兵種 / 武器 / 品物 ページの表示状態 */
 type DetailView = {
-  kind: "warlord" | "unit" | "weapon" | "item";
+  kind: "warlord" | "unit" | "weapon" | "item" | "faction";
   name: string;
 };
 
@@ -47,6 +48,7 @@ const DETAIL_PARAM: Record<DetailView["kind"], string> = {
   unit: "u",
   weapon: "wp",
   item: "it",
+  faction: "f",
 };
 
 /** デスクトップでのサイドバー開閉の好みを保存する localStorage キー。 */
@@ -76,11 +78,13 @@ function navStateFromSearch(search: string): {
   const u = params.get("u");
   const wp = params.get("wp");
   const it = params.get("it");
+  const f = params.get("f");
   let detailStack: DetailView[] = [];
   if (w) detailStack = [{ kind: "warlord", name: w }];
   else if (u) detailStack = [{ kind: "unit", name: u }];
   else if (wp) detailStack = [{ kind: "weapon", name: wp }];
   else if (it) detailStack = [{ kind: "item", name: it }];
+  else if (f) detailStack = [{ kind: "faction", name: f }];
   return { tab, detailStack };
 }
 
@@ -458,6 +462,21 @@ export default function HomePage() {
     [isMobile]
   );
 
+  // 国（勢力）ページを開く。
+  const selectFaction = useCallback(
+    (name: string) => {
+      const n = name.trim();
+      if (!n) return;
+      setDetailStack((s) => {
+        const top = s[s.length - 1];
+        if (top && top.kind === "faction" && top.name === n) return s;
+        return [...s, { kind: "faction", name: n }];
+      });
+      if (isMobile) setSidebarOpen(false);
+    },
+    [isMobile]
+  );
+
   const backDetail = useCallback(() => {
     setDetailStack((s) => s.slice(0, -1));
   }, []);
@@ -481,7 +500,7 @@ export default function HomePage() {
       case "swi":
         return <SwiTab log={battleLog} onSelectWarlord={selectWarlord} />;
       case "db":
-        return <DbTab db={db} onSelectWarlord={selectWarlord} onImportStats={handleImportStats} />;
+        return <DbTab db={db} onSelectWarlord={selectWarlord} onSelectFaction={selectFaction} onImportStats={handleImportStats} />;
       case "units":
         return <UnitTab onSelectUnit={selectUnit} />;
       case "weapons":
@@ -508,6 +527,7 @@ export default function HomePage() {
             db={db}
             colors={factionColors}
             onChange={handleChangeFactionColors}
+            onSelectFaction={selectFaction}
           />
         );
       default:
@@ -524,6 +544,7 @@ export default function HomePage() {
     selectWarlord,
     selectUnit,
     selectEquip,
+    selectFaction,
   ]);
 
   let detailView: React.ReactNode = null;
@@ -536,6 +557,7 @@ export default function HomePage() {
           log={battleLog}
           onSelectWarlord={selectWarlord}
           onSelectUnit={selectUnit}
+          onSelectFaction={selectFaction}
           onBack={backDetail}
         />
       );
@@ -546,6 +568,18 @@ export default function HomePage() {
           log={battleLog}
           onSelectWarlord={selectWarlord}
           onSelectUnit={selectUnit}
+          onBack={backDetail}
+        />
+      );
+    } else if (detail.kind === "faction") {
+      detailView = (
+        <FactionDetail
+          name={detail.name}
+          db={db}
+          log={battleLog}
+          onSelectWarlord={selectWarlord}
+          onSelectUnit={selectUnit}
+          onSelectFaction={selectFaction}
           onBack={backDetail}
         />
       );

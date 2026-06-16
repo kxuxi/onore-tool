@@ -7,6 +7,9 @@ import {
   branchStats,
   winHeatmap,
   factionTimeline,
+  collectFactionBattles,
+  opponentFactionStats,
+  factionMatchupRanking,
   unitMatchupRanking,
   userWinRates,
   unitUsageTrend,
@@ -311,6 +314,59 @@ describe("factionTimeline", () => {
     const stints = factionTimeline(outcomes);
     expect(stints.map((s) => s.faction)).toEqual(["大空", "己鯖電機"]);
     expect(stints.every((s) => !s.returning)).toBe(true);
+  });
+});
+
+describe("collectFactionBattles / factionMatchupRanking", () => {
+  const fw = (
+    year: number,
+    opp: string,
+    oppFaction: string,
+    result: string,
+    savedAt: number
+  ) =>
+    rec(
+      makeLine({
+        year,
+        time: `04/10 1${savedAt % 10}:00`,
+        selfFaction: "織田",
+        selfBranch: "騎兵",
+        opponent: opp,
+        oppFaction,
+        result,
+      }),
+      savedAt
+    );
+  const log: BattleRecord[] = [
+    fw(1600, "信玄", "武田", "信長の勝利", 1),
+    fw(1601, "勝頼", "武田", "信長の勝利", 2),
+    fw(1602, "謙信", "上杉", "謙信の勝利", 3),
+    fw(1603, "景勝", "上杉", "景勝の勝利", 4),
+    fw(1604, "氏康", "北条", "信長の勝利", 5),
+    fw(1605, "氏政", "北条", "氏政の勝利", 6),
+  ];
+  const outcomes = collectFactionBattles(log, "織田");
+
+  it("指定した国が参戦した戦闘を国視点で集める", () => {
+    expect(outcomes).toHaveLength(6);
+    expect(outcomes.every((o) => o.self.faction === "織田")).toBe(true);
+  });
+
+  it("対戦国ごとに勝敗を集計する", () => {
+    const stats = opponentFactionStats(outcomes);
+    const takeda = stats.find((s) => s.faction === "武田")!;
+    expect(takeda.battles).toBe(2);
+    expect(takeda.wins).toBe(2);
+    expect(takeda.winRate).toBeCloseTo(1);
+  });
+
+  it("相性ランキングは勝ち越し/負け越しで分け、五分は除外する", () => {
+    const r = factionMatchupRanking(outcomes);
+    expect(r.best.map((s) => s.faction)).toEqual(["武田"]); // 100%
+    expect(r.worst.map((s) => s.faction)).toEqual(["上杉"]); // 0%
+    // 北条(1勝1敗=50%)は五分なのでどちらにも入らない
+    expect(r.best.map((s) => s.faction)).not.toContain("北条");
+    expect(r.worst.map((s) => s.faction)).not.toContain("北条");
   });
 });
 

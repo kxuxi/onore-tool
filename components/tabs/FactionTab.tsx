@@ -14,9 +14,10 @@ interface Props {
   db: WarlordMap;
   colors: FactionColorMap;
   onChange: (next: FactionColorMap) => void;
+  onSelectFaction: (name: string) => void;
 }
 
-export function FactionTab({ db, colors, onChange }: Props) {
+export function FactionTab({ db, colors, onChange, onSelectFaction }: Props) {
   const [openFor, setOpenFor] = useState<string | null>(null);
 
   const factions = useMemo(
@@ -81,6 +82,7 @@ export function FactionTab({ db, colors, onChange }: Props) {
       </div>
       <p className="muted" style={{ margin: 0, fontSize: 13 }}>
         国（勢力）ごとに色を設定します。戦闘履歴カードの左右ボーダー（各国の色）と勝者名の色に反映されます。
+        国名をクリックすると、その国の成績ページを開けます。
         未設定の国は既定色（左側
         <span className="swatch" style={{ background: DEFAULT_WIN_LEFT }} />
         / 右側
@@ -100,7 +102,14 @@ export function FactionTab({ db, colors, onChange }: Props) {
             const name = paletteName(current);
             return (
               <div className="faction-color-row" key={f}>
-                <span className="tag faction">{f}</span>
+                <button
+                  type="button"
+                  className="tag faction faction-link"
+                  onClick={() => onSelectFaction(f)}
+                  title={`${f} の成績を見る`}
+                >
+                  {f}
+                </button>
                 <div className="faction-picker">
                   <button
                     type="button"
