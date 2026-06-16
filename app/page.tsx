@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { HistoryTab } from "@/components/tabs/HistoryTab";
 import { ScoutTab } from "@/components/tabs/ScoutTab";
 import { DbTab } from "@/components/tabs/DbTab";
@@ -38,6 +39,16 @@ import {
   ChevronUp,
   SunIcon,
   MoonIcon,
+  HistoryIcon,
+  SearchIcon,
+  ShieldIcon,
+  TrophyIcon,
+  DatabaseIcon,
+  UsersIcon,
+  SwordIcon,
+  PackageIcon,
+  FlagIcon,
+  SlidersIcon,
 } from "@/components/icons";
 import type { BattleRecord, TabKey, WarlordMap } from "@/lib/types";
 
@@ -53,6 +64,20 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "nations", label: "国" },
   { key: "factions", label: "環境設定" },
 ];
+
+/** サイドバー各タブのアイコン。 */
+const TAB_ICONS: Record<TabKey, ReactNode> = {
+  history: <HistoryIcon />,
+  scout: <SearchIcon />,
+  damage: <ShieldIcon />,
+  swi: <TrophyIcon />,
+  db: <DatabaseIcon />,
+  units: <UsersIcon />,
+  weapons: <SwordIcon />,
+  items: <PackageIcon />,
+  nations: <FlagIcon />,
+  factions: <SlidersIcon />,
+};
 
 /** 武将 / 兵種 / 武器 / 品物 ページの表示状態 */
 type DetailView = {
@@ -911,7 +936,10 @@ export default function HomePage() {
                 className={"nav-item" + (tab === t.key ? " active" : "")}
                 onClick={() => selectTab(t.key)}
               >
-                {t.label}
+                <span className="nav-item-icon" aria-hidden="true">
+                  {TAB_ICONS[t.key]}
+                </span>
+                <span className="nav-item-label">{t.label}</span>
               </button>
             ))}
           </nav>
