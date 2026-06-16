@@ -227,14 +227,17 @@ export function EquipTab({ log, onSelectWarlord, onSelectEquip, variant }: Props
                       {e.name}
                     </button>
                   </td>
-                  <td data-label="使用回数">{e.battles}</td>
+                  <td data-label="使用回数">
+                    {e.battles.toLocaleString("ja-JP")}
+                  </td>
                   <td data-label="勝率">
                     <span>
                       {e.decided > 0 ? (
                         <>
                           {formatWinRate(e.winRate, e.decided)}
                           <span className="muted equip-decided">
-                            （{e.wins}/{e.decided}）
+                            （{e.wins.toLocaleString("ja-JP")}/
+                            {e.decided.toLocaleString("ja-JP")}）
                           </span>
                         </>
                       ) : (
@@ -244,7 +247,8 @@ export function EquipTab({ log, onSelectWarlord, onSelectEquip, variant }: Props
                   </td>
                   <td className="equip-split" data-label="攻 / 守">
                     <span>
-                      {e.attackUses} / {e.defenseUses}
+                      {e.attackUses.toLocaleString("ja-JP")} /{" "}
+                      {e.defenseUses.toLocaleString("ja-JP")}
                     </span>
                   </td>
                   <td className="cell-block" data-label="主な使用武将">
@@ -258,7 +262,9 @@ export function EquipTab({ log, onSelectWarlord, onSelectEquip, variant }: Props
                           title={`${u.name} の戦績を見る`}
                         >
                           {u.name}
-                          <span className="muted">×{u.count}</span>
+                          <span className="muted">
+                            ×{u.count.toLocaleString("ja-JP")}
+                          </span>
                         </button>
                       ))}
                     </span>
