@@ -7,6 +7,7 @@ import {
   fetchUnitTypes,
   upsertUnitType,
 } from "@/lib/api";
+import { useModalA11y } from "@/lib/useModalA11y";
 
 const EMPTY: UnitType = {
   name: "",
@@ -91,6 +92,16 @@ export function UnitTab({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+
+  // 削除確認は編集モーダルの上に重なって開くため、最前面のモーダルだけ
+  // フォーカストラップを有効にする（背面の編集モーダルは無効化）。
+  const formModalRef = useModalA11y<HTMLDivElement>(
+    !!editing && !confirmDelete,
+    () => closeForm()
+  );
+  const deleteModalRef = useModalA11y<HTMLDivElement>(!!confirmDelete, () =>
+    setConfirmDelete(null)
+  );
 
   const reload = async () => {
     setLoading(true);
@@ -431,8 +442,10 @@ export function UnitTab({
           role="presentation"
         >
           <div
+            ref={formModalRef}
             className="modal"
             role="dialog"
+            aria-modal="true"
             aria-labelledby="unit-form-title"
             onClick={(e) => e.stopPropagation()}
             style={{ maxWidth: 560, width: "92%" }}
@@ -618,8 +631,10 @@ export function UnitTab({
           role="presentation"
         >
           <div
+            ref={deleteModalRef}
             className="modal"
             role="alertdialog"
+            aria-modal="true"
             aria-labelledby="unit-delete-title"
             onClick={(e) => e.stopPropagation()}
           >
