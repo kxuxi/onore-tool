@@ -17,6 +17,7 @@ interface Props {
 
 const THEME_CHOICES: { value: ThemePref; label: string }[] = [
   { value: "auto", label: "自動" },
+  { value: "system", label: "OSに合わせる" },
   { value: "light", label: "ライト" },
   { value: "dark", label: "ダーク" },
 ];
@@ -44,7 +45,8 @@ export function SettingsTab({
         </div>
         <p className="muted" style={{ margin: 0, fontSize: 13 }}>
           画面のライト／ダークを切り替えます。「自動」は時間帯で切り替わります
-          （6:00〜18:00 はライト、それ以外はダーク）。
+          （6:00〜18:00 はライト、それ以外はダーク）。「OSに合わせる」は端末の
+          外観設定（prefers-color-scheme）に追従します。
         </p>
         <div className="theme-options">
           <div className="theme-seg" role="group" aria-label="テーマの切り替え">
@@ -66,7 +68,11 @@ export function SettingsTab({
             <span className="theme-current">
               現在:{" "}
               <strong>{resolved === "light" ? "ライト" : "ダーク"}</strong>
-              {themePref === "auto" ? "（時間帯による自動）" : ""}
+              {themePref === "auto"
+                ? "（時間帯による自動）"
+                : themePref === "system"
+                  ? "（OS設定に追従）"
+                  : ""}
             </span>
           )}
         </div>

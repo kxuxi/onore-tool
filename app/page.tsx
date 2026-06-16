@@ -26,6 +26,7 @@ import {
   saveThemePref,
   resolveTheme,
   applyTheme,
+  COLOR_SCHEME_QUERY,
   type ThemePref,
 } from "@/lib/theme";
 import { copyText } from "@/lib/clipboard";
@@ -271,6 +272,16 @@ export default function HomePage() {
       applyTheme(resolveTheme("auto"));
     }, 60_000);
     return () => window.clearInterval(id);
+  }, [themePref]);
+
+  // 「OSに合わせる」のときは、OSの外観設定の変更に即時追従する。
+  useEffect(() => {
+    if (themePref !== "system") return;
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia(COLOR_SCHEME_QUERY);
+    const onChange = () => applyTheme(resolveTheme("system"));
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
   }, [themePref]);
 
   // テーマの好みを変更して保存・即時適用する。

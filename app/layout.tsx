@@ -39,8 +39,9 @@ export const viewport: Viewport = {
  * 初期描画前にテーマを <html data-theme> へ適用し、ちらつき（FOUC）を防ぐ。
  * 判定ロジックは lib/theme.ts（loadThemePref / resolveTheme）と同一に保つこと。
  *   キー: onore-tool:theme:v1 / 自動時は 6:00〜18:00 をライト、それ以外をダーク。
+ *   system は OS の prefers-color-scheme に従う。
  */
-const THEME_INIT_SCRIPT = `(function(){try{var p=localStorage.getItem("onore-tool:theme:v1");var r;if(p==="light"||p==="dark"){r=p}else{var h=new Date().getHours();r=(h>=6&&h<18)?"light":"dark"}document.documentElement.dataset.theme=r}catch(e){}})();`;
+const THEME_INIT_SCRIPT = `(function(){try{var p=localStorage.getItem("onore-tool:theme:v1");var r;if(p==="light"||p==="dark"){r=p}else if(p==="system"){r=(window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light"}else{var h=new Date().getHours();r=(h>=6&&h<18)?"light":"dark"}document.documentElement.dataset.theme=r}catch(e){}})();`;
 
 export default function RootLayout({
   children,
