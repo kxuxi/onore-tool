@@ -159,6 +159,16 @@ export function summarize(outcomes: BattleOutcome[]): StatSummary {
   };
 }
 
+/**
+ * 勝率 (0..1) を表示用の文字列に整形する。
+ * 勝敗が確定していない (decided === 0) ときは "—" を返す。
+ * アプリ全体で表示桁を統一するため、各コンポーネントはこのヘルパーを利用する。
+ */
+export function formatWinRate(rate: number, decided: number): string {
+  if (decided <= 0) return "—";
+  return `${Math.round(rate * 100)}%`;
+}
+
 /** 注目側が使った兵種の使用回数（多い順）。 */
 export function unitUsage(
   outcomes: BattleOutcome[]

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { BattleRecord } from "@/lib/types";
-import { weaponStats, itemStats } from "@/lib/stats";
+import { weaponStats, itemStats, formatWinRate } from "@/lib/stats";
 import { SearchIcon, FilterIcon, CloseIcon } from "@/components/icons";
 
 /** 集計する装備枠。weapon=装備1 / item=装備2。 */
@@ -232,7 +232,7 @@ export function EquipTab({ log, onSelectWarlord, onSelectEquip, variant }: Props
                     <span>
                       {e.decided > 0 ? (
                         <>
-                          {(e.winRate * 100).toFixed(1)}%
+                          {formatWinRate(e.winRate, e.decided)}
                           <span className="muted equip-decided">
                             （{e.wins}/{e.decided}）
                           </span>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import type { StatSummary } from "@/lib/stats";
+import { formatWinRate, type StatSummary } from "@/lib/stats";
 import { ChevronLeft, ShareIcon, CheckIcon } from "@/components/icons";
 import { copyText } from "@/lib/clipboard";
 
@@ -81,8 +81,7 @@ export function WinRateBar({ summary }: { summary: StatSummary }) {
 }
 
 export function StatCards({ summary }: { summary: StatSummary }) {
-  const rate =
-    summary.decided > 0 ? `${Math.round(summary.winRate * 100)}%` : "—";
+  const rate = formatWinRate(summary.winRate, summary.decided);
   return (
     <div className="stat-grid detail-stats">
       <div className="stat">

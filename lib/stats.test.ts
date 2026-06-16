@@ -14,6 +14,7 @@ import {
   swiRanking,
   weaponStats,
   itemStats,
+  formatWinRate,
 } from "./stats";
 import type { BattleRecord } from "./types";
 
@@ -593,4 +594,20 @@ describe("weaponStats / itemStats", () => {
     expect(kabuto.winRate).toBeCloseTo(0);
   });
 });
+
+describe("formatWinRate", () => {
+  it("勝率を整数パーセントに丸める", () => {
+    expect(formatWinRate(0.666, 30)).toBe("67%");
+    expect(formatWinRate(0.5, 2)).toBe("50%");
+    expect(formatWinRate(1, 4)).toBe("100%");
+    expect(formatWinRate(0, 3)).toBe("0%");
+  });
+
+  it("決着していない（decided が 0 以下）ときは — を返す", () => {
+    expect(formatWinRate(0, 0)).toBe("—");
+    expect(formatWinRate(0.5, 0)).toBe("—");
+    expect(formatWinRate(0.5, -1)).toBe("—");
+  });
+});
+
 

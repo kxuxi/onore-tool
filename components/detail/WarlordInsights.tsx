@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   DAY_LABELS,
+  formatWinRate,
   type BranchStat,
   type FactionStint,
   type HeatCell,
@@ -13,11 +14,6 @@ import {
 import { getWarlordNote, setWarlordNote } from "@/lib/warlordNotes";
 import type { Warlord } from "@/lib/types";
 import { hasWarlordStats } from "@/lib/warlordStats";
-
-/** 勝率を百分率の文字列にする（決着が無ければ "—"）。 */
-function pctLabel(rate: number, decided: number): string {
-  return decided > 0 ? `${Math.round(rate * 100)}%` : "—";
-}
 
 /** 対戦相手名のリンクボタン（クリックでその武将ページへ）。 */
 function OpponentName({
@@ -57,7 +53,7 @@ function RankRow({
         <OpponentName name={stat.name} onSelect={onSelectWarlord} />
         {stat.faction && <span className="rank-faction">{stat.faction}</span>}
       </span>
-      <span className="rank-rate">{pctLabel(stat.winRate, stat.decided)}</span>
+      <span className="rank-rate">{formatWinRate(stat.winRate, stat.decided)}</span>
       <span className="rank-record">
         {stat.wins}勝{stat.losses}敗
       </span>
@@ -119,7 +115,6 @@ export function BranchWinRates({ branches }: { branches: BranchStat[] }) {
       <h3>兵科別の勝率</h3>
       <ul className="branch-list">
         {branches.map((b) => {
-          const winPct = b.decided > 0 ? (b.winRate * 100).toFixed(0) : "0";
           return (
             <li key={b.branch} className="branch-row">
               <span className="branch-name">{b.branch}</span>
@@ -139,7 +134,7 @@ export function BranchWinRates({ branches }: { branches: BranchStat[] }) {
                 />
               </span>
               <span className="branch-rate">
-                {pctLabel(b.winRate, b.decided)}
+                {formatWinRate(b.winRate, b.decided)}
               </span>
               <span className="branch-record">
                 {b.wins}勝{b.losses}敗
@@ -175,7 +170,7 @@ function heatTitle(
 ): string {
   const range = `${day} ${startHour}時台`;
   if (cell.battles === 0) return `${range}・戦闘なし`;
-  return `${range}・${cell.wins}勝${cell.losses}敗（勝率 ${pctLabel(
+  return `${range}・${cell.wins}勝${cell.losses}敗（勝率 ${formatWinRate(
     cell.winRate,
     cell.decided
   )} / ${cell.battles}戦）`;
