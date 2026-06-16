@@ -13,6 +13,7 @@ import {
 import { fetchUnitTypes } from "@/lib/api";
 import { parseReqStats, splitGoodAgainst } from "@/lib/unitTypeForm";
 import { BattleLogList } from "@/components/detail/BattleLogList";
+import { Section } from "@/components/detail/Section";
 import {
   DetailHeader,
   StatCards,
@@ -107,8 +108,7 @@ export function UnitDetail({
       />
 
       {unit && (
-        <div className="detail-section">
-          <h3>兵種データ</h3>
+        <Section title="兵種データ" mobileCollapsed>
           <dl className="unit-spec">
             <div className="spec-row">
               <dt>種類</dt>
@@ -167,7 +167,7 @@ export function UnitDetail({
               <dd>{unit.bonus || "—"}</dd>
             </div>
           </dl>
-        </div>
+        </Section>
       )}
 
       {outcomes.length === 0 ? (
@@ -192,15 +192,14 @@ export function UnitDetail({
 
           <UsageTrend points={trend} />
 
-          <div className="detail-section">
-            <h3>戦闘ログ（{outcomes.length}件）</h3>
+          <Section title="戦闘ログ" count={`${outcomes.length}件`} mobileCollapsed>
             <BattleLogList
               outcomes={outcomes}
               currentUnit={name}
               onSelectWarlord={onSelectWarlord}
               onSelectUnit={onSelectUnit}
             />
-          </div>
+          </Section>
         </>
       )}
 

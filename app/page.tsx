@@ -82,7 +82,13 @@ const TAB_LABELS: Record<TabKey, string> = {
 };
 
 /** サイドバーのグループキー（似た画面をまとめた単位）。 */
-type TabGroupKey = "history" | "warlords" | "encyclopedia" | "nations" | "settings";
+type TabGroupKey =
+  | "history"
+  | "warlords"
+  | "ranking"
+  | "encyclopedia"
+  | "nations"
+  | "settings";
 
 /**
  * サイドバーのグループ定義。似た画面を1グループにまとめ、複数リーフを持つ
@@ -100,8 +106,9 @@ const TAB_GROUPS: {
     key: "warlords",
     label: "武将",
     icon: <UsersIcon />,
-    tabs: ["scout", "damage", "swi", "db"],
+    tabs: ["scout", "damage", "db"],
   },
+  { key: "ranking", label: "ランキング", icon: <TrophyIcon />, tabs: ["swi"] },
   {
     key: "encyclopedia",
     label: "図鑑",
@@ -130,8 +137,57 @@ type DetailView = {
   name: string;
 };
 
-/** 詳細ページの種類ごとの共有URLクエリのキー。 */
-const DETAIL_PARAM: Record<DetailView["kind"], string> = {
+/**
+ * 詳細ページの種類ごとの URL スラッグ（パスの一区切り）。
+ * タブのスラッグ（複数形・英単語）と衝突しないよう、詳細は単数形にする。
+ */
+const DETAIL_SEG: Record<DetailView["kind"], string> = {
+  warlord: "warlord",
+  unit: "unit",
+  weapon: "weapon",
+  item: "item",
+  faction: "nation",
+};
+
+/** URL スラッグ（パス区切り）→ 詳細種類 の逆引き。 */
+const SEG_TO_DETAIL: Record<string, DetailView["kind"]> = Object.entries(
+  DETAIL_SEG
+).reduce(
+  (acc, [kind, seg]) => {
+    acc[seg] = kind as DetailView["kind"];
+    return acc;
+  },
+  {} as Record<string, DetailView["kind"]>
+);
+
+/**
+ * 各リーフタブの URL パス区切り（グループ階層を反映した入れ子）。
+ * 戦闘履歴は既定なのでルート（空）に割り当てる。
+ */
+const TAB_PATH: Record<TabKey, string[]> = {
+  history: [],
+  scout: ["warlords", "scout"],
+  damage: ["warlords", "damage"],
+  db: ["warlords", "db"],
+  swi: ["ranking"],
+  units: ["encyclopedia", "units"],
+  weapons: ["encyclopedia", "weapons"],
+  items: ["encyclopedia", "items"],
+  nations: ["nations"],
+  factions: ["settings"],
+};
+
+/** タブのパス（"warlords/damage" 等）→ TabKey の逆引き。 */
+const PATH_TO_TAB: Record<string, TabKey> = Object.entries(TAB_PATH).reduce(
+  (acc, [tab, segs]) => {
+    acc[segs.join("/")] = tab as TabKey;
+    return acc;
+  },
+  {} as Record<string, TabKey>
+);
+
+/** 旧クエリ（?tab=...）のタブ値 → TabKey（共有リンクの後方互換用）。 */
+const LEGACY_TAB_PARAM: Record<DetailView["kind"], string> = {
   warlord: "w",
   unit: "u",
   weapon: "wp",
@@ -189,16 +245,16 @@ function ToastItem({
   );
 }
 
-/** タブ・詳細ページの状態を共有用 URL クエリへ変換する。 */
-function buildShareQuery(tab: TabKey, detail: DetailView | null): string {
-  const params = new URLSearchParams();
-  if (tab !== "history") params.set("tab", tab);
-  if (detail) params.set(DETAIL_PARAM[detail.kind], detail.name);
-  const qs = params.toString();
-  return qs ? `?${qs}` : "";
+/** タブ・詳細ページの状態を入れ子スラッグのパスへ変換する（共有・履歴で共用）。 */
+function buildPath(tab: TabKey, detail: DetailView | null): string {
+  const segs = [...TAB_PATH[tab]];
+  if (detail) {
+    segs.push(DETAIL_SEG[detail.kind], encodeURIComponent(detail.name));
+  }
+  return "/" + segs.join("/");
 }
 
-/** URL クエリからタブ・詳細スタックを復元する（共有リンク・履歴の戻る/進むで共用）。 */
+/** 旧クエリ（?tab=...&w=... 等）からタブ・詳細スタックを復元する（後方互換）。 */
 function navStateFromSearch(search: string): {
   tab: TabKey;
   detailStack: DetailView[];
@@ -211,18 +267,62 @@ function navStateFromSearch(search: string): {
     tabKey && ALL_TAB_KEYS.includes(tabKey as TabKey)
       ? (tabKey as TabKey)
       : "history";
-  const w = params.get("w");
-  const u = params.get("u");
-  const wp = params.get("wp");
-  const it = params.get("it");
-  const f = params.get("f");
   let detailStack: DetailView[] = [];
-  if (w) detailStack = [{ kind: "warlord", name: w }];
-  else if (u) detailStack = [{ kind: "unit", name: u }];
-  else if (wp) detailStack = [{ kind: "weapon", name: wp }];
-  else if (it) detailStack = [{ kind: "item", name: it }];
-  else if (f) detailStack = [{ kind: "faction", name: f }];
+  for (const kind of Object.keys(LEGACY_TAB_PARAM) as DetailView["kind"][]) {
+    const v = params.get(LEGACY_TAB_PARAM[kind]);
+    if (v) {
+      detailStack = [{ kind, name: v }];
+      break;
+    }
+  }
   return { tab, detailStack };
+}
+
+/** 入れ子スラッグのパスからタブ・詳細スタックを復元する。 */
+function navStateFromPath(pathname: string): {
+  tab: TabKey;
+  detailStack: DetailView[];
+} {
+  const parts = pathname
+    .split("/")
+    .filter(Boolean)
+    .map((p) => {
+      try {
+        return decodeURIComponent(p);
+      } catch {
+        return p;
+      }
+    });
+  let detailStack: DetailView[] = [];
+  let tabParts = parts;
+  // 末尾が「詳細スラッグ + 名前」の 2 区切りなら、それを詳細として切り出す。
+  if (parts.length >= 2) {
+    const segMaybe = parts[parts.length - 2];
+    const kind = SEG_TO_DETAIL[segMaybe];
+    if (kind) {
+      detailStack = [{ kind, name: parts[parts.length - 1] }];
+      tabParts = parts.slice(0, parts.length - 2);
+    }
+  }
+  const tab = PATH_TO_TAB[tabParts.join("/")] ?? "history";
+  return { tab, detailStack };
+}
+
+/** 現在のロケーション（パス優先・旧クエリは後方互換）からナビ状態を復元する。 */
+function navStateFromLocation(loc: {
+  pathname: string;
+  search: string;
+}): { tab: TabKey; detailStack: DetailView[] } {
+  const fromPath = navStateFromPath(loc.pathname);
+  // パスが既定（ルート）で詳細も無いが、旧クエリ付きの共有リンクなら互換解釈する。
+  if (
+    fromPath.tab === "history" &&
+    fromPath.detailStack.length === 0 &&
+    loc.search
+  ) {
+    return navStateFromSearch(loc.search);
+  }
+  return fromPath;
 }
 
 /** 共有DBを最後に取得した時刻を HH:MM 表記にする。 */
@@ -412,11 +512,11 @@ export default function HomePage() {
     handleChangeTheme(current === "dark" ? "light" : "dark");
   }, [resolvedTheme, themePref, handleChangeTheme]);
 
-  // 初回マウント時に URL クエリからタブ・詳細ページを復元（共有リンク・再読込対応）
+  // 初回マウント時に URL からタブ・詳細ページを復元（共有リンク・再読込対応）
   const justRestored = useRef(false);
   useEffect(() => {
-    const { tab: t, detailStack: stack } = navStateFromSearch(
-      window.location.search
+    const { tab: t, detailStack: stack } = navStateFromLocation(
+      window.location
     );
     // 既定（戦闘履歴・詳細なし）と異なる場合のみ復元する。
     if (t !== "history" || stack.length > 0) {
@@ -437,16 +537,16 @@ export default function HomePage() {
       firstUrlSync.current = false;
       return;
     }
-    const qs = buildShareQuery(tab, detail);
-    const url = window.location.pathname + qs;
+    const path = buildPath(tab, detail);
     const navState = { tab, detailStack };
     if (justRestored.current || fromPopState.current) {
       justRestored.current = false;
       fromPopState.current = false;
-      window.history.replaceState(navState, "", url);
+      // 復元直後は、旧クエリ付き共有リンクをクリーンなスラッグURLへ正規化する。
+      window.history.replaceState(navState, "", path);
       return;
     }
-    window.history.pushState(navState, "", url);
+    window.history.pushState(navState, "", path);
   }, [tab, detail, detailStack]);
 
   // ブラウザ／端末の戻る・進むでタブ・詳細を行き来する。
@@ -461,8 +561,8 @@ export default function HomePage() {
         setDetailStack(Array.isArray(st.detailStack) ? st.detailStack : []);
       } else {
         // state を持たないエントリ（直リンク初期エントリ等）は URL から復元。
-        const { tab: t, detailStack: stack } = navStateFromSearch(
-          window.location.search
+        const { tab: t, detailStack: stack } = navStateFromLocation(
+          window.location
         );
         setTab(t);
         setDetailStack(stack);

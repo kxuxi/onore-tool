@@ -407,6 +407,11 @@ function gameYear(card: BattleCard): number | null {
   return m ? Number(m[1]) : null;
 }
 
+/** 戦闘（注目側視点の 1 件）からゲーム内の年を取り出す。年が不明なら null。 */
+export function outcomeYear(o: BattleOutcome): number | null {
+  return gameYear(o.card);
+}
+
 /**
  * battleAt からゲーム内の「年・月」を時系列順の比較値（year*12 + month）に変換する。
  * 月が取れない場合は year*12 を使う。年も取れなければ null。

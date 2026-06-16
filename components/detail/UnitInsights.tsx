@@ -1,6 +1,7 @@
 "use client";
 
 import { formatWinRate } from "@/lib/stats";
+import { Section } from "@/components/detail/Section";
 import type {
   OpponentUnitStat,
   UnitMatchupRanking as UnitMatchupRankingData,
@@ -49,8 +50,7 @@ export function UnitMatchupRanking({
 }) {
   if (ranking.best.length === 0) return null;
   return (
-    <div className="detail-section">
-      <h3>敵兵種との相性</h3>
+    <Section title="敵兵種との相性" mobileCollapsed>
       <div className="rank-cols">
         <div className="rank-col">
           <h4 className="rank-head rank-head--good">相性の良い敵兵種</h4>
@@ -81,7 +81,7 @@ export function UnitMatchupRanking({
           </div>
         )}
       </div>
-    </div>
+    </Section>
   );
 }
 
@@ -97,8 +97,7 @@ export function UserWinRateList({
   if (users.length === 0) return null;
   const top = users.slice(0, 5);
   return (
-    <div className="detail-section">
-      <h3>武将別の勝率</h3>
+    <Section title="武将別の勝率" mobileCollapsed>
       <ul className="user-winrate-list">
         {top.map((u) => (
           <li key={u.name} className="user-winrate-row">
@@ -138,7 +137,7 @@ export function UserWinRateList({
           </li>
         ))}
       </ul>
-    </div>
+    </Section>
   );
 }
 
@@ -150,8 +149,7 @@ export function UsageTrend({ points }: { points: UsageTrendPoint[] }) {
   if (meaningful.length === 0 || points.length < 2) return null;
   const maxRate = Math.max(...points.map((p) => p.rate), 0.0001);
   return (
-    <div className="detail-section">
-      <h3>使用率の推移（年別）</h3>
+    <Section title="使用率の推移（年別）" mobileCollapsed>
       <p className="trend-note muted">
         各年の全戦闘のうち、この兵種が登場した割合。
       </p>
@@ -178,6 +176,6 @@ export function UsageTrend({ points }: { points: UsageTrendPoint[] }) {
           );
         })}
       </div>
-    </div>
+    </Section>
   );
 }

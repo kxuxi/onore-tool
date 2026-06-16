@@ -2412,6 +2412,117 @@ button.tag.faction-link:focus-visible {
   font-size: 15px;
 }
 
+/* 折りたたみ見出し（Section コンポーネント）。h3 をボタン化してトグルする。 */
+.detail-section h3.section-head {
+  margin: 0;
+}
+
+.section-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.section-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.section-toggle-title {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.section-count {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.section-toggle-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--muted);
+  transition: color 0.15s ease;
+}
+
+.section-toggle:hover .section-toggle-icon {
+  color: var(--accent);
+}
+
+.section-body {
+  margin-top: 12px;
+}
+
+.section-body[hidden] {
+  display: none;
+}
+
+/* 「もっと見る」行（所属武将一覧などで一部だけ表示する切り替え）。 */
+.show-more-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 14px;
+}
+
+.show-more-btn {
+  font-size: 13px;
+}
+
+/* 戦闘ログの年フィルタ（BattleLogList）。 */
+.detail-log-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.log-filter {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.log-filter-label {
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+
+.log-filter-field {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.log-filter-field .select {
+  min-width: 96px;
+}
+
+.log-filter-sep {
+  color: var(--muted);
+}
+
+.log-filter-clear {
+  margin-left: 4px;
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
+
 /* 兵種詳細のマスタ情報（種類・攻撃・防御・雇用 など）を 2 カラムの定義リストで表示。 */
 .unit-spec {
   display: grid;

@@ -18,6 +18,7 @@ import {
   type FactionColorMap,
 } from "@/lib/factionColors";
 import { BattleLogList } from "@/components/detail/BattleLogList";
+import { Section } from "@/components/detail/Section";
 import {
   DetailHeader,
   StatCards,
@@ -170,14 +171,17 @@ export function FactionDetail({
             <>
               <BranchWinRates branches={branches} />
 
-              <div className="detail-section">
-                <h3>戦闘ログ（{outcomes.length}件）</h3>
+              <Section
+                title="戦闘ログ"
+                count={`${outcomes.length}件`}
+                mobileCollapsed
+              >
                 <BattleLogList
                   outcomes={outcomes}
                   onSelectWarlord={onSelectWarlord}
                   onSelectUnit={onSelectUnit}
                 />
-              </div>
+              </Section>
             </>
           )}
         </>
@@ -221,8 +225,7 @@ function LatestUnits({
   const memberTotal = groups.reduce((s, g) => s + g.total, 0);
 
   return (
-    <div className="detail-section">
-      <h3>現在の主力兵種</h3>
+    <Section title="現在の主力兵種" mobileCollapsed>
       <p className="detail-note muted">
         所属武将が最後の出陣で使っていた兵種を、兵科ごとに集計しています（数字は人数）。
       </p>
@@ -278,11 +281,14 @@ function LatestUnits({
           onFocus={(e) => e.currentTarget.select()}
         />
       </div>
-    </div>
+    </Section>
   );
 }
 
 /* ---------- 所属武将一覧 ---------- */
+
+/** 所属武将一覧で最初に表示する人数（これを超える分は「もっと見る」で展開）。 */
+const INITIAL_MEMBERS = 8;
 
 function FactionMembers({
   members,
@@ -295,11 +301,13 @@ function FactionMembers({
   colors: FactionColorMap;
   onSelectWarlord: (name: string) => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
   if (members.length === 0) return null;
   const pastCount = members.length - currentCount;
+  const shown = expanded ? members : members.slice(0, INITIAL_MEMBERS);
+  const hiddenCount = members.length - shown.length;
   return (
-    <div className="detail-section">
-      <h3>所属武将（{members.length}人）</h3>
+    <Section title="所属武将" count={`${members.length}人`} mobileCollapsed>
       <p className="detail-note muted">
         勝率は各武将がこの国に在籍していた期間の戦績です。
         {pastCount > 0
@@ -307,7 +315,7 @@ function FactionMembers({
           : ""}
       </p>
       <ul className="user-winrate-list">
-        {members.map((m) => {
+        {shown.map((m) => {
           const s = m.stat;
           const decided = s?.decided ?? 0;
           const pct = decided > 0 ? Math.round((s!.winRate) * 100) : 0;
@@ -369,6 +377,18 @@ function FactionMembers({
           );
         })}
       </ul>
-    </div>
+      {members.length > INITIAL_MEMBERS && (
+        <div className="show-more-row">
+          <button
+            type="button"
+            className="btn show-more-btn"
+            onClick={() => setExpanded((v) => !v)}
+            aria-expanded={expanded}
+          >
+            {expanded ? "一部だけ表示" : `もっと見る（残り${hiddenCount}人）`}
+          </button>
+        </div>
+      )}
+    </Section>
   );
 }

@@ -17,6 +17,7 @@ import {
 } from "@/lib/stats";
 import { PieChart, chartColor } from "@/components/PieChart";
 import { BattleLogList } from "@/components/detail/BattleLogList";
+import { Section } from "@/components/detail/Section";
 import {
   DetailHeader,
   StatCards,
@@ -141,8 +142,7 @@ export function WarlordDetail({
 
           <WarlordComment name={name} />
 
-          <div className="detail-section">
-            <h3>使用兵種の割合</h3>
+          <Section title="使用兵種の割合" mobileCollapsed>
             <div className="pie-block">
               <PieChart data={pieData} />
               <ul className="pie-legend">
@@ -177,17 +177,16 @@ export function WarlordDetail({
                 })}
               </ul>
             </div>
-          </div>
+          </Section>
 
-          <div className="detail-section">
-            <h3>戦闘ログ（{outcomes.length}件）</h3>
+          <Section title="戦闘ログ" count={`${outcomes.length}件`} mobileCollapsed>
             <BattleLogList
               outcomes={outcomes}
               currentName={name}
               onSelectWarlord={onSelectWarlord}
               onSelectUnit={onSelectUnit}
             />
-          </div>
+          </Section>
         </>
       )}
     </section>

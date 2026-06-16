@@ -15,6 +15,7 @@ import { getWarlordNote, setWarlordNote } from "@/lib/warlordNotes";
 import { factionNameStyle, type FactionColorMap } from "@/lib/factionColors";
 import type { Warlord } from "@/lib/types";
 import { hasWarlordStats } from "@/lib/warlordStats";
+import { Section } from "@/components/detail/Section";
 
 /** 対戦相手名のリンクボタン（クリックでその武将ページへ）。 */
 function OpponentName({
@@ -82,8 +83,7 @@ export function MatchupRanking({
 }) {
   if (ranking.best.length === 0) return null;
   return (
-    <div className="detail-section">
-      <h3>相性ランキング</h3>
+    <Section title="相性ランキング" mobileCollapsed>
       <div className="rank-cols">
         <div className="rank-col">
           <h4 className="rank-head rank-head--good">相性の良い相手</h4>
@@ -116,7 +116,7 @@ export function MatchupRanking({
           </div>
         )}
       </div>
-    </div>
+    </Section>
   );
 }
 
@@ -125,8 +125,7 @@ export function MatchupRanking({
 export function BranchWinRates({ branches }: { branches: BranchStat[] }) {
   if (branches.length === 0) return null;
   return (
-    <div className="detail-section">
-      <h3>兵科別の勝率</h3>
+    <Section title="兵科別の勝率" mobileCollapsed>
       <ul className="branch-list">
         {branches.map((b) => {
           return (
@@ -158,7 +157,7 @@ export function BranchWinRates({ branches }: { branches: BranchStat[] }) {
           );
         })}
       </ul>
-    </div>
+    </Section>
   );
 }
 
@@ -193,8 +192,7 @@ function heatTitle(
 export function WinHeatmapSection({ heatmap }: { heatmap: WinHeatmap }) {
   if (heatmap.dated === 0) return null;
   return (
-    <div className="detail-section">
-      <h3>時間帯・曜日別の勝率</h3>
+    <Section title="時間帯・曜日別の勝率" mobileCollapsed>
       <div className="heatmap-wrap">
         <div className="heatmap">
           <div className="heat-corner" />
@@ -227,7 +225,7 @@ export function WinHeatmapSection({ heatmap }: { heatmap: WinHeatmap }) {
           <span className="muted">高（勝率）</span>
         </div>
       </div>
-    </div>
+    </Section>
   );
 }
 
@@ -249,8 +247,7 @@ export function FactionHistory({
   if (stints.length === 0) return null;
   const returned = stints.filter((s) => s.returning);
   return (
-    <div className="detail-section">
-      <h3>所属国の遍歴</h3>
+    <Section title="所属国の遍歴" mobileCollapsed>
       <ol className="faction-timeline">
         {stints.map((s, i) => (
           <li key={`${s.faction}-${i}`} className="faction-stint">
@@ -278,7 +275,7 @@ export function FactionHistory({
           ※「出戻り」は一度離れた国へ戻った在籍を表します。
         </p>
       )}
-    </div>
+    </Section>
   );
 }
 

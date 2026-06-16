@@ -11,6 +11,7 @@ import {
   type EquipSlot,
 } from "@/lib/stats";
 import { BattleLogList } from "@/components/detail/BattleLogList";
+import { Section } from "@/components/detail/Section";
 import {
   DetailHeader,
   StatCards,
@@ -78,8 +79,7 @@ export function EquipDetail({
           />
 
           {topUnits.length > 0 && (
-            <div className="detail-section">
-              <h3>よく使う兵種</h3>
+            <Section title="よく使う兵種" mobileCollapsed>
               <div className="equip-units">
                 {topUnits.map((u) => (
                   <button
@@ -94,17 +94,16 @@ export function EquipDetail({
                   </button>
                 ))}
               </div>
-            </div>
+            </Section>
           )}
 
-          <div className="detail-section">
-            <h3>戦闘ログ（{outcomes.length}件）</h3>
+          <Section title="戦闘ログ" count={`${outcomes.length}件`} mobileCollapsed>
             <BattleLogList
               outcomes={outcomes}
               onSelectWarlord={onSelectWarlord}
               onSelectUnit={onSelectUnit}
             />
-          </div>
+          </Section>
         </>
       )}
     </section>
