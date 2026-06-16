@@ -214,6 +214,7 @@ export function DbTab({ db, onSelectWarlord, onImportStats }: Props) {
             <textarea
               className="import-box"
               value={importText}
+              aria-label="武将ランキング表の貼り付け"
               placeholder={
                 "順位\t名前\t武力\t知力\t統率力\t政治力\t計略\t資金\t兵糧\t年齢\t勝率\t仕官月数\t自己PR\t階級\t国名\n（ランキング表をタブ区切りのまま貼り付け）"
               }

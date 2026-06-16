@@ -97,6 +97,9 @@ export function FactionTab({ db, colors, onChange }: Props) {
                     className="color-trigger"
                     onClick={() => setOpenFor((cur) => (cur === f ? null : f))}
                     aria-expanded={openFor === f}
+                    aria-label={`${f} の色を選択（現在: ${
+                      isSet ? name ?? current : "未設定"
+                    }）`}
                   >
                     <span
                       className="swatch-lg"

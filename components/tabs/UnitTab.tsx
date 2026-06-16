@@ -560,6 +560,7 @@ export function UnitTab({
                         composeReqStats(reqStats.stat, e.target.value)
                       )
                     }
+                    aria-label="必要能力値の数値"
                     placeholder="数値"
                     disabled={!reqStats.stat}
                   />
