@@ -12,6 +12,7 @@ import {
   type WinHeatmap,
 } from "@/lib/stats";
 import { getWarlordNote, setWarlordNote } from "@/lib/warlordNotes";
+import { factionNameStyle, type FactionColorMap } from "@/lib/factionColors";
 import type { Warlord } from "@/lib/types";
 import { hasWarlordStats } from "@/lib/warlordStats";
 
@@ -40,10 +41,12 @@ function OpponentName({
 function RankRow({
   rank,
   stat,
+  colors,
   onSelectWarlord,
 }: {
   rank: number;
   stat: OpponentStat;
+  colors: FactionColorMap;
   onSelectWarlord: (name: string) => void;
 }) {
   return (
@@ -51,7 +54,14 @@ function RankRow({
       <span className="rank-no">{rank}</span>
       <span className="rank-name">
         <OpponentName name={stat.name} onSelect={onSelectWarlord} />
-        {stat.faction && <span className="rank-faction">{stat.faction}</span>}
+        {stat.faction && (
+          <span
+            className="rank-faction"
+            style={factionNameStyle(stat.faction, colors)}
+          >
+            {stat.faction}
+          </span>
+        )}
       </span>
       <span className="rank-rate">{formatWinRate(stat.winRate, stat.decided)}</span>
       <span className="rank-record">
@@ -63,9 +73,11 @@ function RankRow({
 
 export function MatchupRanking({
   ranking,
+  colors,
   onSelectWarlord,
 }: {
   ranking: MatchupRankingData;
+  colors: FactionColorMap;
   onSelectWarlord: (name: string) => void;
 }) {
   if (ranking.best.length === 0) return null;
@@ -81,6 +93,7 @@ export function MatchupRanking({
                 key={s.name}
                 rank={i + 1}
                 stat={s}
+                colors={colors}
                 onSelectWarlord={onSelectWarlord}
               />
             ))}
@@ -95,6 +108,7 @@ export function MatchupRanking({
                   key={s.name}
                   rank={i + 1}
                   stat={s}
+                  colors={colors}
                   onSelectWarlord={onSelectWarlord}
                 />
               ))}
@@ -225,7 +239,13 @@ function stintYears(s: FactionStint): string {
   return `${s.startYear}〜${s.endYear}年`;
 }
 
-export function FactionHistory({ stints }: { stints: FactionStint[] }) {
+export function FactionHistory({
+  stints,
+  colors,
+}: {
+  stints: FactionStint[];
+  colors: FactionColorMap;
+}) {
   if (stints.length === 0) return null;
   const returned = stints.filter((s) => s.returning);
   return (
@@ -236,7 +256,12 @@ export function FactionHistory({ stints }: { stints: FactionStint[] }) {
           <li key={`${s.faction}-${i}`} className="faction-stint">
             <span className="faction-dot" />
             <span className="faction-stint-body">
-              <span className="faction-stint-name">{s.faction}</span>
+              <span
+                className="faction-stint-name"
+                style={factionNameStyle(s.faction, colors)}
+              >
+                {s.faction}
+              </span>
               {s.returning && (
                 <span className="faction-return-badge">出戻り</span>
               )}

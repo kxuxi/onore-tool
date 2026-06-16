@@ -6,6 +6,7 @@ import {
   DEFAULT_WIN_LEFT,
   DEFAULT_WIN_RIGHT,
   FACTION_PALETTE,
+  factionBadgeStyle,
   paletteName,
   type FactionColorMap,
 } from "@/lib/factionColors";
@@ -105,6 +106,7 @@ export function FactionTab({ db, colors, onChange, onSelectFaction }: Props) {
                 <button
                   type="button"
                   className="tag faction faction-link"
+                  style={factionBadgeStyle(f, colors)}
                   onClick={() => onSelectFaction(f)}
                   title={`${f} の成績を見る`}
                 >

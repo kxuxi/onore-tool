@@ -12,6 +12,11 @@ import {
 } from "@/lib/stats";
 import type { FactionMemberStat, BranchLatestUnits } from "@/lib/stats";
 import { copyText } from "@/lib/clipboard";
+import {
+  factionNameStyle,
+  factionBadgeStyle,
+  type FactionColorMap,
+} from "@/lib/factionColors";
 import { BattleLogList } from "@/components/detail/BattleLogList";
 import {
   DetailHeader,
@@ -24,6 +29,7 @@ interface Props {
   name: string;
   db: WarlordMap;
   log: BattleRecord[];
+  colors: FactionColorMap;
   onSelectWarlord: (name: string) => void;
   onSelectUnit: (name: string) => void;
   onBack: () => void;
@@ -46,6 +52,7 @@ export function FactionDetail({
   name,
   db,
   log,
+  colors,
   onSelectWarlord,
   onSelectUnit,
   onBack,
@@ -125,7 +132,13 @@ export function FactionDetail({
 
   return (
     <section className="panel detail-panel">
-      <DetailHeader kind="国" title={name} tags={tags} onBack={onBack} />
+      <DetailHeader
+        kind="国"
+        title={name}
+        titleColor={factionNameStyle(name, colors)?.color as string | undefined}
+        tags={tags}
+        onBack={onBack}
+      />
 
       {outcomes.length === 0 && members.length === 0 ? (
         <div className="empty">
@@ -149,6 +162,7 @@ export function FactionDetail({
           <FactionMembers
             members={members}
             currentCount={currentCount}
+            colors={colors}
             onSelectWarlord={onSelectWarlord}
           />
 
@@ -273,10 +287,12 @@ function LatestUnits({
 function FactionMembers({
   members,
   currentCount,
+  colors,
   onSelectWarlord,
 }: {
   members: MemberRow[];
   currentCount: number;
+  colors: FactionColorMap;
   onSelectWarlord: (name: string) => void;
 }) {
   if (members.length === 0) return null;
@@ -310,6 +326,7 @@ function FactionMembers({
                   {!m.current && (
                     <span
                       className="member-left-tag"
+                      style={factionBadgeStyle(m.currentFaction, colors)}
                       title={
                         m.currentFaction
                           ? `現在は「${m.currentFaction}」に所属`

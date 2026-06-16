@@ -6,9 +6,11 @@ import { lookup } from "@/lib/storage";
 import { normalizeDisplayToken } from "@/lib/parser";
 import { shortUnit } from "@/lib/unitShortNames";
 import { copyText } from "@/lib/clipboard";
+import { factionBadgeStyle, type FactionColorMap } from "@/lib/factionColors";
 
 interface Props {
   db: WarlordMap;
+  colors: FactionColorMap;
   onSelectWarlord: (name: string) => void;
 }
 
@@ -41,7 +43,7 @@ function shortType(type: string | undefined): string {
   return type;
 }
 
-export function ScoutTab({ db, onSelectWarlord }: Props) {
+export function ScoutTab({ db, colors, onSelectWarlord }: Props) {
   const [text, setText] = useState("");
   const [unregisteredOnly, setUnregisteredOnly] = useState(false);
   const [copied, setCopied] = useState<"idle" | "ok" | "fail">("idle");
@@ -232,7 +234,12 @@ export function ScoutTab({ db, onSelectWarlord }: Props) {
                     <tr key={r.name}>
                       <td data-label="国">
                         {r.found && r.faction ? (
-                          <span className="tag faction">{r.faction}</span>
+                          <span
+                            className="tag faction"
+                            style={factionBadgeStyle(r.faction, colors)}
+                          >
+                            {r.faction}
+                          </span>
                         ) : (
                           <span className="muted">-</span>
                         )}

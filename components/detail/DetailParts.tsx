@@ -8,6 +8,8 @@ import { copyText } from "@/lib/clipboard";
 interface HeaderProps {
   kind: string;
   title: string;
+  /** 見出し（国名など）に適用する文字色。未指定なら既定色。 */
+  titleColor?: string;
   tags?: ReactNode;
   actions?: ReactNode;
   onBack: () => void;
@@ -39,7 +41,7 @@ function ShareLinkButton() {
   );
 }
 
-export function DetailHeader({ kind, title, tags, actions, onBack }: HeaderProps) {
+export function DetailHeader({ kind, title, titleColor, tags, actions, onBack }: HeaderProps) {
   // 詳細ページへ遷移したら見出しへフォーカスを移す（キーボード／スクリーンリーダー対応）。
   // kind・title が変わるたびに発火し、武将→兵種などの遷移や戻る操作にも追従する。
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -55,7 +57,7 @@ export function DetailHeader({ kind, title, tags, actions, onBack }: HeaderProps
       </button>
       <div className="detail-title">
         <span className="detail-kind">{kind}</span>
-        <h2 ref={headingRef} tabIndex={-1}>
+        <h2 ref={headingRef} tabIndex={-1} style={titleColor ? { color: titleColor } : undefined}>
           {title}
         </h2>
         {tags && <div className="detail-tags">{tags}</div>}

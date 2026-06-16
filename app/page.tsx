@@ -496,13 +496,25 @@ export default function HomePage() {
           />
         );
       case "scout":
-        return <ScoutTab db={db} onSelectWarlord={selectWarlord} />;
+        return (
+          <ScoutTab
+            db={db}
+            colors={factionColors}
+            onSelectWarlord={selectWarlord}
+          />
+        );
       case "damage":
-        return <DamageTab db={db} onSelectWarlord={selectWarlord} />;
+        return (
+          <DamageTab
+            db={db}
+            colors={factionColors}
+            onSelectWarlord={selectWarlord}
+          />
+        );
       case "swi":
         return <SwiTab log={battleLog} onSelectWarlord={selectWarlord} />;
       case "db":
-        return <DbTab db={db} onSelectWarlord={selectWarlord} onSelectFaction={selectFaction} onImportStats={handleImportStats} />;
+        return <DbTab db={db} colors={factionColors} onSelectWarlord={selectWarlord} onSelectFaction={selectFaction} onImportStats={handleImportStats} />;
       case "units":
         return <UnitTab onSelectUnit={selectUnit} />;
       case "weapons":
@@ -528,6 +540,7 @@ export default function HomePage() {
           <NationTab
             db={db}
             log={battleLog}
+            colors={factionColors}
             onSelectFaction={selectFaction}
           />
         );
@@ -565,6 +578,7 @@ export default function HomePage() {
           name={detail.name}
           db={db}
           log={battleLog}
+          colors={factionColors}
           onSelectWarlord={selectWarlord}
           onSelectUnit={selectUnit}
           onSelectFaction={selectFaction}
@@ -587,6 +601,7 @@ export default function HomePage() {
           name={detail.name}
           db={db}
           log={battleLog}
+          colors={factionColors}
           onSelectWarlord={selectWarlord}
           onSelectUnit={selectUnit}
           onBack={backDetail}

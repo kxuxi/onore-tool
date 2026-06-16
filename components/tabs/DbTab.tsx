@@ -4,10 +4,12 @@ import { useMemo, useState } from "react";
 import type { WarlordMap } from "@/lib/types";
 import { copyText } from "@/lib/clipboard";
 import { parseWarlordStats } from "@/lib/warlordStats";
+import { factionBadgeStyle, type FactionColorMap } from "@/lib/factionColors";
 import { SearchIcon, FilterIcon, CloseIcon } from "@/components/icons";
 
 interface Props {
   db: WarlordMap;
+  colors: FactionColorMap;
   onSelectWarlord: (name: string) => void;
   onSelectFaction: (name: string) => void;
   /** ランキングから解析した能力値を取り込む。更新/新規件数を返す。 */
@@ -38,7 +40,7 @@ function formatUpdatedAt(ms: number): string {
   });
 }
 
-export function DbTab({ db, onSelectWarlord, onSelectFaction, onImportStats }: Props) {
+export function DbTab({ db, colors, onSelectWarlord, onSelectFaction, onImportStats }: Props) {
   const [keyword, setKeyword] = useState("");
   const [faction, setFaction] = useState("");
   const [type, setType] = useState("");
@@ -437,6 +439,7 @@ export function DbTab({ db, onSelectWarlord, onSelectFaction, onImportStats }: P
                       <button
                         type="button"
                         className="tag faction faction-link"
+                        style={factionBadgeStyle(w.faction, colors)}
                         onClick={() => onSelectFaction(w.faction!)}
                         title={`${w.faction} の成績を見る`}
                       >

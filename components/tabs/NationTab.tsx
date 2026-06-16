@@ -3,11 +3,13 @@
 import { useMemo, useState } from "react";
 import type { BattleRecord, WarlordMap } from "@/lib/types";
 import { factionSummaries, formatWinRate } from "@/lib/stats";
+import { factionNameStyle, type FactionColorMap } from "@/lib/factionColors";
 import { SearchIcon } from "@/components/icons";
 
 interface Props {
   db: WarlordMap;
   log: BattleRecord[];
+  colors: FactionColorMap;
   onSelectFaction: (name: string) => void;
 }
 
@@ -20,7 +22,7 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: "name", label: "名前順" },
 ];
 
-export function NationTab({ db, log, onSelectFaction }: Props) {
+export function NationTab({ db, log, colors, onSelectFaction }: Props) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("battles");
 
@@ -133,6 +135,7 @@ export function NationTab({ db, log, onSelectFaction }: Props) {
                     <button
                       type="button"
                       className="nation-name link-like"
+                      style={factionNameStyle(f.faction, colors)}
                       onClick={() => onSelectFaction(f.faction)}
                       title={`${f.faction} の成績を見る`}
                     >

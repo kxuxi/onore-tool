@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import type { WarlordMap } from "@/lib/types";
 import type { BattleRecord } from "@/lib/types";
 import { lookup } from "@/lib/storage";
+import { factionBadgeStyle, type FactionColorMap } from "@/lib/factionColors";
 import {
   collectWarlordBattles,
   summarize,
@@ -34,6 +35,7 @@ interface Props {
   name: string;
   db: WarlordMap;
   log: BattleRecord[];
+  colors: FactionColorMap;
   onSelectWarlord: (name: string) => void;
   onSelectUnit: (name: string) => void;
   onSelectFaction: (name: string) => void;
@@ -44,6 +46,7 @@ export function WarlordDetail({
   name,
   db,
   log,
+  colors,
   onSelectWarlord,
   onSelectUnit,
   onSelectFaction,
@@ -84,6 +87,7 @@ export function WarlordDetail({
         <button
           type="button"
           className="tag faction faction-link"
+          style={factionBadgeStyle(faction, colors)}
           onClick={() => onSelectFaction(faction)}
           title={`${faction} の成績を見る`}
         >
@@ -123,10 +127,11 @@ export function WarlordDetail({
           <StatCards summary={summary} />
           <WinRateBar summary={summary} />
 
-          <FactionHistory stints={timeline} />
+          <FactionHistory stints={timeline} colors={colors} />
 
           <MatchupRanking
             ranking={ranking}
+            colors={colors}
             onSelectWarlord={onSelectWarlord}
           />
 

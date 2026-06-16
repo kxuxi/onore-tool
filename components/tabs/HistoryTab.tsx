@@ -14,6 +14,7 @@ import {
 } from "@/lib/parser";
 import {
   resolveFactionColor,
+  factionNameStyle,
   DEFAULT_WIN_LEFT,
   DEFAULT_WIN_RIGHT,
   type FactionColorMap,
@@ -638,7 +639,12 @@ function BattleHistoryCard({
   ) => (
     <div className={`bc-team bc-team--${align}`}>
       {side.faction && (
-        <span className="bc-faction">{highlightMatch(side.faction, highlight)}</span>
+        <span
+          className="bc-faction"
+          style={factionNameStyle(side.faction, factionColors)}
+        >
+          {highlightMatch(side.faction, highlight)}
+        </span>
       )}
       <button
         type="button"

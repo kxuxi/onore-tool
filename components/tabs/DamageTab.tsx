@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { WarlordMap } from "@/lib/types";
 import { SearchIcon, FilterIcon, CloseIcon } from "@/components/icons";
+import { factionBadgeStyle, type FactionColorMap } from "@/lib/factionColors";
 import {
   ACTION_LABEL,
   formatElapsed,
@@ -13,6 +14,7 @@ import {
 
 interface Props {
   db: WarlordMap;
+  colors: FactionColorMap;
   onSelectWarlord: (name: string) => void;
 }
 
@@ -26,7 +28,7 @@ const STATUS_CLASS: Record<ActionStatus, string> = {
 // 集計・フィルタに表示するステータス（none を除く）。ラベルは ACTION_LABEL から導出。
 const STATUS_SUMMARY_ORDER = ["ready", "unknown", "done"] as const;
 
-export function DamageTab({ db, onSelectWarlord }: Props) {
+export function DamageTab({ db, colors, onSelectWarlord }: Props) {
   const [now, setNow] = useState<Date | null>(null);
   const [statusFilter, setStatusFilter] = useState<"" | ActionStatus>("");
   const [factionFilter, setFactionFilter] = useState("");
@@ -285,7 +287,12 @@ export function DamageTab({ db, onSelectWarlord }: Props) {
                   </td>
                   <td data-label="国">
                     {w.faction ? (
-                      <span className="tag faction">{w.faction}</span>
+                      <span
+                        className="tag faction"
+                        style={factionBadgeStyle(w.faction, colors)}
+                      >
+                        {w.faction}
+                      </span>
                     ) : (
                       <span className="muted">-</span>
                     )}
