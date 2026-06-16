@@ -144,6 +144,14 @@ function navStateFromSearch(search: string): {
   return { tab, detailStack };
 }
 
+/** 共有DBを最後に取得した時刻を HH:MM 表記にする。 */
+function formatClock(ts: number): string {
+  return new Date(ts).toLocaleTimeString("ja-JP", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export default function HomePage() {
   const [tab, setTab] = useState<TabKey>("history");
   const [db, setDb] = useState<WarlordMap>({});
@@ -176,6 +184,8 @@ export default function HomePage() {
   const [linkCopied, setLinkCopied] = useState(false);
   // 共有DBの手動再取得中表示。
   const [refreshing, setRefreshing] = useState(false);
+  // 共有DBを最後に取得できた時刻（ヘッダーに表示）。
+  const [lastFetchedAt, setLastFetchedAt] = useState<number | null>(null);
   // 縦に長い画面で「先頭へ戻る」FABを表示するか。
   const [showTop, setShowTop] = useState(false);
   // タブリストのロービングタブインデックス用の参照。
@@ -193,6 +203,7 @@ export default function HomePage() {
         if (!active) return;
         setDb(state.db);
         setBattleLog(state.log);
+        setLastFetchedAt(Date.now());
       })
       .catch(() => {
         if (!active) return;
@@ -217,6 +228,7 @@ export default function HomePage() {
       const state = await fetchState();
       setDb(state.db);
       setBattleLog(state.log);
+      setLastFetchedAt(Date.now());
       pushToast("success", "最新の状態に更新しました");
     } catch {
       pushToast("error", "更新に失敗しました");
@@ -773,6 +785,14 @@ export default function HomePage() {
           </h1>
         </div>
         <div className="header-actions">
+          {lastFetchedAt != null && (
+            <span
+              className="header-fetched muted"
+              title="共有DBを最後に取得した時刻"
+            >
+              最終取得 {formatClock(lastFetchedAt)}
+            </span>
+          )}
           <button
             type="button"
             className={"btn header-refresh" + (refreshing ? " is-refreshing" : "")}

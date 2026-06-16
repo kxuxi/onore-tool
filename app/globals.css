@@ -280,6 +280,11 @@ input:focus {
   gap: 8px;
   flex: 0 0 auto;
 }
+.header-fetched {
+  font-size: 12px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
 .header-refresh {
   flex: 0 0 auto;
   display: inline-flex;
@@ -1960,6 +1965,7 @@ button.tag.faction-link:focus-visible {
 @media (max-width: 480px) {
   .header h1 { font-size: 15px; }
   .header h1 .sub { display: none; }
+  .header-fetched { display: none; }
   .main { padding: 12px 10px 80px; }
   .panel { padding: 12px; border-radius: 10px; }
   .stat-grid {
