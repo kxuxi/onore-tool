@@ -49,23 +49,11 @@ import {
   PackageIcon,
   FlagIcon,
   SlidersIcon,
+  BookIcon,
 } from "@/components/icons";
 import type { BattleRecord, TabKey, WarlordMap } from "@/lib/types";
 
-const TABS: { key: TabKey; label: string }[] = [
-  { key: "history", label: "戦闘履歴" },
-  { key: "scout", label: "偵察検索" },
-  { key: "damage", label: "被弾表" },
-  { key: "swi", label: "武将ランキング" },
-  { key: "db", label: "DB確認" },
-  { key: "units", label: "兵種図鑑" },
-  { key: "weapons", label: "武器図鑑" },
-  { key: "items", label: "品物図鑑" },
-  { key: "nations", label: "国" },
-  { key: "factions", label: "環境設定" },
-];
-
-/** サイドバー各タブのアイコン。 */
+/** タブ（リーフ）ごとのアイコン。サイドバーのグループ単独表示とページ内サブタブで共用。 */
 const TAB_ICONS: Record<TabKey, ReactNode> = {
   history: <HistoryIcon />,
   scout: <SearchIcon />,
@@ -78,6 +66,63 @@ const TAB_ICONS: Record<TabKey, ReactNode> = {
   nations: <FlagIcon />,
   factions: <SlidersIcon />,
 };
+
+/** タブ（リーフ）ごとの短いラベル。ページ内サブタブの見出しに使う。 */
+const TAB_LABELS: Record<TabKey, string> = {
+  history: "戦闘履歴",
+  scout: "偵察検索",
+  damage: "被弾表",
+  swi: "ランキング",
+  db: "DB確認",
+  units: "兵種",
+  weapons: "武器",
+  items: "品物",
+  nations: "国",
+  factions: "環境設定",
+};
+
+/** サイドバーのグループキー（似た画面をまとめた単位）。 */
+type TabGroupKey = "history" | "warlords" | "encyclopedia" | "nations" | "settings";
+
+/**
+ * サイドバーのグループ定義。似た画面を1グループにまとめ、複数リーフを持つ
+ * グループはページ内のサブタブ（セグメント）で切り替える。
+ * リーフ（TabKey）は従来どおり URL `?tab=` の値として使い、共有リンクの互換を保つ。
+ */
+const TAB_GROUPS: {
+  key: TabGroupKey;
+  label: string;
+  icon: ReactNode;
+  tabs: TabKey[];
+}[] = [
+  { key: "history", label: "戦闘履歴", icon: <HistoryIcon />, tabs: ["history"] },
+  {
+    key: "warlords",
+    label: "武将",
+    icon: <UsersIcon />,
+    tabs: ["scout", "damage", "swi", "db"],
+  },
+  {
+    key: "encyclopedia",
+    label: "図鑑",
+    icon: <BookIcon />,
+    tabs: ["units", "weapons", "items"],
+  },
+  { key: "nations", label: "国", icon: <FlagIcon />, tabs: ["nations"] },
+  { key: "settings", label: "環境設定", icon: <SlidersIcon />, tabs: ["factions"] },
+];
+
+/** リーフタブ → 所属グループ の逆引き。 */
+const GROUP_OF_TAB: Record<TabKey, TabGroupKey> = TAB_GROUPS.reduce(
+  (acc, g) => {
+    for (const t of g.tabs) acc[t] = g.key;
+    return acc;
+  },
+  {} as Record<TabKey, TabGroupKey>
+);
+
+/** すべての有効なリーフタブキー（URL のタブ検証に使う）。 */
+const ALL_TAB_KEYS: TabKey[] = TAB_GROUPS.flatMap((g) => g.tabs);
 
 /** 武将 / 兵種 / 武器 / 品物 ページの表示状態 */
 type DetailView = {
@@ -163,7 +208,9 @@ function navStateFromSearch(search: string): {
   // 旧「武器・品物」タブ（equips）の共有リンクは武器図鑑へ寄せる。
   const tabKey = t === "equips" ? "weapons" : t;
   const tab: TabKey =
-    tabKey && TABS.some((x) => x.key === tabKey) ? (tabKey as TabKey) : "history";
+    tabKey && ALL_TAB_KEYS.includes(tabKey as TabKey)
+      ? (tabKey as TabKey)
+      : "history";
   const w = params.get("w");
   const u = params.get("u");
   const wp = params.get("wp");
@@ -224,10 +271,32 @@ export default function HomePage() {
   const [lastFetchedAt, setLastFetchedAt] = useState<number | null>(null);
   // 縦に長い画面で「先頭へ戻る」FABを表示するか。
   const [showTop, setShowTop] = useState(false);
-  // タブリストのロービングタブインデックス用の参照。
+  // サイドバーのグループ（ロービングタブインデックス）用の参照。
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  // ページ内サブタブ（セグメント）のロービングタブインデックス用の参照。
+  const subTabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  // グループごとに最後に開いていたリーフタブ。グループ再選択時に復元する。
+  const [lastLeaf, setLastLeaf] = useState<Record<TabGroupKey, TabKey>>(() => {
+    const init = {} as Record<TabGroupKey, TabKey>;
+    for (const g of TAB_GROUPS) init[g.key] = g.tabs[0];
+    return init;
+  });
 
   const detail = detailStack[detailStack.length - 1] ?? null;
+  // 現在のリーフタブが属するグループと、その兄弟リーフ一覧。
+  const activeGroup = GROUP_OF_TAB[tab];
+  const activeGroupDef = TAB_GROUPS.find((g) => g.key === activeGroup)!;
+  const groupTabs = activeGroupDef.tabs;
+  const hasSubtabs = groupTabs.length > 1;
+
+  // タブが変わったら、そのグループの「最後に開いたリーフ」を更新する。
+  useEffect(() => {
+    setLastLeaf((prev) =>
+      prev[GROUP_OF_TAB[tab]] === tab
+        ? prev
+        : { ...prev, [GROUP_OF_TAB[tab]]: tab }
+    );
+  }, [tab]);
 
   // 初回マウント時・再試行時にサーバー（共有DB）から読み込み
   useEffect(() => {
@@ -470,8 +539,12 @@ export default function HomePage() {
     if (detail) {
       document.title = `${detail.name}｜${base}`;
     } else {
-      const label = TABS.find((t) => t.key === tab)?.label;
-      document.title = label ? `${label}｜${base}` : base;
+      // 複数リーフのグループはタイトルに「グループ リーフ」を併記して分かりやすくする。
+      const group = TAB_GROUPS.find((g) => g.key === GROUP_OF_TAB[tab]);
+      const leaf = TAB_LABELS[tab];
+      const label =
+        group && group.tabs.length > 1 ? `${group.label} ${leaf}` : leaf;
+      document.title = `${label}｜${base}`;
     }
   }, [detail, tab]);
 
@@ -593,23 +666,49 @@ export default function HomePage() {
     [isMobile]
   );
 
-  // タブリストのキーボード操作（↑↓←→ / Home / End でタブ移動）。
+  // サイドバーのグループを選ぶ。複数リーフのグループは前回開いていたリーフへ復元する。
+  const selectGroup = useCallback(
+    (g: TabGroupKey) => {
+      const def = TAB_GROUPS.find((x) => x.key === g)!;
+      selectTab(lastLeaf[g] ?? def.tabs[0]);
+    },
+    [lastLeaf, selectTab]
+  );
+
+  // サイドバー（縦のグループ一覧）のキーボード操作（↑↓ / Home / End）。
   const onTabKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLElement>) => {
-      const idx = TABS.findIndex((t) => t.key === tab);
+      const idx = TAB_GROUPS.findIndex((g) => g.key === activeGroup);
       let next = -1;
-      if (e.key === "ArrowDown" || e.key === "ArrowRight")
-        next = (idx + 1) % TABS.length;
-      else if (e.key === "ArrowUp" || e.key === "ArrowLeft")
-        next = (idx - 1 + TABS.length) % TABS.length;
+      if (e.key === "ArrowDown") next = (idx + 1) % TAB_GROUPS.length;
+      else if (e.key === "ArrowUp")
+        next = (idx - 1 + TAB_GROUPS.length) % TAB_GROUPS.length;
       else if (e.key === "Home") next = 0;
-      else if (e.key === "End") next = TABS.length - 1;
+      else if (e.key === "End") next = TAB_GROUPS.length - 1;
       else return;
       e.preventDefault();
-      selectTab(TABS[next].key);
+      selectGroup(TAB_GROUPS[next].key);
       tabRefs.current[next]?.focus();
     },
-    [tab, selectTab]
+    [activeGroup, selectGroup]
+  );
+
+  // ページ内サブタブ（横のセグメント）のキーボード操作（←→ / Home / End）。
+  const onSubTabKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLElement>) => {
+      const idx = groupTabs.indexOf(tab);
+      let next = -1;
+      if (e.key === "ArrowRight") next = (idx + 1) % groupTabs.length;
+      else if (e.key === "ArrowLeft")
+        next = (idx - 1 + groupTabs.length) % groupTabs.length;
+      else if (e.key === "Home") next = 0;
+      else if (e.key === "End") next = groupTabs.length - 1;
+      else return;
+      e.preventDefault();
+      selectTab(groupTabs[next]);
+      subTabRefs.current[next]?.focus();
+    },
+    [groupTabs, tab, selectTab]
   );
 
   // 武将ページを開く（同じ対象が既に最前面なら何もしない）。
@@ -921,25 +1020,25 @@ export default function HomePage() {
             aria-label="メインメニュー"
             onKeyDown={onTabKeyDown}
           >
-            {TABS.map((t, i) => (
+            {TAB_GROUPS.map((g, i) => (
               <button
-                key={t.key}
+                key={g.key}
                 type="button"
                 role="tab"
-                id={`tab-${t.key}`}
-                aria-selected={tab === t.key}
+                id={`group-${g.key}`}
+                aria-selected={activeGroup === g.key}
                 aria-controls="main-panel"
                 ref={(el) => {
                   tabRefs.current[i] = el;
                 }}
-                tabIndex={sidebarOpen && tab === t.key ? 0 : -1}
-                className={"nav-item" + (tab === t.key ? " active" : "")}
-                onClick={() => selectTab(t.key)}
+                tabIndex={sidebarOpen && activeGroup === g.key ? 0 : -1}
+                className={"nav-item" + (activeGroup === g.key ? " active" : "")}
+                onClick={() => selectGroup(g.key)}
               >
                 <span className="nav-item-icon" aria-hidden="true">
-                  {TAB_ICONS[t.key]}
+                  {g.icon}
                 </span>
-                <span className="nav-item-label">{t.label}</span>
+                <span className="nav-item-label">{g.label}</span>
               </button>
             ))}
           </nav>
@@ -949,7 +1048,7 @@ export default function HomePage() {
           className="main"
           id="main-panel"
           role="tabpanel"
-          aria-labelledby={`tab-${tab}`}
+          aria-labelledby={hasSubtabs ? `subtab-${tab}` : `group-${activeGroup}`}
           tabIndex={-1}
         >
           {!hydrated ? (
@@ -979,7 +1078,42 @@ export default function HomePage() {
               </div>
             </div>
           ) : (
-            detailView ?? content
+            detailView ?? (
+              <>
+                {hasSubtabs && (
+                  <div
+                    role="tablist"
+                    aria-label={`${activeGroupDef.label}の表示切替`}
+                    aria-orientation="horizontal"
+                    className="subtabs"
+                    onKeyDown={onSubTabKeyDown}
+                  >
+                    {groupTabs.map((leaf, i) => (
+                      <button
+                        key={leaf}
+                        type="button"
+                        role="tab"
+                        id={`subtab-${leaf}`}
+                        aria-selected={tab === leaf}
+                        aria-controls="main-panel"
+                        ref={(el) => {
+                          subTabRefs.current[i] = el;
+                        }}
+                        tabIndex={tab === leaf ? 0 : -1}
+                        className={"subtab" + (tab === leaf ? " active" : "")}
+                        onClick={() => selectTab(leaf)}
+                      >
+                        <span className="subtab-icon" aria-hidden="true">
+                          {TAB_ICONS[leaf]}
+                        </span>
+                        <span className="subtab-label">{TAB_LABELS[leaf]}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {content}
+              </>
+            )
           )}
         </main>
       </div>
