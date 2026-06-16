@@ -2576,6 +2576,27 @@ button.tag.faction-link:focus-visible {
   white-space: nowrap;
 }
 
+.user-winrate-name-wrap {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* 過去にこの国へ在籍していた武将の目印（現在の所属先 or 元所属）。 */
+.member-left-tag {
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 700;
+  color: #ff9ecb;
+  border: 1px solid #57273f;
+  background: #2a1822;
+  border-radius: 999px;
+  padding: 1px 7px;
+  white-space: nowrap;
+}
+
 .user-winrate-meta {
   display: inline-flex;
   align-items: baseline;

@@ -29,13 +29,17 @@ interface Props {
   onBack: () => void;
 }
 
-/** 所属武将（DB 名簿）＋この国での在籍区間の戦績を組み合わせた 1 行分のデータ。 */
+/** 所属武将（現在＋過去に在籍）と、その国での在籍区間の戦績を組み合わせた 1 行分のデータ。 */
 interface MemberRow {
   name: string;
   type?: string;
   branch?: string;
-  /** その国に所属してから（最後に加入してから今まで）の戦績。 */
+  /** その国に在籍していた期間（最後に在籍した区間）の戦績。 */
   stat?: FactionMemberStat;
+  /** 現在もこの国に所属しているか（DB 名簿基準）。 */
+  current: boolean;
+  /** 現在は他国にいる場合の所属先（過去在籍者の参考表示用）。 */
+  currentFaction?: string;
 }
 
 export function FactionDetail({
@@ -54,33 +58,39 @@ export function FactionDetail({
   const summary = useMemo(() => summarize(outcomes), [outcomes]);
   const branches = useMemo(() => branchStats(outcomes), [outcomes]);
 
-  // 所属武将：現在この国に居る武将を、その国に所属してからの戦績だけで集計する。
-  // 渡り歩いてきた武将は、最後に加入してから今までの在籍区間のみを採用する。
+  // 所属武将：現在この国に居る武将に加え、過去に在籍して他国へ移った武将も、
+  // その国に在籍していた期間（最後に在籍した区間）の戦績で表示する。
+  // これにより、滅亡・縮小した国でも過去の所属武将の成績が反映される。
   const members = useMemo<MemberRow[]>(() => {
     const target = name.trim();
     const statMap = new Map<string, FactionMemberStat>();
     for (const s of factionMemberStats(log, target)) statMap.set(s.name, s);
 
-    // DB 名簿（現在この国に所属）を基本に、無ければ戦歴から補完する。
-    const roster = Object.values(db).filter(
-      (w) => (w.faction ?? "").trim() === target
+    // 現在この国に所属している武将（DB 名簿）の名前。
+    const currentNames = new Set(
+      Object.values(db)
+        .filter((w) => (w.faction ?? "").trim() === target)
+        .map((w) => w.name)
     );
-    const names =
-      roster.length > 0
-        ? roster.map((w) => w.name)
-        : Array.from(statMap.keys());
 
-    const rows = names.map((n) => {
+    // 表示対象 = 現名簿 ∪ その国で戦ったことのある武将（過去に抜けた武将を含む）。
+    const names = new Set<string>([...currentNames, ...statMap.keys()]);
+
+    const rows: MemberRow[] = Array.from(names).map((n) => {
       const w = db[n];
+      const current = currentNames.has(n);
       return {
         name: n,
         type: w?.type,
         branch: w?.branch,
         stat: statMap.get(n),
+        current,
+        currentFaction: !current ? w?.faction?.trim() || undefined : undefined,
       };
     });
-    // 戦闘数の多い順 → 名前順。戦績の無い武将は後ろへ。
+    // 現所属を先頭に、次に在籍期間の戦闘数の多い順 → 名前順。
     return rows.sort((a, b) => {
+      if (a.current !== b.current) return a.current ? -1 : 1;
       const ab = a.stat?.battles ?? 0;
       const bb = b.stat?.battles ?? 0;
       if (ab !== bb) return bb - ab;
@@ -88,9 +98,17 @@ export function FactionDetail({
     });
   }, [db, log, name]);
 
-  // 現在の主力兵種：所属武将が最新で使っている兵種を兵科ごとにまとめる。
+  // 現在この国に所属している人数（DB 名簿基準。国一覧の「人数」と一致）。
+  const currentCount = useMemo(
+    () => members.filter((m) => m.current).length,
+    [members]
+  );
+
+  // 現在の主力兵種：いま所属している武将が最新で使っている兵種を兵科ごとにまとめる。
+  // （過去に在籍して抜けた武将は「現在の」主力ではないため対象外。）
   const latestUnits = useMemo<BranchLatestUnits[]>(() => {
     const stats = members
+      .filter((m) => m.current)
       .map((m) => m.stat)
       .filter((s): s is FactionMemberStat => !!s);
     return latestUnitsByBranch(stats);
@@ -98,9 +116,7 @@ export function FactionDetail({
 
   const tags = (
     <>
-      {members.length > 0 && (
-        <span className="tag">{members.length}人</span>
-      )}
+      {currentCount > 0 && <span className="tag">{currentCount}人</span>}
       {outcomes.length > 0 && (
         <span className="tag">{outcomes.length}戦</span>
       )}
@@ -130,7 +146,11 @@ export function FactionDetail({
 
           <LatestUnits groups={latestUnits} onSelectUnit={onSelectUnit} />
 
-          <FactionMembers members={members} onSelectWarlord={onSelectWarlord} />
+          <FactionMembers
+            members={members}
+            currentCount={currentCount}
+            onSelectWarlord={onSelectWarlord}
+          />
 
           {outcomes.length > 0 && (
             <>
@@ -252,17 +272,23 @@ function LatestUnits({
 
 function FactionMembers({
   members,
+  currentCount,
   onSelectWarlord,
 }: {
   members: MemberRow[];
+  currentCount: number;
   onSelectWarlord: (name: string) => void;
 }) {
   if (members.length === 0) return null;
+  const pastCount = members.length - currentCount;
   return (
     <div className="detail-section">
       <h3>所属武将（{members.length}人）</h3>
       <p className="detail-note muted">
-        勝率はこの国に所属してから（最後に加入してから今まで）の戦績です。
+        勝率は各武将がこの国に在籍していた期間の戦績です。
+        {pastCount > 0
+          ? `現在の所属は${currentCount}人で、ほかの${pastCount}人は過去に在籍した武将です（他国へ移った武将も在籍当時の成績で表示します）。`
+          : ""}
       </p>
       <ul className="user-winrate-list">
         {members.map((m) => {
@@ -272,14 +298,28 @@ function FactionMembers({
           return (
             <li key={m.name} className="user-winrate-row">
               <div className="user-winrate-head">
-                <button
-                  type="button"
-                  className="user-winrate-name link-like"
-                  onClick={() => onSelectWarlord(m.name)}
-                  title={`${m.name} の戦績を見る`}
-                >
-                  {m.name}
-                </button>
+                <span className="user-winrate-name-wrap">
+                  <button
+                    type="button"
+                    className="user-winrate-name link-like"
+                    onClick={() => onSelectWarlord(m.name)}
+                    title={`${m.name} の戦績を見る`}
+                  >
+                    {m.name}
+                  </button>
+                  {!m.current && (
+                    <span
+                      className="member-left-tag"
+                      title={
+                        m.currentFaction
+                          ? `現在は「${m.currentFaction}」に所属`
+                          : "現在はこの国に所属していません"
+                      }
+                    >
+                      {m.currentFaction ? `現 ${m.currentFaction}` : "元所属"}
+                    </span>
+                  )}
+                </span>
                 <span className="user-winrate-meta">
                   {s ? (
                     <>
