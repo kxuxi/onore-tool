@@ -2,19 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { HistoryTab } from "@/components/tabs/HistoryTab";
-import { ScoutTab } from "@/components/tabs/ScoutTab";
-import { DbTab } from "@/components/tabs/DbTab";
-import { DamageTab } from "@/components/tabs/DamageTab";
-import { UnitTab } from "@/components/tabs/UnitTab";
-import { EquipTab } from "@/components/tabs/EquipTab";
-import { NationTab } from "@/components/tabs/NationTab";
-import { SettingsTab } from "@/components/tabs/SettingsTab";
-import { SwiTab } from "@/components/tabs/SwiTab";
-import { WarlordDetail } from "@/components/detail/WarlordDetail";
-import { UnitDetail } from "@/components/detail/UnitDetail";
-import { EquipDetail } from "@/components/detail/EquipDetail";
-import { FactionDetail } from "@/components/detail/FactionDetail";
+import dynamic from "next/dynamic";
 import { registerState, importWarlordStats, saveFactionColorsToDb } from "@/lib/api";
 import { parseBattleEntriesChecked } from "@/lib/parser";
 import type { FactionColorMap } from "@/lib/factionColors";
@@ -49,6 +37,44 @@ import {
   LogOutIcon,
 } from "@/components/icons";
 import type { BattleRecord, TabKey, WarlordMap } from "@/lib/types";
+
+const HistoryTab = dynamic(
+  () => import("@/components/tabs/HistoryTab").then((m) => m.HistoryTab)
+);
+const ScoutTab = dynamic(
+  () => import("@/components/tabs/ScoutTab").then((m) => m.ScoutTab)
+);
+const DbTab = dynamic(() => import("@/components/tabs/DbTab").then((m) => m.DbTab));
+const DamageTab = dynamic(
+  () => import("@/components/tabs/DamageTab").then((m) => m.DamageTab)
+);
+const UnitTab = dynamic(
+  () => import("@/components/tabs/UnitTab").then((m) => m.UnitTab)
+);
+const EquipTab = dynamic(
+  () => import("@/components/tabs/EquipTab").then((m) => m.EquipTab)
+);
+const NationTab = dynamic(
+  () => import("@/components/tabs/NationTab").then((m) => m.NationTab)
+);
+const SettingsTab = dynamic(
+  () => import("@/components/tabs/SettingsTab").then((m) => m.SettingsTab)
+);
+const SwiTab = dynamic(
+  () => import("@/components/tabs/SwiTab").then((m) => m.SwiTab)
+);
+const WarlordDetail = dynamic(
+  () => import("@/components/detail/WarlordDetail").then((m) => m.WarlordDetail)
+);
+const UnitDetail = dynamic(
+  () => import("@/components/detail/UnitDetail").then((m) => m.UnitDetail)
+);
+const EquipDetail = dynamic(
+  () => import("@/components/detail/EquipDetail").then((m) => m.EquipDetail)
+);
+const FactionDetail = dynamic(
+  () => import("@/components/detail/FactionDetail").then((m) => m.FactionDetail)
+);
 
 /** タブ（リーフ）ごとのアイコン。サイドバーのグループ単独表示とページ内サブタブで共用。 */
 const TAB_ICONS: Record<TabKey, ReactNode> = {
