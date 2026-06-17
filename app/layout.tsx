@@ -17,11 +17,20 @@ export const metadata: Metadata = {
     description: SITE_DESCRIPTION,
     locale: "ja_JP",
     url: "/",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: SITE_NAME,
+      },
+    ],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: SITE_NAME,
     description: SITE_DESCRIPTION,
+    images: ["/twitter-image"],
   },
 };
 
