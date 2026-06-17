@@ -1262,6 +1262,44 @@ function computeAssists(log: BattleRecord[]): Map<string, number> {
   return assists;
 }
 
+/** 撤退を含む出撃を除外した効率用の集計。 */
+function computeEfficiency(
+  log: BattleRecord[],
+  side: SideKey
+): Map<string, { wins: number; sorties: number }> {
+  interface Sortie {
+    wins: Set<number>;
+    hasRetreat: boolean;
+  }
+  const sorties = new Map<string, Sortie>();
+
+  for (const { card } of dedupedCards(log)) {
+    const self = side === "left" ? card.left : card.right;
+    const name = self.name?.trim();
+    if (!name) continue;
+    const key = `${name}@@${card.battleAt ?? ""}`;
+    let s = sorties.get(key);
+    if (!s) {
+      s = { wins: new Set<number>(), hasRetreat: false };
+      sorties.set(key, s);
+    }
+    if (card.winner === side) s.wins.add(battleNoNumber(card.battleNo));
+    if (card.resultRaw.includes("撤退")) s.hasRetreat = true;
+  }
+
+  const out = new Map<string, { wins: number; sorties: number }>();
+  for (const [key, s] of sorties) {
+    // 撤退を含む出撃は効率の分母・分子から除外。
+    if (s.hasRetreat) continue;
+    const name = key.slice(0, key.indexOf("@@"));
+    const cur = out.get(name) ?? { wins: 0, sorties: 0 };
+    cur.sorties += 1;
+    cur.wins += s.wins.size;
+    out.set(name, cur);
+  }
+  return out;
+}
+
 /**
  * 武将ごとに攻撃・守備の出撃数 / 勝利数 / SWI をまとめて集計する。
  * 出兵勝利数・守備勝利数はその側で勝った戦目の総数、
@@ -1270,26 +1308,28 @@ function computeAssists(log: BattleRecord[]): Map<string, number> {
 export function warlordRanking(log: BattleRecord[]): WarlordRankStat[] {
   const atk = computeSideSwi(log, "left");
   const def = computeSideSwi(log, "right");
+  const atkEff = computeEfficiency(log, "left");
+  const defEff = computeEfficiency(log, "right");
   const assistsMap = computeAssists(log);
   const names = new Set<string>([...atk.keys(), ...def.keys()]);
   const out: WarlordRankStat[] = [];
   for (const name of names) {
     const a = atk.get(name);
     const d = def.get(name);
+    const ae = atkEff.get(name) ?? { wins: 0, sorties: 0 };
+    const de = defEff.get(name) ?? { wins: 0, sorties: 0 };
     out.push({
       name,
       faction: a?.faction ?? d?.faction,
       branch: a?.branch ?? d?.branch,
-      avgBreakthrough:
-        (a?.sorties ?? 0) > 0 ? (a?.wins ?? 0) / (a?.sorties ?? 1) : 0,
-      defenseEfficiency:
-        (d?.sorties ?? 0) > 0 ? (d?.wins ?? 0) / (d?.sorties ?? 1) : 0,
-      attackSorties: a?.sorties ?? 0,
-      attackWins: a?.wins ?? 0,
+      avgBreakthrough: ae.sorties > 0 ? ae.wins / ae.sorties : 0,
+      defenseEfficiency: de.sorties > 0 ? de.wins / de.sorties : 0,
+      attackSorties: ae.sorties,
+      attackWins: ae.wins,
       attackSwi: a?.swi ?? 0,
       attackBestSweep: a?.bestSweep ?? 0,
-      defenseSorties: d?.sorties ?? 0,
-      defenseWins: d?.wins ?? 0,
+      defenseSorties: de.sorties,
+      defenseWins: de.wins,
       defenseSwi: d?.swi ?? 0,
       defenseBestSweep: d?.bestSweep ?? 0,
       assists: assistsMap.get(name) ?? 0,

@@ -741,6 +741,18 @@ function assistLine(opts: {
   return `【${battleNo}戦目】 1600年4月 ${time} 京都 自国 ${leftName} 某家 武特 騎馬隊 騎兵 槍 鎧 V.S. 敵国 ${rightName} 敵家 統特 騎馬隊 騎兵 馬 旗 ${result} 12`;
 }
 
+/** 効率テスト用の戦闘行（勝敗生テキストを直接指定）。 */
+function efficiencyLine(opts: {
+  leftName: string;
+  rightName: string;
+  time: string;
+  resultRaw: string;
+  battleNo?: number;
+}): string {
+  const { leftName, rightName, time, resultRaw, battleNo = 1 } = opts;
+  return `【${battleNo}戦目】 1600年4月 ${time} 京都 自国 ${leftName} 某家 武特 騎馬隊 騎兵 槍 鎧 V.S. 敵国 ${rightName} 敵家 統特 騎馬隊 騎兵 馬 旗 ${resultRaw} 12`;
+}
+
 describe("アシスト（warlordRanking）", () => {
   it("撃破効率（平均枚抜き）は 攻撃勝利数 ÷ 攻撃出撃数 で計算される", () => {
     const log: BattleRecord[] = [
@@ -824,6 +836,66 @@ describe("アシスト（warlordRanking）", () => {
     expect(a?.defenseWins).toBe(3);
     expect(a?.defenseSorties).toBe(2);
     expect(a?.defenseEfficiency).toBeCloseTo(1.5);
+  });
+
+  it("撃破効率は撤退戦を分母・分子に含めない", () => {
+    const log: BattleRecord[] = [
+      // 10:00 出撃は撤退 -> 除外される
+      rec(
+        efficiencyLine({
+          leftName: "A",
+          rightName: "B",
+          time: "06/15 10:00",
+          resultRaw: "撤退",
+        }),
+        1
+      ),
+      // 11:00 出撃のみ有効
+      rec(
+        efficiencyLine({
+          leftName: "A",
+          rightName: "C",
+          time: "06/15 11:00",
+          resultRaw: "Aの勝利",
+        }),
+        2
+      ),
+    ];
+    const ranking = warlordRanking(log);
+    const a = ranking.find((r) => r.name === "A");
+    expect(a?.attackSorties).toBe(1);
+    expect(a?.attackWins).toBe(1);
+    expect(a?.avgBreakthrough).toBeCloseTo(1);
+  });
+
+  it("守備効率は撤退戦を分母・分子に含めない", () => {
+    const log: BattleRecord[] = [
+      // 10:00 守備出撃は撤退 -> 除外される
+      rec(
+        efficiencyLine({
+          leftName: "B",
+          rightName: "A",
+          time: "06/15 10:00",
+          resultRaw: "撤退",
+        }),
+        1
+      ),
+      // 11:00 守備出撃のみ有効
+      rec(
+        efficiencyLine({
+          leftName: "C",
+          rightName: "A",
+          time: "06/15 11:00",
+          resultRaw: "Aの勝利",
+        }),
+        2
+      ),
+    ];
+    const ranking = warlordRanking(log);
+    const a = ranking.find((r) => r.name === "A");
+    expect(a?.defenseSorties).toBe(1);
+    expect(a?.defenseWins).toBe(1);
+    expect(a?.defenseEfficiency).toBeCloseTo(1);
   });
 
   it("削った 40 分以内に相手が別イベントで倒されたらアシスト獲得", () => {
