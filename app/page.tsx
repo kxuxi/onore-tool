@@ -416,6 +416,7 @@ export default function HomePage() {
       case "history":
         return (
           <HistoryTab
+            canRegister={!authReady || isAdmin}
             onRegister={handleRegister}
             log={filteredBattleLog}
             factionColors={factionColors}
@@ -492,6 +493,8 @@ export default function HomePage() {
     filteredDb,
     filteredBattleLog,
     factionColors,
+    authReady,
+    isAdmin,
     themePref,
     handleRegister,
     handleImportStats,

@@ -36,6 +36,7 @@ import { SearchBox } from "@/components/SearchBox";
 import { BATTLE_LOG_PAGE_SIZE as PAGE_SIZE } from "@/lib/stats";
 
 interface Props {
+  canRegister: boolean;
   onRegister: (text: string) => Promise<{
     added: number;
     updated: number;
@@ -98,6 +99,7 @@ function cardSearchText(
 const PLACEHOLDER = `戦闘履歴をここに貼り付けてください。（スマホからのコピー＆ペーストにも対応しています）`;
 
 export function HistoryTab({
+  canRegister,
   onRegister,
   log,
   factionColors,
@@ -299,6 +301,7 @@ export function HistoryTab({
 
   return (
     <>
+      {canRegister && (
       <section className="panel">
         <h2>戦闘履歴を登録</h2>
         <p className="muted" style={{ margin: 0, fontSize: 13 }}>
@@ -392,6 +395,7 @@ export function HistoryTab({
           </div>
         )}
       </section>
+      )}
 
       <section className="panel">
         <div className="history-head" ref={listTopRef}>
@@ -475,8 +479,9 @@ export function HistoryTab({
             <div className="empty">
               <p className="empty-title">まだ戦闘履歴がありません</p>
               <p className="empty-hint">
-                上の入力欄にゲームの戦闘履歴を貼り付けて「登録する」を押すと、
-                ここに一覧表示されます。リンク付きでコピーすれば詳細ページのURLも保持されます。
+                {canRegister
+                  ? "上の入力欄にゲームの戦闘履歴を貼り付けて「登録する」を押すと、ここに一覧表示されます。リンク付きでコピーすれば詳細ページのURLも保持されます。"
+                  : "管理者が戦闘履歴を登録すると、ここに一覧表示されます。"}
               </p>
             </div>
           ) : (

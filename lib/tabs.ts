@@ -65,6 +65,7 @@ export const ALL_TAB_KEYS: TabKey[] = TAB_GROUPS.flatMap((g) => g.tabs);
  * 図鑑・ランキング・国の 3 グループのみ公開し、残りは管理者専用にする。
  */
 export const PUBLIC_TAB_GROUPS: TabGroupKey[] = [
+  "history",
   "ranking",
   "encyclopedia",
   "nations",
