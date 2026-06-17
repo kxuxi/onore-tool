@@ -1132,6 +1132,8 @@ export function swiRanking(log: BattleRecord[], minSorties = 5): SwiStat[] {
 export type RankMetric =
   | "avgBreakthrough"
   | "defenseEfficiency"
+  | "attackWinRate"
+  | "defenseWinRate"
   | "assists";
 
 /** 武将 1 人の攻撃・守備の総合戦績。 */
@@ -1143,18 +1145,30 @@ export interface WarlordRankStat {
   avgBreakthrough: number;
   /** 守備効率（守備勝利数 / 守備出撃数） */
   defenseEfficiency: number;
-  /** 攻撃側としての出撃回数 */
+  /** 攻撃勝率（攻撃側として勝った戦目 / 攻撃側として参加した決着戦目） */
+  attackWinRate: number;
+  /** 守備勝率（守備側として勝った戦目 / 守備側として参加した決着戦目） */
+  defenseWinRate: number;
+  /** 攻撃側としての出撃回数（撤退除く） */
   attackSorties: number;
   /** 出兵勝利数（攻撃側として勝った戦目の総数） */
   attackWins: number;
+  /** 攻撃側として参加した決着戦目数 */
+  attackRounds: number;
+  /** 攻撃側として勝った決着戦目数 */
+  attackWinRounds: number;
   /** SWI（攻撃） */
   attackSwi: number;
   /** 攻撃側の最高枚抜き */
   attackBestSweep: number;
-  /** 守備側としての出撃回数 */
+  /** 守備側としての出撃回数（撤退除く） */
   defenseSorties: number;
   /** 守備勝利数（守備側として勝った戦目の総数） */
   defenseWins: number;
+  /** 守備側として参加した決着戦目数 */
+  defenseRounds: number;
+  /** 守備側として勝った決着戦目数 */
+  defenseWinRounds: number;
   /** SWI（守備） */
   defenseSwi: number;
   /** 守備側の最高枚抜き */
@@ -1170,6 +1184,10 @@ export function rankMetricValue(s: WarlordRankStat, metric: RankMetric): number 
       return s.avgBreakthrough;
     case "defenseEfficiency":
       return s.defenseEfficiency;
+    case "attackWinRate":
+      return s.attackWinRate;
+    case "defenseWinRate":
+      return s.defenseWinRate;
     case "assists":
       return s.assists;
   }
@@ -1177,7 +1195,7 @@ export function rankMetricValue(s: WarlordRankStat, metric: RankMetric): number 
 
 /** 指標が攻撃側のものか。 */
 export function isAttackMetric(metric: RankMetric): boolean {
-  return metric === "avgBreakthrough";
+  return metric === "avgBreakthrough" || metric === "attackWinRate";
 }
 
 /** アシスト判定の時間窓（ミリ秒）。 */
@@ -1262,6 +1280,31 @@ function computeAssists(log: BattleRecord[]): Map<string, number> {
   return assists;
 }
 
+/** 決着戦目ごとの攻撃/守備勝率集計（撤退・引き分けを除く）。 */
+function computeRoundWinRates(
+  log: BattleRecord[]
+): Map<string, { attackWins: number; attackRounds: number; defenseWins: number; defenseRounds: number }> {
+  const out = new Map<string, { attackWins: number; attackRounds: number; defenseWins: number; defenseRounds: number }>();
+  for (const { card } of dedupedCards(log)) {
+    if (card.winner !== "left" && card.winner !== "right") continue;
+    const leftName = card.left.name?.trim();
+    const rightName = card.right.name?.trim();
+    if (leftName) {
+      const cur = out.get(leftName) ?? { attackWins: 0, attackRounds: 0, defenseWins: 0, defenseRounds: 0 };
+      cur.attackRounds += 1;
+      if (card.winner === "left") cur.attackWins += 1;
+      out.set(leftName, cur);
+    }
+    if (rightName) {
+      const cur = out.get(rightName) ?? { attackWins: 0, attackRounds: 0, defenseWins: 0, defenseRounds: 0 };
+      cur.defenseRounds += 1;
+      if (card.winner === "right") cur.defenseWins += 1;
+      out.set(rightName, cur);
+    }
+  }
+  return out;
+}
+
 /** 撤退を含む出撃を除外した効率用の集計。 */
 function computeEfficiency(
   log: BattleRecord[],
@@ -1310,6 +1353,7 @@ export function warlordRanking(log: BattleRecord[]): WarlordRankStat[] {
   const def = computeSideSwi(log, "right");
   const atkEff = computeEfficiency(log, "left");
   const defEff = computeEfficiency(log, "right");
+  const roundRates = computeRoundWinRates(log);
   const assistsMap = computeAssists(log);
   const names = new Set<string>([...atk.keys(), ...def.keys()]);
   const out: WarlordRankStat[] = [];
@@ -1318,18 +1362,25 @@ export function warlordRanking(log: BattleRecord[]): WarlordRankStat[] {
     const d = def.get(name);
     const ae = atkEff.get(name) ?? { wins: 0, sorties: 0 };
     const de = defEff.get(name) ?? { wins: 0, sorties: 0 };
+    const rr = roundRates.get(name) ?? { attackWins: 0, attackRounds: 0, defenseWins: 0, defenseRounds: 0 };
     out.push({
       name,
       faction: a?.faction ?? d?.faction,
       branch: a?.branch ?? d?.branch,
       avgBreakthrough: ae.sorties > 0 ? ae.wins / ae.sorties : 0,
       defenseEfficiency: de.sorties > 0 ? de.wins / de.sorties : 0,
+      attackWinRate: rr.attackRounds > 0 ? rr.attackWins / rr.attackRounds : 0,
+      defenseWinRate: rr.defenseRounds > 0 ? rr.defenseWins / rr.defenseRounds : 0,
       attackSorties: ae.sorties,
       attackWins: ae.wins,
+      attackRounds: rr.attackRounds,
+      attackWinRounds: rr.attackWins,
       attackSwi: a?.swi ?? 0,
       attackBestSweep: a?.bestSweep ?? 0,
       defenseSorties: de.sorties,
       defenseWins: de.wins,
+      defenseRounds: rr.defenseRounds,
+      defenseWinRounds: rr.defenseWins,
       defenseSwi: d?.swi ?? 0,
       defenseBestSweep: d?.bestSweep ?? 0,
       assists: assistsMap.get(name) ?? 0,

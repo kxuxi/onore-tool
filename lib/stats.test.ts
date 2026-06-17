@@ -42,7 +42,7 @@ function makeLine(opts: {
 }
 
 function rec(line: string, savedAt = 0): BattleRecord {
-  return { line, time: line.match(/\d+年\d+月\s+\d+\/\d+\s+\d+:\d+/)?.[0], savedAt };
+  return { line, time: line.match(/\d+年\d+月\s+\d+\/\d+\s+\d+:\d+/)?.[0], term: 145, savedAt };
 }
 
 describe("opponentStats / matchupRanking / rivalry", () => {

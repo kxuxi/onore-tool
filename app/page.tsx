@@ -74,20 +74,11 @@ const GROUP_ICONS: Record<TabGroupKey, ReactNode> = {
   settings: <SlidersIcon />,
 };
 
-/** ゲーム内年から期番号へ変換するためのオフセット（例: 1696年 -> 145期）。 */
-const TERM_YEAR_OFFSET = 1551;
-/** 現在の期（UI表示用）。 */
+/** 現在の期（初期選択値・UI表示用）。 */
 const CURRENT_TERM = 145;
 
-/** 戦闘履歴レコードから期番号を取り出す。 */
-function termOfRecord(record: BattleRecord): number | null {
-  const m = record.time?.match(/(\d+)年/);
-  if (!m) return null;
-  const year = Number(m[1]);
-  if (!Number.isFinite(year)) return null;
-  const term = year - TERM_YEAR_OFFSET;
-  return term > 0 ? term : null;
-}
+/** サイドバーの「新期」で追加した期番号の保存キー。 */
+const TERM_OPTIONS_STORAGE_KEY = "onore-tool:term-options:v1";
 
 /** 共有DBを最後に取得した時刻を HH:MM 表記にする。 */
 function formatClock(ts: number): string {
@@ -164,29 +155,71 @@ export default function HomePage() {
   const [linkCopied, setLinkCopied] = useState(false);
   const [showTop, setShowTop] = useState(false);
   const [selectedTerm, setSelectedTerm] = useState<number | "all">(CURRENT_TERM);
+  const [manualTerms, setManualTerms] = useState<number[]>([]);
+  const [showNewTermInput, setShowNewTermInput] = useState(false);
+  const [newTermValue, setNewTermValue] = useState("");
 
-  // 戦闘履歴に含まれる期の一覧（新しい順）。
+  // 「新期」で追加した期を復元する（データ未登録でも選択肢に残す）。
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(TERM_OPTIONS_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return;
+      const terms = Array.from(
+        new Set(
+          parsed
+            .map((v) => Number(v))
+            .filter((v) => Number.isInteger(v) && v > 0)
+        )
+      ).sort((a, b) => b - a);
+      setManualTerms(terms);
+    } catch {
+      // 壊れた保存データは無視して既定値で続行する。
+    }
+  }, []);
+
+  // 追加した期の一覧を保存する。
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(TERM_OPTIONS_STORAGE_KEY, JSON.stringify(manualTerms));
+    } catch {
+      // 保存に失敗しても表示は継続する。
+    }
+  }, [manualTerms]);
+
+  // 戦闘履歴に含まれる期の一覧（新しい順）。term フィールドが付与された記録から収集。
   const termOptions = useMemo(() => {
     const set = new Set<number>();
+    for (const t of manualTerms) {
+      set.add(t);
+    }
     for (const r of battleLog) {
-      const t = termOfRecord(r);
-      if (t != null) set.add(t);
+      set.add(r.term);
     }
     return Array.from(set).sort((a, b) => b - a);
-  }, [battleLog]);
+  }, [battleLog, manualTerms]);
 
-  // 既定の期が存在しない場合は「すべて」にフォールバックする。
-  useEffect(() => {
-    if (selectedTerm !== "all" && !termOptions.includes(selectedTerm)) {
-      setSelectedTerm("all");
-    }
-  }, [selectedTerm, termOptions]);
+  // ドロップダウンに表示する期の一覧。
+  // 選択中の期がデータに存在しない場合（新期入力直後など）でも選択肢に残す。
+  const termOptionsWithSelected = useMemo(() => {
+    if (selectedTerm === "all" || termOptions.includes(selectedTerm)) return termOptions;
+    return [selectedTerm, ...termOptions].sort((a, b) => b - a);
+  }, [termOptions, selectedTerm]);
 
-  // 選択中の期に応じて戦闘履歴を絞り込む（ランキング・履歴・詳細の集計に反映）。
+  // 選択中の期の戦闘履歴のみ絞り込む（ランキング・履歴・詳細の集計に反映）。
   const filteredBattleLog = useMemo(() => {
     if (selectedTerm === "all") return battleLog;
-    return battleLog.filter((r) => termOfRecord(r) === selectedTerm);
+    return battleLog.filter((r) => r.term === selectedTerm);
   }, [battleLog, selectedTerm]);
+
+  // 選択中の期に登録された武将のみの武将DBを構築する。
+  const filteredDb = useMemo(() => {
+    if (selectedTerm === "all") return db;
+    return Object.fromEntries(
+      Object.entries(db).filter(([, w]) => w.term === selectedTerm)
+    );
+  }, [db, selectedTerm]);
 
   // Escape で詳細ページを1つ戻る／モバイルのサイドバーを閉じる。
   useEffect(() => {
@@ -245,6 +278,20 @@ export default function HomePage() {
     [isAdmin, setFactionColors, pushToast]
   );
 
+  const handleNewTermStart = useCallback(() => {
+    const term = Number(newTermValue.trim());
+    if (!term || term <= 0 || !Number.isInteger(term)) {
+      pushToast("error", "期番号は正の整数で入力してください");
+      return;
+    }
+    setManualTerms((prev) =>
+      prev.includes(term) ? prev : [...prev, term].sort((a, b) => b - a)
+    );
+    setSelectedTerm(term);
+    setShowNewTermInput(false);
+    setNewTermValue("");
+  }, [newTermValue, pushToast]);
+
   const handleShareLink = useCallback(async () => {
     const ok = await copyText(window.location.href);
     if (ok) {
@@ -289,13 +336,16 @@ export default function HomePage() {
         };
       }
       const now = Date.now();
+      const term = selectedTerm === "all" ? CURRENT_TERM : selectedTerm;
+      const warlordsWithTerm = warlords.map((w) => ({ ...w, term }));
       const records: BattleRecord[] = entries.map((e) => ({
         line: e.line,
         time: e.time,
+        term,
         savedAt: now,
       }));
       try {
-        const res = await registerState(warlords, records);
+        const res = await registerState(warlordsWithTerm, records);
         setDb(res.db);
         setBattleLog(res.log);
         if (rejectedCount > 0) {
@@ -322,7 +372,7 @@ export default function HomePage() {
         throw e;
       }
     },
-    [pushToast, setDb, setBattleLog]
+    [pushToast, setDb, setBattleLog, selectedTerm]
   );
 
   const handleImportStats = useCallback(
@@ -363,7 +413,7 @@ export default function HomePage() {
       case "scout":
         return (
           <ScoutTab
-            db={db}
+            db={filteredDb}
             colors={factionColors}
             onSelectWarlord={selectWarlord}
           />
@@ -371,7 +421,7 @@ export default function HomePage() {
       case "damage":
         return (
           <DamageTab
-            db={db}
+            db={filteredDb}
             colors={factionColors}
             onSelectWarlord={selectWarlord}
           />
@@ -379,7 +429,7 @@ export default function HomePage() {
       case "swi":
         return <SwiTab log={filteredBattleLog} onSelectWarlord={selectWarlord} />;
       case "db":
-        return <DbTab db={db} colors={factionColors} onSelectWarlord={selectWarlord} onSelectFaction={selectFaction} onImportStats={handleImportStats} />;
+        return <DbTab db={filteredDb} colors={factionColors} onSelectWarlord={selectWarlord} onSelectFaction={selectFaction} onImportStats={handleImportStats} />;
       case "units":
         return <UnitTab onSelectUnit={selectUnit} />;
       case "weapons":
@@ -403,7 +453,7 @@ export default function HomePage() {
       case "nations":
         return (
           <NationTab
-            db={db}
+            db={filteredDb}
             log={filteredBattleLog}
             colors={factionColors}
             onSelectFaction={selectFaction}
@@ -412,7 +462,7 @@ export default function HomePage() {
       case "factions":
         return (
           <SettingsTab
-            db={db}
+            db={filteredDb}
             colors={factionColors}
             onChangeColors={handleChangeFactionColors}
             onSelectFaction={selectFaction}
@@ -426,6 +476,8 @@ export default function HomePage() {
   }, [
     tab,
     db,
+    filteredDb,
+    battleLog,
     filteredBattleLog,
     factionColors,
     themePref,
@@ -445,7 +497,7 @@ export default function HomePage() {
       detailView = (
         <WarlordDetail
           name={detail.name}
-          db={db}
+          db={filteredDb}
           log={filteredBattleLog}
           colors={factionColors}
           canComment={isAdmin}
@@ -469,7 +521,7 @@ export default function HomePage() {
       detailView = (
         <FactionDetail
           name={detail.name}
-          db={db}
+          db={filteredDb}
           log={filteredBattleLog}
           colors={factionColors}
           onSelectWarlord={selectWarlord}
@@ -610,6 +662,75 @@ export default function HomePage() {
           aria-label="メインメニュー"
           aria-hidden={!sidebarOpen}
         >
+          {/* 対象の期セレクター */}
+          <div className="sidebar-term">
+            <label className="sidebar-term-label" htmlFor="sidebar-term-select">
+              対象の期
+            </label>
+            <div className="sidebar-term-row">
+              <select
+                id="sidebar-term-select"
+                className="select sidebar-term-select"
+                value={selectedTerm === "all" ? "all" : String(selectedTerm)}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setSelectedTerm(v === "all" ? "all" : Number(v));
+                }}
+              >
+                <option value="all">すべての期</option>
+                {termOptionsWithSelected.map((term) => (
+                  <option key={term} value={String(term)}>
+                    {term}期{term === CURRENT_TERM ? "（今期）" : ""}
+                  </option>
+                ))}
+              </select>
+              {isAdmin && (
+                <button
+                  type="button"
+                  className={"btn sidebar-term-new-btn" + (showNewTermInput ? " active" : "")}
+                  title="リストにない期番号を入力して切り替える"
+                  onClick={() => { setShowNewTermInput((v) => !v); setNewTermValue(""); }}
+                >
+                  新期
+                </button>
+              )}
+            </div>
+            {showNewTermInput && (
+              <div className="sidebar-new-term" role="group" aria-label="新しい期の追加">
+                <div className="sidebar-new-term-field">
+                  <input
+                    id="sidebar-new-term-input"
+                    type="number"
+                    className="input sidebar-new-term-input"
+                    value={newTermValue}
+                    min={1}
+                    placeholder="例: 146"
+                    aria-label="追加する期番号"
+                    onChange={(e) => setNewTermValue(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleNewTermStart(); }}
+                  />
+                  <span className="sidebar-new-term-unit">期</span>
+                </div>
+                <div className="sidebar-new-term-actions">
+                  <button
+                    type="button"
+                    className="btn btn-danger sidebar-new-term-ok"
+                    onClick={handleNewTermStart}
+                  >
+                    追加
+                  </button>
+                  <button
+                    type="button"
+                    className="btn sidebar-new-term-cancel"
+                    onClick={() => setShowNewTermInput(false)}
+                  >
+                    キャンセル
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           <nav
             className="nav"
             role="tablist"
@@ -707,35 +828,6 @@ export default function HomePage() {
                       </button>
                     ))}
                   </div>
-                )}
-                {tab === "history" && (
-                  <section className="panel">
-                    <h2>対象の期</h2>
-                    <div className="filter-grid" style={{ marginTop: 8 }}>
-                      <label className="filter">
-                        <span>期</span>
-                        <select
-                          className="select"
-                          value={selectedTerm === "all" ? "all" : String(selectedTerm)}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            setSelectedTerm(v === "all" ? "all" : Number(v));
-                          }}
-                        >
-                          <option value="all">すべての期</option>
-                          {termOptions.map((term) => (
-                            <option key={term} value={String(term)}>
-                              {term}期{term === CURRENT_TERM ? "（今期）" : ""}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    </div>
-                    <p className="muted" style={{ margin: "8px 0 0", fontSize: 12 }}>
-                      現在の表示対象: {selectedTerm === "all" ? "全期" : `${selectedTerm}期`}（
-                      {filteredBattleLog.length.toLocaleString("ja-JP")}件）
-                    </p>
-                  </section>
                 )}
                 {content}
               </>

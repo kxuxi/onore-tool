@@ -32,9 +32,10 @@ export function mergeWarlords(
 
     map[w.name] = {
       ...base,
-      // 行動履歴・登録時刻は常に最新へ更新
+      // 行動履歴・登録時刻・期番号は常に最新へ更新
       lastActionAt,
       actions: actions.length > 0 ? actions : undefined,
+      term: w.term ?? prev?.term,
       updatedAt: Math.max(prev?.updatedAt ?? 0, w.updatedAt),
       // 能力値・自己PR は戦闘登録では渡らないため、既存値を保持する。
       power: w.power ?? prev?.power,

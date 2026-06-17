@@ -468,6 +468,99 @@ input:focus {
   transition: margin-left 0.2s ease, transform 0.2s ease;
 }
 
+/* ---------- サイドバー内の期セレクター ---------- */
+.sidebar-term {
+  padding: 10px 4px 12px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 10px;
+}
+
+.sidebar-term-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+
+.sidebar-term-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.sidebar-term-select {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 14px;
+}
+
+.sidebar-term-new-btn {
+  flex: 0 0 auto;
+  font-size: 12px;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.sidebar-term-new-btn.active {
+  border-color: color-mix(in srgb, var(--accent) 36%, var(--border));
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.sidebar-new-term {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel-2);
+}
+
+.sidebar-new-term-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sidebar-new-term-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 14px;
+  padding: 6px 8px;
+}
+
+.sidebar-new-term-unit {
+  font-size: 12px;
+  color: var(--muted);
+  flex: 0 0 auto;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 5px 8px;
+  background: var(--panel);
+}
+
+.sidebar-new-term-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sidebar-new-term-ok {
+  font-size: 12px;
+  padding: 5px 10px;
+  flex: 1 1 0;
+}
+
+.sidebar-new-term-cancel {
+  font-size: 12px;
+  padding: 5px 10px;
+  flex: 1 1 0;
+}
+
 .nav {
   display: flex;
   flex-direction: column;

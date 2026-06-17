@@ -17,6 +17,7 @@ type WarlordRow = {
   battleAt: string | null;
   lastActionAt: string | null;
   actions: string[];
+  term: number;
   updatedAt: bigint;
   power: number | null;
   intelligence: number | null;
@@ -37,6 +38,7 @@ function rowToWarlord(r: WarlordRow): Warlord {
     battleAt: r.battleAt ?? undefined,
     lastActionAt: r.lastActionAt ?? undefined,
     actions: r.actions.length > 0 ? r.actions : undefined,
+    term: r.term,
     updatedAt: Number(r.updatedAt),
     power: r.power ?? undefined,
     intelligence: r.intelligence ?? undefined,
@@ -58,6 +60,7 @@ function warlordToRow(w: Warlord) {
     battleAt: w.battleAt ?? null,
     lastActionAt: w.lastActionAt ?? null,
     actions: w.actions ?? [],
+    term: w.term ?? 145,
     updatedAt: BigInt(w.updatedAt),
     // 能力値・自己PRは戦闘登録では変更しないが、既存値を保持するため書き戻す。
     power: w.power ?? null,
@@ -84,6 +87,7 @@ async function loadLog(): Promise<BattleRecord[]> {
   return rows.map((r) => ({
     line: r.raw || r.line,
     time: r.time ?? undefined,
+    term: r.term,
     savedAt: Number(r.savedAt),
   }));
 }
@@ -171,22 +175,34 @@ export async function POST(req: Request) {
       })
     );
 
+    // 戦闘履歴に含まれる兵種名を兵種マスタへ自動登録（既存エントリは上書きしない）。
+    const newUnitNames = Array.from(
+      new Set(warlords.map((w) => w.unit).filter((u): u is string => !!u))
+    );
+    if (newUnitNames.length > 0) {
+      await prisma.unitType.createMany({
+        data: newUnitNames.map((name) => ({ name })),
+        skipDuplicates: true,
+      });
+    }
+
     // 戦闘履歴の追加（戦闘の同一性キーをユニークキーにして重複排除）
     let logAdded = 0;
     let skipped = 0;
     if (records.length > 0) {
       const now = Date.now();
       // 入力内の重複もまとめる（ターン数・URL の有無だけが違う同一戦闘も集約）
-      const byKey = new Map<string, { raw: string; time?: string }>();
+      const byKey = new Map<string, { raw: string; time?: string; term: number }>();
       for (const r of records) {
         const key = battleKey(r.line);
         if (!key) continue;
-        if (!byKey.has(key)) byKey.set(key, { raw: r.line, time: r.time });
+        if (!byKey.has(key)) byKey.set(key, { raw: r.line, time: r.time, term: r.term });
       }
       const data = Array.from(byKey.entries()).map(([key, v]) => ({
         line: key,
         raw: v.raw,
         time: v.time ?? null,
+        term: v.term,
         savedAt: BigInt(now),
       }));
       const result = await prisma.battleRecord.createMany({
@@ -201,5 +217,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ db, log, added, updated, logAdded, skipped });
   } catch (err) {
     return errorResponse("POST", err);
+  }
+}
+
+export async function DELETE() {
+  try {
+    const denied = requireAdmin();
+    if (denied) return denied;
+    await prisma.battleRecord.deleteMany();
+    await prisma.warlord.deleteMany();
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    return errorResponse("DELETE", err);
   }
 }

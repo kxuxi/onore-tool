@@ -17,6 +17,8 @@ export interface Warlord {
   lastActionAt?: string;
   /** 攻撃側として登場した行動時刻の履歴（昇順・重複なし） */
   actions?: string[];
+  /** 最後に登録された期番号（登録時にセット。パース中間オブジェクトでは省略可） */
+  term?: number;
   /** ローカル登録時刻（ミリ秒） */
   updatedAt: number;
   /** 武力（ランキング取り込み） */
@@ -43,6 +45,8 @@ export interface BattleRecord {
   line: string;
   /** 表示用の戦闘時刻（例: 1687年5月 06/15 09:30） */
   time?: string;
+  /** 期番号（145期など）。登録時に選択中の期を付与する。 */
+  term: number;
   /** ローカル保存時刻（ミリ秒） */
   savedAt: number;
 }

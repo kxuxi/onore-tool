@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Warlord" ADD COLUMN     "term" INTEGER NOT NULL DEFAULT 145;

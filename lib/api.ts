@@ -26,6 +26,12 @@ export async function fetchState(): Promise<StateResponse> {
   return res.json();
 }
 
+/** 武将DB + 戦闘履歴をすべて削除（期の切り替え時に使用） */
+export async function deleteAllState(): Promise<void> {
+  const res = await fetch("/api/state", { method: "DELETE" });
+  if (!res.ok) throw new Error("データの削除に失敗しました");
+}
+
 export type ImportStatsResponse = {
   db: WarlordMap;
   updated: number;
