@@ -734,13 +734,56 @@ function assistLine(opts: {
   rightName: string;
   time: string; // "MM/DD HH:mm"
   winner: "left" | "right";
+  battleNo?: number;
 }): string {
-  const { leftName, rightName, time, winner } = opts;
+  const { leftName, rightName, time, winner, battleNo = 1 } = opts;
   const result = winner === "left" ? `${leftName}の勝利` : `${rightName}の勝利`;
-  return `【1戦目】 1600年4月 ${time} 京都 自国 ${leftName} 某家 武特 騎馬隊 騎兵 槍 鎧 V.S. 敵国 ${rightName} 敵家 統特 騎馬隊 騎兵 馬 旗 ${result} 12`;
+  return `【${battleNo}戦目】 1600年4月 ${time} 京都 自国 ${leftName} 某家 武特 騎馬隊 騎兵 槍 鎧 V.S. 敵国 ${rightName} 敵家 統特 騎馬隊 騎兵 馬 旗 ${result} 12`;
 }
 
 describe("アシスト（warlordRanking）", () => {
+  it("撃破効率（平均枚抜き）は 攻撃勝利数 ÷ 攻撃出撃数 で計算される", () => {
+    const log: BattleRecord[] = [
+      // 出撃1（10:00）で2勝
+      rec(
+        assistLine({
+          leftName: "A",
+          rightName: "B",
+          time: "06/15 10:00",
+          winner: "left",
+          battleNo: 1,
+        }),
+        1
+      ),
+      rec(
+        assistLine({
+          leftName: "A",
+          rightName: "C",
+          time: "06/15 10:00",
+          winner: "left",
+          battleNo: 2,
+        }),
+        2
+      ),
+      // 出撃2（11:00）で1勝
+      rec(
+        assistLine({
+          leftName: "A",
+          rightName: "D",
+          time: "06/15 11:00",
+          winner: "left",
+          battleNo: 1,
+        }),
+        3
+      ),
+    ];
+    const ranking = warlordRanking(log);
+    const a = ranking.find((r) => r.name === "A");
+    expect(a?.attackWins).toBe(3);
+    expect(a?.attackSorties).toBe(2);
+    expect(a?.avgBreakthrough).toBeCloseTo(1.5);
+  });
+
   it("削った 40 分以内に相手が別イベントで倒されたらアシスト獲得", () => {
     const log: BattleRecord[] = [
       // 守備側 A が 10:00 に B の攻撃を撃退（削る）

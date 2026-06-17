@@ -7,7 +7,6 @@ import { SearchBox } from "@/components/SearchBox";
 import {
   warlordRanking,
   rankMetricValue,
-  isAttackMetric,
   type RankMetric,
 } from "@/lib/stats";
 
@@ -22,17 +21,14 @@ const MIN_SORTIE_OPTIONS = [1, 5, 10, 20, 30];
 const METRIC_OPTIONS: {
   key: RankMetric;
   label: string;
-  kind: "count" | "swi";
+  kind: "count" | "ratio";
 }[] = [
-  { key: "attackWins", label: "出兵勝利数", kind: "count" },
-  { key: "defenseWins", label: "守備勝利数", kind: "count" },
-  { key: "attackSwi", label: "SWI（攻撃）", kind: "swi" },
-  { key: "defenseSwi", label: "SWI（守備）", kind: "swi" },
+  { key: "avgBreakthrough", label: "撃破効率", kind: "ratio" },
   { key: "assists", label: "アシスト数", kind: "count" },
 ];
 
 export function SwiTab({ log, onSelectWarlord }: Props) {
-  const [metric, setMetric] = useState<RankMetric>("attackWins");
+  const [metric, setMetric] = useState<RankMetric>("avgBreakthrough");
   const [minSorties, setMinSorties] = useState(10);
   const [query, setQuery] = useState("");
   const [branch, setBranch] = useState("");
@@ -44,7 +40,6 @@ export function SwiTab({ log, onSelectWarlord }: Props) {
     METRIC_OPTIONS.find((m) => m.key === metric)?.kind ?? "count";
   const metricLabel =
     METRIC_OPTIONS.find((m) => m.key === metric)?.label ?? "";
-  const attackSide = isAttackMetric(metric);
 
   // 兵科の選択肢（ランキング対象から収集）。
   const branchOptions = useMemo(
@@ -62,8 +57,7 @@ export function SwiTab({ log, onSelectWarlord }: Props) {
   // 絞り込み・並べ替えを適用した表示用リスト。
   const view = useMemo(() => {
     const q = query.trim();
-    const activeSorties = (s: (typeof ranking)[number]) =>
-      metric === "assists" || attackSide ? s.attackSorties : s.defenseSorties;
+    const activeSorties = (s: (typeof ranking)[number]) => s.attackSorties;
     const filtered = ranking.filter(
       (r) =>
         activeSorties(r) >= minSorties &&
@@ -77,14 +71,16 @@ export function SwiTab({ log, onSelectWarlord }: Props) {
       // 同値はその側の出撃数で安定させる。
       return activeSorties(b) - activeSorties(a);
     });
-  }, [ranking, query, branch, minSorties, metric, attackSide]);
+  }, [ranking, query, branch, minSorties, metric]);
 
   // バー幅の基準となる最大値（表示対象の最大・ループ外で計算）。
   const maxValue =
     view.reduce((m, r) => Math.max(m, rankMetricValue(r, metric)), 0) || 1;
 
   const formatValue = (v: number) =>
-    metricKind === "swi" ? v.toFixed(2) : v.toLocaleString("ja-JP");
+    metricKind === "ratio"
+      ? `${v.toFixed(2)}枚`
+      : v.toLocaleString("ja-JP");
 
   // 検索ボックスとは別にトグルするドロップダウン系の絞り込み。
   const hasDropdownFilter = !!branch;
@@ -98,54 +94,18 @@ export function SwiTab({ log, onSelectWarlord }: Props) {
     <section className="panel">
       <h2>武将ランキング</h2>
       <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-        出兵勝利数・守備勝利数・SWI（攻撃／守備）で武将を順位付けします。SWIは1回の出撃で
-        連続撃破した枚数（枚抜き）に重みを掛けて評価した指標です。
+        {metric === "avgBreakthrough"
+          ? "撃破効率は、1出兵あたり平均で何枚抜けるかを示す指標です。"
+          : "アシスト数は、削った相手が40分以内に倒された回数です（攻守どちらでも加算）。"}
       </p>
 
       <details className="swi-formula">
-        <summary>SWIの算出式と重みの詳細</summary>
+        <summary>{metricLabel}の詳細</summary>
         <p className="muted">
-          SWI = Σ(枚抜き × 重み) ÷ 総出兵数。1回の出撃（同一時刻の連戦）で1戦目から
-          連勝した数を「枚抜き」とし、枚数ごとの重みを掛けた実効値を合算して総出兵数で割ります。
-          SWI（守備）は守備側を1戦目から連続で守り切った枚数として同じ重みで評価します
-          （守備は単発になりやすく値は小さめになります）。
+          {metric === "avgBreakthrough"
+            ? "撃破効率 = 攻撃勝利数 ÷ 攻撃出撃数。値が 1.00 なら、1出兵で平均1枚撃破している状態です。"
+            : "A が B を削った時刻 T の後 40 分以内に、別イベントで B が倒されると A に 1 アシストが付きます。"}
         </p>
-        <table className="swi-weight-table">
-          <thead>
-            <tr>
-              <th>枚抜き</th>
-              <th>乗数</th>
-              <th>実効値</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>2枚</td>
-              <td>×1.0</td>
-              <td>2.0</td>
-            </tr>
-            <tr>
-              <td>3枚</td>
-              <td>×1.2</td>
-              <td>3.6</td>
-            </tr>
-            <tr>
-              <td>4枚</td>
-              <td>×1.5</td>
-              <td>6.0</td>
-            </tr>
-            <tr>
-              <td>5枚</td>
-              <td>×2.0</td>
-              <td>10.0</td>
-            </tr>
-            <tr>
-              <td>6枚</td>
-              <td>×2.5</td>
-              <td>15.0</td>
-            </tr>
-          </tbody>
-        </table>
       </details>
 
       <div className="search-row">
@@ -196,7 +156,7 @@ export function SwiTab({ log, onSelectWarlord }: Props) {
             </select>
           </label>
           <label className="filter">
-            <span>{!attackSide && metric !== "assists" ? "最低守備数" : "最低出兵数"}</span>
+            <span>最低出兵数</span>
             <select
               className="select"
               value={minSorties}
@@ -274,24 +234,15 @@ export function SwiTab({ log, onSelectWarlord }: Props) {
                     />
                   </span>
                   <div className="swi-meta muted">
-                    <span className={attackSide ? "rank-side-active" : ""}>
-                      攻 出撃{r.attackSorties.toLocaleString("ja-JP")}・勝
-                      {r.attackWins.toLocaleString("ja-JP")}・SWI
-                      {r.attackSwi.toFixed(2)}
-                    </span>
-                    <span className="rank-sep">／</span>
-                    <span className={!attackSide && metric !== "assists" ? "rank-side-active" : ""}>
-                      守 出撃{r.defenseSorties.toLocaleString("ja-JP")}・勝
-                      {r.defenseWins.toLocaleString("ja-JP")}・SWI
-                      {r.defenseSwi.toFixed(2)}
-                    </span>
-                    {r.assists > 0 && (
-                      <>
-                        <span className="rank-sep">／</span>
-                        <span className={metric === "assists" ? "rank-side-active" : ""}>
-                          アシスト{r.assists.toLocaleString("ja-JP")}
-                        </span>
-                      </>
+                    {metric === "avgBreakthrough" ? (
+                      <span className="rank-side-active">
+                        攻撃勝利 {r.attackWins.toLocaleString("ja-JP")} ／ 出兵
+                        {r.attackSorties.toLocaleString("ja-JP")}
+                      </span>
+                    ) : (
+                      <span className="rank-side-active">
+                        アシスト {r.assists.toLocaleString("ja-JP")}（40分以内追撃）
+                      </span>
                     )}
                   </div>
                 </div>

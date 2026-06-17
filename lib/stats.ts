@@ -1129,18 +1129,15 @@ export function swiRanking(log: BattleRecord[], minSorties = 5): SwiStat[] {
 /* ---------- 武将ランキング（攻撃 / 守備の総合） ---------- */
 
 /** ランキングで切り替えられる指標。 */
-export type RankMetric =
-  | "attackWins"
-  | "defenseWins"
-  | "attackSwi"
-  | "defenseSwi"
-  | "assists";
+export type RankMetric = "avgBreakthrough" | "assists";
 
 /** 武将 1 人の攻撃・守備の総合戦績。 */
 export interface WarlordRankStat {
   name: string;
   faction?: string;
   branch?: string;
+  /** 平均枚抜き（攻撃勝利数 / 攻撃出撃数） */
+  avgBreakthrough: number;
   /** 攻撃側としての出撃回数 */
   attackSorties: number;
   /** 出兵勝利数（攻撃側として勝った戦目の総数） */
@@ -1157,24 +1154,15 @@ export interface WarlordRankStat {
   defenseSwi: number;
   /** 守備側の最高枚抜き */
   defenseBestSweep: number;
-  /**
-   * アシスト数。同一 battleAt のイベントで攻撃側が最終的に少なくとも 1 戦目を制した場合に、
-   * 攻撃側が負けたラウンドのうち最多ターン数を稼いだ武将に付与される。
-   */
+  /** アシスト数（削った相手が 40 分以内に倒された回数）。 */
   assists: number;
 }
 
 /** 指標値を取り出す。 */
 export function rankMetricValue(s: WarlordRankStat, metric: RankMetric): number {
   switch (metric) {
-    case "attackWins":
-      return s.attackWins;
-    case "defenseWins":
-      return s.defenseWins;
-    case "attackSwi":
-      return s.attackSwi;
-    case "defenseSwi":
-      return s.defenseSwi;
+    case "avgBreakthrough":
+      return s.avgBreakthrough;
     case "assists":
       return s.assists;
   }
@@ -1182,7 +1170,7 @@ export function rankMetricValue(s: WarlordRankStat, metric: RankMetric): number 
 
 /** 指標が攻撃側のものか。 */
 export function isAttackMetric(metric: RankMetric): boolean {
-  return metric === "attackWins" || metric === "attackSwi";
+  return metric === "avgBreakthrough";
 }
 
 /** アシスト判定の時間窓（ミリ秒）。 */
@@ -1285,6 +1273,8 @@ export function warlordRanking(log: BattleRecord[]): WarlordRankStat[] {
       name,
       faction: a?.faction ?? d?.faction,
       branch: a?.branch ?? d?.branch,
+      avgBreakthrough:
+        (a?.sorties ?? 0) > 0 ? (a?.wins ?? 0) / (a?.sorties ?? 1) : 0,
       attackSorties: a?.sorties ?? 0,
       attackWins: a?.wins ?? 0,
       attackSwi: a?.swi ?? 0,
