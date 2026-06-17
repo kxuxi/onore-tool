@@ -633,29 +633,6 @@ export default function HomePage() {
             {linkCopied ? <CheckIcon /> : <ShareIcon />}
             <span>{linkCopied ? "コピー済み" : "共有"}</span>
           </button>
-          {authReady &&
-            (isAdmin ? (
-              <button
-                type="button"
-                className="btn header-auth"
-                onClick={handleLogout}
-                aria-label={`${user?.username ?? "管理者"} としてログイン中。ログアウトする`}
-                title={`${user?.username ?? "管理者"}（クリックでログアウト）`}
-              >
-                <LogOutIcon />
-                <span>ログアウト</span>
-              </button>
-            ) : (
-              <a
-                className="btn header-auth"
-                href="/login"
-                aria-label="管理者ログイン"
-                title="管理者ログイン"
-              >
-                <LogInIcon />
-                <span>ログイン</span>
-              </a>
-            ))}
         </div>
       </header>
 
@@ -772,6 +749,32 @@ export default function HomePage() {
               </button>
             ))}
           </nav>
+
+          <div className="sidebar-footer">
+            {authReady &&
+              (isAdmin ? (
+                <button
+                  type="button"
+                  className="btn header-auth sidebar-auth"
+                  onClick={handleLogout}
+                  aria-label={`${user?.username ?? "管理者"} としてログイン中。ログアウトする`}
+                  title={`${user?.username ?? "管理者"}（クリックでログアウト）`}
+                >
+                  <LogOutIcon />
+                  <span>ログアウト</span>
+                </button>
+              ) : (
+                <a
+                  className="btn header-auth sidebar-auth"
+                  href="/login"
+                  aria-label="管理者ログイン"
+                  title="管理者ログイン"
+                >
+                  <LogInIcon />
+                  <span>管理者ログイン</span>
+                </a>
+              ))}
+          </div>
         </aside>
 
         <main
