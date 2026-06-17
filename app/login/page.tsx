@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { login } from "@/lib/api";
+import { LogInIcon, ChevronLeft, ShieldIcon } from "@/components/icons";
 
 /**
  * 管理者用ログインページ（/login）。
@@ -30,53 +31,71 @@ export default function LoginPage() {
 
   return (
     <main className="login-page">
-      <form className="login-card" onSubmit={handleSubmit}>
-        <h1 className="login-title">ONORE ANALYTICS</h1>
-        <p className="login-sub">管理者ログイン</p>
-
-        {error && (
-          <p className="login-error" role="alert">
-            {error}
+      <section className="login-shell">
+        <div className="login-hero">
+          <div className="login-hero-badge">
+            <ShieldIcon />
+            <span>Admin Only</span>
+          </div>
+          <h1 className="login-title">ONORE ANALYTICS</h1>
+          <p className="login-sub">管理者ログイン</p>
+          <p className="login-copy">
+            戦闘履歴の登録、国カラー設定、兵種マスタの編集は管理者のみ行えます。
           </p>
-        )}
+        </div>
 
-        <label className="login-field">
-          <span>ユーザー名</span>
-          <input
-            type="text"
-            className="text-input"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            autoComplete="username"
-            autoFocus
-            required
-          />
-        </label>
+        <form className="login-card" onSubmit={handleSubmit}>
+          <div className="login-card-head">
+            <span className="login-card-kicker">Secure Access</span>
+            <h2>管理者としてサインイン</h2>
+          </div>
 
-        <label className="login-field">
-          <span>パスワード</span>
-          <input
-            type="password"
-            className="text-input"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
-            required
-          />
-        </label>
+          {error && (
+            <p className="login-error" role="alert">
+              {error}
+            </p>
+          )}
 
-        <button
-          type="submit"
-          className="btn btn-primary login-submit"
-          disabled={submitting}
-        >
-          {submitting ? "ログイン中…" : "ログイン"}
-        </button>
+          <label className="login-field">
+            <span>ユーザー名</span>
+            <input
+              type="text"
+              className="text-input"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              autoComplete="username"
+              autoFocus
+              required
+            />
+          </label>
 
-        <a href="/" className="login-back">
-          トップへ戻る
-        </a>
-      </form>
+          <label className="login-field">
+            <span>パスワード</span>
+            <input
+              type="password"
+              className="text-input"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+              required
+            />
+          </label>
+
+          <button
+            type="submit"
+            className="btn btn-primary login-submit"
+            disabled={submitting}
+          >
+            <LogInIcon />
+            <span>{submitting ? "ログイン中…" : "管理者ログイン"}</span>
+          </button>
+
+          <a href="/" className="login-back">
+            <ChevronLeft />
+            <span>トップへ戻る</span>
+          </a>
+        </form>
+      </section>
     </main>
   );
 }
