@@ -74,8 +74,8 @@ const GROUP_ICONS: Record<TabGroupKey, ReactNode> = {
   settings: <SlidersIcon />,
 };
 
-/** 現在の期（初期選択値・UI表示用）。 */
-const CURRENT_TERM = 145;
+/** 期データがまだ無いときのフォールバック期。 */
+const FALLBACK_TERM = 145;
 
 /** サイドバーの「新期」で追加した期番号の保存キー。 */
 const TERM_OPTIONS_STORAGE_KEY = "onore-tool:term-options:v1";
@@ -154,7 +154,8 @@ export default function HomePage() {
 
   const [linkCopied, setLinkCopied] = useState(false);
   const [showTop, setShowTop] = useState(false);
-  const [selectedTerm, setSelectedTerm] = useState<number | "all">(CURRENT_TERM);
+  const [selectedTerm, setSelectedTerm] = useState<number | "all">(FALLBACK_TERM);
+  const [didAutoSelectLatestTerm, setDidAutoSelectLatestTerm] = useState(false);
   const [manualTerms, setManualTerms] = useState<number[]>([]);
   const [showNewTermInput, setShowNewTermInput] = useState(false);
   const [newTermValue, setNewTermValue] = useState("");
@@ -199,6 +200,14 @@ export default function HomePage() {
     }
     return Array.from(set).sort((a, b) => b - a);
   }, [battleLog, manualTerms]);
+
+  // 基本は最新の期を既定選択にする（初回のみ）。
+  const latestTerm = termOptions[0] ?? FALLBACK_TERM;
+  useEffect(() => {
+    if (didAutoSelectLatestTerm) return;
+    setSelectedTerm(latestTerm);
+    setDidAutoSelectLatestTerm(true);
+  }, [didAutoSelectLatestTerm, latestTerm]);
 
   // ドロップダウンに表示する期の一覧。
   // 選択中の期がデータに存在しない場合（新期入力直後など）でも選択肢に残す。
@@ -279,6 +288,10 @@ export default function HomePage() {
   );
 
   const handleNewTermStart = useCallback(() => {
+    if (!isAdmin) {
+      pushToast("error", "新期の追加は管理者のみ可能です");
+      return;
+    }
     const term = Number(newTermValue.trim());
     if (!term || term <= 0 || !Number.isInteger(term)) {
       pushToast("error", "期番号は正の整数で入力してください");
@@ -290,7 +303,7 @@ export default function HomePage() {
     setSelectedTerm(term);
     setShowNewTermInput(false);
     setNewTermValue("");
-  }, [newTermValue, pushToast]);
+  }, [isAdmin, newTermValue, pushToast]);
 
   const handleShareLink = useCallback(async () => {
     const ok = await copyText(window.location.href);
@@ -336,7 +349,7 @@ export default function HomePage() {
         };
       }
       const now = Date.now();
-      const term = selectedTerm === "all" ? CURRENT_TERM : selectedTerm;
+      const term = selectedTerm === "all" ? latestTerm : selectedTerm;
       const warlordsWithTerm = warlords.map((w) => ({ ...w, term }));
       const records: BattleRecord[] = entries.map((e) => ({
         line: e.line,
@@ -372,7 +385,7 @@ export default function HomePage() {
         throw e;
       }
     },
-    [pushToast, setDb, setBattleLog, selectedTerm]
+    [pushToast, setDb, setBattleLog, selectedTerm, latestTerm]
   );
 
   const handleImportStats = useCallback(
@@ -680,7 +693,7 @@ export default function HomePage() {
                 <option value="all">すべての期</option>
                 {termOptionsWithSelected.map((term) => (
                   <option key={term} value={String(term)}>
-                    {term}期{term === CURRENT_TERM ? "（今期）" : ""}
+                    {term}期{term === latestTerm ? "（今期）" : ""}
                   </option>
                 ))}
               </select>
