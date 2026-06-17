@@ -1185,44 +1185,82 @@ export function isAttackMetric(metric: RankMetric): boolean {
   return metric === "attackWins" || metric === "attackSwi";
 }
 
+/** アシスト判定の時間窓（ミリ秒）。 */
+const ASSIST_WINDOW_MS = 40 * 60 * 1000;
+
 /**
- * 同一 battleAt のイベントで、攻撃側が少なくとも 1 戦目を制した場合に
- * 攻撃側が負けたラウンドのうち最多ターン数だった武将に 1 アシストを付与する。
- * アシストは「苦しい状況で一番粘った攻撃武将」への評価指標。
+ * 時刻ベースのアシスト集計。
+ *
+ * 「A が B を削った（攻守問わず B に勝った）時刻 T の後 40 分以内に
+ *  B が誰かに倒された（別イベントで B が負けた）」場合、A に 1 アシストを付与する。
+ *
+ * - 攻撃側（left 勝利）でも守備側（right 勝利）でもアシストが発生する。
+ * - 同一 battleAt（同一タイムスタンプ）内の別ラウンドは 0 分差のため
+ *   「別イベント」に含めない（T < T2 の厳格チェック）。
  */
 function computeAssists(log: BattleRecord[]): Map<string, number> {
-  // battleAt でイベントをグループ化（battleAt なし は除外）。
-  const groups = new Map<string, BattleCard[]>();
-  for (const { card } of dedupedCards(log)) {
-    const key = card.battleAt ?? "";
-    if (!key) continue;
-    const g = groups.get(key);
-    if (g) g.push(card);
-    else groups.set(key, [card]);
+  const now = new Date();
+  const cards = dedupedCards(log);
+
+  // battleAt の parse 結果をキャッシュする。
+  const timeCache = new Map<string, number | null>();
+  const getTime = (battleAt: string | undefined): number | null => {
+    const key = battleAt ?? "";
+    if (timeCache.has(key)) return timeCache.get(key)!;
+    const d = parseActionDate(key, now);
+    const t = d ? d.getTime() : null;
+    timeCache.set(key, t);
+    return t;
+  };
+
+  // damageEvents: A が B を削ったイベント（同一 battleAt のペアは 1 件に集約）。
+  interface DamageEvent {
+    winner: string;
+    loser: string;
+    time: number;
+  }
+  const damageEvents: DamageEvent[] = [];
+  const damageEventSeen = new Set<string>();
+
+  // defeatTimes: 各武将が倒された（負けた）時刻の一覧。
+  const defeatTimes = new Map<string, number[]>();
+
+  for (const { card } of cards) {
+    if (card.winner !== "left" && card.winner !== "right") continue;
+    const t = getTime(card.battleAt);
+    if (t === null) continue;
+
+    const winnerName = (
+      card.winner === "left" ? card.left : card.right
+    ).name?.trim();
+    const loserName = (
+      card.winner === "left" ? card.right : card.left
+    ).name?.trim();
+    if (!winnerName || !loserName) continue;
+
+    // 敗者の被倒時刻を記録。
+    const dt = defeatTimes.get(loserName) ?? [];
+    dt.push(t);
+    defeatTimes.set(loserName, dt);
+
+    // ダメージイベント（同一 battleAt × 同一ペアは 1 件に集約）。
+    const key = `${winnerName}@@${loserName}@@${card.battleAt ?? ""}`;
+    if (!damageEventSeen.has(key)) {
+      damageEventSeen.add(key);
+      damageEvents.push({ winner: winnerName, loser: loserName, time: t });
+    }
   }
 
   const assists = new Map<string, number>();
-  for (const cards of groups.values()) {
-    // 攻撃側（left）が少なくとも 1 戦目を制していること（城を落とした or 部分勝利）。
-    const attackWonAny = cards.some((c) => c.winner === "left");
-    if (!attackWonAny) continue;
-
-    // 攻撃側が負けたラウンドのうち、最多ターン数を稼いだ武将を探す。
-    let bestTurns = -1;
-    let bestName: string | null = null;
-    for (const card of cards) {
-      if (card.winner !== "right") continue; // 防衛側が勝った＝攻撃側が負けたラウンドのみ
-      const t = card.turns ? parseInt(card.turns, 10) : 0;
-      const name = card.left.name?.trim();
-      if (!name) continue;
-      if (t > bestTurns) {
-        bestTurns = t;
-        bestName = name;
-      }
-    }
-
-    if (bestName !== null && bestTurns >= 0) {
-      assists.set(bestName, (assists.get(bestName) ?? 0) + 1);
+  for (const { winner, loser, time: T } of damageEvents) {
+    const defeats = defeatTimes.get(loser);
+    if (!defeats) continue;
+    // T < T2 <= T+40min の別イベントで B が倒されたか。
+    const wasDefeated = defeats.some(
+      (t2) => t2 > T && t2 <= T + ASSIST_WINDOW_MS
+    );
+    if (wasDefeated) {
+      assists.set(winner, (assists.get(winner) ?? 0) + 1);
     }
   }
 
