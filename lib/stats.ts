@@ -1129,7 +1129,10 @@ export function swiRanking(log: BattleRecord[], minSorties = 5): SwiStat[] {
 /* ---------- 武将ランキング（攻撃 / 守備の総合） ---------- */
 
 /** ランキングで切り替えられる指標。 */
-export type RankMetric = "avgBreakthrough" | "assists";
+export type RankMetric =
+  | "avgBreakthrough"
+  | "defenseEfficiency"
+  | "assists";
 
 /** 武将 1 人の攻撃・守備の総合戦績。 */
 export interface WarlordRankStat {
@@ -1138,6 +1141,8 @@ export interface WarlordRankStat {
   branch?: string;
   /** 平均枚抜き（攻撃勝利数 / 攻撃出撃数） */
   avgBreakthrough: number;
+  /** 守備効率（守備勝利数 / 守備出撃数） */
+  defenseEfficiency: number;
   /** 攻撃側としての出撃回数 */
   attackSorties: number;
   /** 出兵勝利数（攻撃側として勝った戦目の総数） */
@@ -1163,6 +1168,8 @@ export function rankMetricValue(s: WarlordRankStat, metric: RankMetric): number 
   switch (metric) {
     case "avgBreakthrough":
       return s.avgBreakthrough;
+    case "defenseEfficiency":
+      return s.defenseEfficiency;
     case "assists":
       return s.assists;
   }
@@ -1275,6 +1282,8 @@ export function warlordRanking(log: BattleRecord[]): WarlordRankStat[] {
       branch: a?.branch ?? d?.branch,
       avgBreakthrough:
         (a?.sorties ?? 0) > 0 ? (a?.wins ?? 0) / (a?.sorties ?? 1) : 0,
+      defenseEfficiency:
+        (d?.sorties ?? 0) > 0 ? (d?.wins ?? 0) / (d?.sorties ?? 1) : 0,
       attackSorties: a?.sorties ?? 0,
       attackWins: a?.wins ?? 0,
       attackSwi: a?.swi ?? 0,

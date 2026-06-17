@@ -784,6 +784,48 @@ describe("アシスト（warlordRanking）", () => {
     expect(a?.avgBreakthrough).toBeCloseTo(1.5);
   });
 
+  it("守備効率は 守備勝利数 ÷ 守備出撃数 で計算される", () => {
+    const log: BattleRecord[] = [
+      // 守備出撃1（10:00）で2勝
+      rec(
+        assistLine({
+          leftName: "B",
+          rightName: "A",
+          time: "06/15 10:00",
+          winner: "right",
+          battleNo: 1,
+        }),
+        1
+      ),
+      rec(
+        assistLine({
+          leftName: "C",
+          rightName: "A",
+          time: "06/15 10:00",
+          winner: "right",
+          battleNo: 2,
+        }),
+        2
+      ),
+      // 守備出撃2（11:00）で1勝
+      rec(
+        assistLine({
+          leftName: "D",
+          rightName: "A",
+          time: "06/15 11:00",
+          winner: "right",
+          battleNo: 1,
+        }),
+        3
+      ),
+    ];
+    const ranking = warlordRanking(log);
+    const a = ranking.find((r) => r.name === "A");
+    expect(a?.defenseWins).toBe(3);
+    expect(a?.defenseSorties).toBe(2);
+    expect(a?.defenseEfficiency).toBeCloseTo(1.5);
+  });
+
   it("削った 40 分以内に相手が別イベントで倒されたらアシスト獲得", () => {
     const log: BattleRecord[] = [
       // 守備側 A が 10:00 に B の攻撃を撃退（削る）
