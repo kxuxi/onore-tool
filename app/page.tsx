@@ -453,7 +453,7 @@ export default function HomePage() {
       case "scout":
         return (
           <ScoutTab
-            db={filteredDb}
+            db={db}
             colors={factionColors}
             onSelectWarlord={selectWarlord}
           />
@@ -516,6 +516,7 @@ export default function HomePage() {
     }
   }, [
     tab,
+    db,
     filteredDb,
     filteredBattleLog,
     factionColors,
