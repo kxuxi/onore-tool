@@ -489,9 +489,7 @@ export default function HomePage() {
     }
   }, [
     tab,
-    db,
     filteredDb,
-    battleLog,
     filteredBattleLog,
     factionColors,
     themePref,

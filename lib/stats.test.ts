@@ -483,7 +483,7 @@ describe("factionSummaries", () => {
     expect(takeda.battles).toBe(3);
     expect(takeda.wins).toBe(1);
     expect(takeda.losses).toBe(2);
-    expect(takeda.members).toBe(1); // 勝頼のみ DB 登録
+    expect(takeda.members).toBe(3); // 戦歴の最大人数を採用
 
     const uesugi = list[2];
     expect(uesugi.battles).toBe(0);

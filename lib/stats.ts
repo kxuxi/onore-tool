@@ -558,14 +558,15 @@ export function factionSummaries(
     }
   }
 
-  // 戦闘履歴に登場した武将人数。詳細画面と同じく、現在所属ではなく
-  // その国で戦ったことのある武将の総数を数える。
-  const members = new Map<string, Set<string>>();
-  const ensureMembers = (faction: string) => {
-    let set = members.get(faction);
+  // 戦闘履歴に登場した武将人数と DB 名簿人数の大きい方を採用する。
+  // battle がある国は詳細画面に近い「最大人数」、battle がない国は DB の人数を
+  // そのまま残すため、一覧から国が消えない。
+  const battleMembers = new Map<string, Set<string>>();
+  const ensureBattleMembers = (faction: string) => {
+    let set = battleMembers.get(faction);
     if (!set) {
       set = new Set<string>();
-      members.set(faction, set);
+      battleMembers.set(faction, set);
     }
     return set;
   };
@@ -574,19 +575,32 @@ export function factionSummaries(
       const faction = s.faction?.trim();
       const name = s.name?.trim();
       if (!faction || !name) continue;
-      ensureMembers(faction).add(name);
+      ensureBattleMembers(faction).add(name);
     }
   }
 
+  const dbMembers = new Map<string, number>();
+  for (const w of Object.values(db)) {
+    const faction = w.faction?.trim();
+    if (!faction) continue;
+    dbMembers.set(faction, (dbMembers.get(faction) ?? 0) + 1);
+  }
+
   // 戦歴・名簿のどちらかに出てくる国をすべて対象にする。
-  const names = new Set<string>([...agg.keys(), ...members.keys()]);
+  const names = new Set<string>([
+    ...agg.keys(),
+    ...battleMembers.keys(),
+    ...dbMembers.keys(),
+  ]);
   const out: FactionSummary[] = [];
   for (const faction of names) {
     const a = agg.get(faction) ?? { battles: 0, wins: 0, losses: 0 };
     const decided = a.wins + a.losses;
+    const battleCount = battleMembers.get(faction)?.size ?? 0;
+    const dbCount = dbMembers.get(faction) ?? 0;
     out.push({
       faction,
-      members: members.get(faction)?.size ?? 0,
+      members: Math.max(battleCount, dbCount),
       battles: a.battles,
       wins: a.wins,
       losses: a.losses,
