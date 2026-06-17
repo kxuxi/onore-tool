@@ -230,6 +230,16 @@ export default function HomePage() {
     );
   }, [db, selectedTerm]);
 
+  // 環境設定の国カラーは「全期」ではなく、選択中の1期だけを表示する。
+  const settingsDb = useMemo(() => {
+    if (selectedTerm === "all") {
+      return Object.fromEntries(
+        Object.entries(db).filter(([, w]) => w.term === latestTerm)
+      );
+    }
+    return filteredDb;
+  }, [db, filteredDb, latestTerm, selectedTerm]);
+
   // Escape で詳細ページを1つ戻る／モバイルのサイドバーを閉じる。
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -475,7 +485,7 @@ export default function HomePage() {
       case "factions":
         return (
           <SettingsTab
-            db={filteredDb}
+            db={settingsDb}
             colors={factionColors}
             onChangeColors={handleChangeFactionColors}
             onSelectFaction={selectFaction}
@@ -493,6 +503,7 @@ export default function HomePage() {
     battleLog,
     filteredBattleLog,
     factionColors,
+    settingsDb,
     themePref,
     handleRegister,
     handleImportStats,
