@@ -28,6 +28,7 @@ const METRIC_OPTIONS: {
   { key: "defenseWins", label: "守備勝利数", kind: "count" },
   { key: "attackSwi", label: "SWI（攻撃）", kind: "swi" },
   { key: "defenseSwi", label: "SWI（守備）", kind: "swi" },
+  { key: "assists", label: "アシスト数", kind: "count" },
 ];
 
 export function SwiTab({ log, onSelectWarlord }: Props) {
@@ -62,7 +63,7 @@ export function SwiTab({ log, onSelectWarlord }: Props) {
   const view = useMemo(() => {
     const q = query.trim();
     const activeSorties = (s: (typeof ranking)[number]) =>
-      attackSide ? s.attackSorties : s.defenseSorties;
+      metric === "assists" || attackSide ? s.attackSorties : s.defenseSorties;
     const filtered = ranking.filter(
       (r) =>
         activeSorties(r) >= minSorties &&
@@ -195,7 +196,7 @@ export function SwiTab({ log, onSelectWarlord }: Props) {
             </select>
           </label>
           <label className="filter">
-            <span>{attackSide ? "最低出兵数" : "最低守備数"}</span>
+            <span>{!attackSide && metric !== "assists" ? "最低守備数" : "最低出兵数"}</span>
             <select
               className="select"
               value={minSorties}
@@ -279,11 +280,19 @@ export function SwiTab({ log, onSelectWarlord }: Props) {
                       {r.attackSwi.toFixed(2)}
                     </span>
                     <span className="rank-sep">／</span>
-                    <span className={!attackSide ? "rank-side-active" : ""}>
+                    <span className={!attackSide && metric !== "assists" ? "rank-side-active" : ""}>
                       守 出撃{r.defenseSorties.toLocaleString("ja-JP")}・勝
                       {r.defenseWins.toLocaleString("ja-JP")}・SWI
                       {r.defenseSwi.toFixed(2)}
                     </span>
+                    {r.assists > 0 && (
+                      <>
+                        <span className="rank-sep">／</span>
+                        <span className={metric === "assists" ? "rank-side-active" : ""}>
+                          アシスト{r.assists.toLocaleString("ja-JP")}
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
               </li>

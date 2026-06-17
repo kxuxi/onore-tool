@@ -1133,7 +1133,8 @@ export type RankMetric =
   | "attackWins"
   | "defenseWins"
   | "attackSwi"
-  | "defenseSwi";
+  | "defenseSwi"
+  | "assists";
 
 /** 武将 1 人の攻撃・守備の総合戦績。 */
 export interface WarlordRankStat {
@@ -1156,6 +1157,11 @@ export interface WarlordRankStat {
   defenseSwi: number;
   /** 守備側の最高枚抜き */
   defenseBestSweep: number;
+  /**
+   * アシスト数。同一 battleAt のイベントで攻撃側が最終的に少なくとも 1 戦目を制した場合に、
+   * 攻撃側が負けたラウンドのうち最多ターン数を稼いだ武将に付与される。
+   */
+  assists: number;
 }
 
 /** 指標値を取り出す。 */
@@ -1169,12 +1175,58 @@ export function rankMetricValue(s: WarlordRankStat, metric: RankMetric): number 
       return s.attackSwi;
     case "defenseSwi":
       return s.defenseSwi;
+    case "assists":
+      return s.assists;
   }
 }
 
 /** 指標が攻撃側のものか。 */
 export function isAttackMetric(metric: RankMetric): boolean {
   return metric === "attackWins" || metric === "attackSwi";
+}
+
+/**
+ * 同一 battleAt のイベントで、攻撃側が少なくとも 1 戦目を制した場合に
+ * 攻撃側が負けたラウンドのうち最多ターン数だった武将に 1 アシストを付与する。
+ * アシストは「苦しい状況で一番粘った攻撃武将」への評価指標。
+ */
+function computeAssists(log: BattleRecord[]): Map<string, number> {
+  // battleAt でイベントをグループ化（battleAt なし は除外）。
+  const groups = new Map<string, BattleCard[]>();
+  for (const { card } of dedupedCards(log)) {
+    const key = card.battleAt ?? "";
+    if (!key) continue;
+    const g = groups.get(key);
+    if (g) g.push(card);
+    else groups.set(key, [card]);
+  }
+
+  const assists = new Map<string, number>();
+  for (const cards of groups.values()) {
+    // 攻撃側（left）が少なくとも 1 戦目を制していること（城を落とした or 部分勝利）。
+    const attackWonAny = cards.some((c) => c.winner === "left");
+    if (!attackWonAny) continue;
+
+    // 攻撃側が負けたラウンドのうち、最多ターン数を稼いだ武将を探す。
+    let bestTurns = -1;
+    let bestName: string | null = null;
+    for (const card of cards) {
+      if (card.winner !== "right") continue; // 防衛側が勝った＝攻撃側が負けたラウンドのみ
+      const t = card.turns ? parseInt(card.turns, 10) : 0;
+      const name = card.left.name?.trim();
+      if (!name) continue;
+      if (t > bestTurns) {
+        bestTurns = t;
+        bestName = name;
+      }
+    }
+
+    if (bestName !== null && bestTurns >= 0) {
+      assists.set(bestName, (assists.get(bestName) ?? 0) + 1);
+    }
+  }
+
+  return assists;
 }
 
 /**
@@ -1185,6 +1237,7 @@ export function isAttackMetric(metric: RankMetric): boolean {
 export function warlordRanking(log: BattleRecord[]): WarlordRankStat[] {
   const atk = computeSideSwi(log, "left");
   const def = computeSideSwi(log, "right");
+  const assistsMap = computeAssists(log);
   const names = new Set<string>([...atk.keys(), ...def.keys()]);
   const out: WarlordRankStat[] = [];
   for (const name of names) {
@@ -1202,6 +1255,7 @@ export function warlordRanking(log: BattleRecord[]): WarlordRankStat[] {
       defenseWins: d?.wins ?? 0,
       defenseSwi: d?.swi ?? 0,
       defenseBestSweep: d?.bestSweep ?? 0,
+      assists: assistsMap.get(name) ?? 0,
     });
   }
   return out;

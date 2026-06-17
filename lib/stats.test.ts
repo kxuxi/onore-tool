@@ -16,6 +16,7 @@ import {
   unitUsageTrend,
   unitBranchLabel,
   swiRanking,
+  warlordRanking,
   weaponStats,
   itemStats,
   formatWinRate,
@@ -725,9 +726,90 @@ describe("swiRanking", () => {
   });
 });
 
+/**
+ * アシストテスト用の戦闘行。ターン数を指定できる。
+ */
+function assistLine(opts: {
+  attacker: string;
+  battleNo: number;
+  time: string;
+  win: boolean;
+  defender?: string;
+  turns?: number;
+}): string {
+  const { attacker, battleNo, time, win, defender = "敵将", turns = 12 } = opts;
+  const result = win ? `${attacker}の勝利` : `${defender}の勝利`;
+  return `【${battleNo}戦目】 1600年4月 ${time} 京都 自国 ${attacker} 某家 武特 騎馬隊 騎兵 槍 鎧 V.S. 敵国 ${defender} 敵家 統特 騎馬隊 騎兵 馬 旗 ${result} ${turns}`;
+}
+
+describe("アシスト（warlordRanking）", () => {
+  it("攻撃側が勝ったイベントで最多ターンの負け武将にアシストが付く", () => {
+    // battleAt=06/15 10:00: Aが12ターンで負け、Bが8ターンで負け、Cが15ターンで勝利
+    // → 攻撃側が勝ったラウンドがあり、負けた中で最多ターンは A(12)→Aがアシスト
+    const log: BattleRecord[] = [
+      rec(assistLine({ attacker: "A", battleNo: 1, time: "06/15 10:00", win: false, defender: "守備門将", turns: 12 }), 1),
+      rec(assistLine({ attacker: "B", battleNo: 2, time: "06/15 10:00", win: false, defender: "守備門将", turns: 8 }), 2),
+      rec(assistLine({ attacker: "C", battleNo: 3, time: "06/15 10:00", win: true, defender: "守備門将", turns: 15 }), 3),
+    ];
+    const ranking = warlordRanking(log);
+    const a = ranking.find((r) => r.name === "A");
+    const b = ranking.find((r) => r.name === "B");
+    const c = ranking.find((r) => r.name === "C");
+    expect(a?.assists).toBe(1); // Aが最多ターン(12)で負けた
+    expect(b?.assists).toBe(0);
+    expect(c?.assists).toBe(0); // Cは勝ったのでアシストなし
+  });
+
+  it("攻撃側が全戦目勝利（負けラウンドなし）の場合はアシストなし", () => {
+    const log: BattleRecord[] = [
+      rec(assistLine({ attacker: "A", battleNo: 1, time: "06/15 11:00", win: true, turns: 10 }), 1),
+      rec(assistLine({ attacker: "B", battleNo: 2, time: "06/15 11:00", win: true, turns: 8 }), 2),
+    ];
+    const ranking = warlordRanking(log);
+    for (const r of ranking) expect(r.assists).toBe(0);
+  });
+
+  it("攻撃側が全戦目負け（勝ちラウンドなし）の場合はアシストなし", () => {
+    // 攻撃側が 1 度も勝てないのでアシスト不就
+    const log: BattleRecord[] = [
+      rec(assistLine({ attacker: "A", battleNo: 1, time: "06/15 12:00", win: false, turns: 20 }), 1),
+      rec(assistLine({ attacker: "B", battleNo: 2, time: "06/15 12:00", win: false, turns: 15 }), 2),
+    ];
+    const ranking = warlordRanking(log);
+    for (const r of ranking) expect(r.assists).toBe(0);
+  });
+
+  it("複数イベントでアシストが累積される", () => {
+    const log: BattleRecord[] = [
+      // イベント 1 (10:00): A導入 負け(最多ターン) -> B勝利
+      rec(assistLine({ attacker: "A", battleNo: 1, time: "06/15 10:00", win: false, turns: 15 }), 1),
+      rec(assistLine({ attacker: "B", battleNo: 2, time: "06/15 10:00", win: true, turns: 5 }), 2),
+      // イベント 2 (11:00): A導入 負け(最多ターン) -> C勝利
+      rec(assistLine({ attacker: "A", battleNo: 1, time: "06/15 11:00", win: false, turns: 18 }), 3),
+      rec(assistLine({ attacker: "C", battleNo: 2, time: "06/15 11:00", win: true, turns: 6 }), 4),
+    ];
+    const ranking = warlordRanking(log);
+    const a = ranking.find((r) => r.name === "A");
+    expect(a?.assists).toBe(2); // 2イベント分でアシスト
+  });
+
+  it("負けラウンドでターン共同最多の場合は先に登場した方（ターン大）にアシスト", () => {
+    // A(10ターン)と B(10ターン)が同値、Cが勝利
+    const log: BattleRecord[] = [
+      rec(assistLine({ attacker: "A", battleNo: 1, time: "06/15 13:00", win: false, turns: 10 }), 1),
+      rec(assistLine({ attacker: "B", battleNo: 2, time: "06/15 13:00", win: false, turns: 10 }), 2),
+      rec(assistLine({ attacker: "C", battleNo: 3, time: "06/15 13:00", win: true, turns: 5 }), 3),
+    ];
+    const ranking = warlordRanking(log);
+    const a = ranking.find((r) => r.name === "A");
+    const b = ranking.find((r) => r.name === "B");
+    // AとBが同ターンなので、先に登場した A（ターン > -1 で A が先に検出）にアシスト
+    expect(a?.assists).toBe(1);
+    expect(b?.assists).toBe(0);
+  });
+});
+
 describe("weaponStats / itemStats", () => {
-  // 実データのゲーム仕様に合わせ、装備1列=品物 / 装備2列=武器。
-  // 攻撃側 信長: 装備1=金の腕輪(品物) 装備2=鬼丸(武器)。
   // 防衛側 勝頼: 装備1=金の兜(品物) 装備2=カルバリン砲(武器)。
   function equipLine(time: string, result: string): string {
     return `【1戦目】 1600年4月 ${time} 京都 織田 信長 織田家 武特 騎馬隊 騎兵 金の腕輪 鬼丸 V.S. 武田 勝頼 武田家 統特 騎馬隊 騎兵 金の兜 カルバリン砲 ${result} 12`;
