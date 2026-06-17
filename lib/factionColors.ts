@@ -1,9 +1,7 @@
-/** 国（勢力）ごとの表示色設定。ブラウザの localStorage に保存する。 */
+/** 国（勢力）ごとの表示色設定。 */
 import type { CSSProperties } from "react";
 
 export type FactionColorMap = Record<string, string>;
-
-const KEY = "onore-tool:faction-colors:v1";
 
 /** 左チーム（攻撃側）勝利時の既定色 */
 export const DEFAULT_WIN_LEFT = "#1D9E75";
@@ -54,32 +52,6 @@ export function paletteName(value: string | undefined): string | undefined {
   if (!value) return undefined;
   const v = value.toUpperCase();
   return FACTION_PALETTE.find((c) => c.value.toUpperCase() === v)?.name;
-}
-
-
-export function loadFactionColors(): FactionColorMap {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as unknown;
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      return parsed as FactionColorMap;
-    }
-    return {};
-  } catch {
-    return {};
-  }
-}
-
-export function saveFactionColors(map: FactionColorMap): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(KEY, JSON.stringify(map));
-  } catch {
-    // 容量超過(QuotaExceededError)やプライベートモード等で書き込みに失敗しても
-    // 致命的ではないため、load 側と対称に握りつぶす。
-  }
 }
 
 /**

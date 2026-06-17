@@ -55,6 +55,12 @@ model BattleRecord {
   savedAt BigInt  @default(0)
 }
 
+// 国（勢力）の表示色設定（全ユーザー共有）
+model FactionColor {
+  faction String @id
+  color   String
+}
+
 // 管理者ユーザー（自前認証・複数管理者対応。パスワードはハッシュ化して保存）
 model User {
   id           Int      @id @default(autoincrement())

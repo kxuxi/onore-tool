@@ -3,13 +3,16 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { BattleRecord, WarlordMap } from "./types";
-import { fetchState } from "./api";
+import type { FactionColorMap } from "./factionColors";
+import { fetchState, fetchFactionColors } from "./api";
 
 export interface DataSyncState {
   db: WarlordMap;
   setDb: Dispatch<SetStateAction<WarlordMap>>;
   battleLog: BattleRecord[];
   setBattleLog: Dispatch<SetStateAction<BattleRecord[]>>;
+  factionColors: FactionColorMap;
+  setFactionColors: Dispatch<SetStateAction<FactionColorMap>>;
   hydrated: boolean;
   loadError: boolean;
   refreshing: boolean;
@@ -21,13 +24,14 @@ export interface DataSyncState {
 /**
  * 共有DBと戦闘履歴の取得・更新を管理するフック。
  * 初回マウント時（および `reload` 呼び出し時）にサーバーからデータを取得し、
- * `refresh` で手動再取得ができる。
+ * `refresh` で手動再取得ができる。国の色設定もDBから取得する。
  */
 export function useDataSync(
   pushToast: (kind: "success" | "error", message: string) => void
 ): DataSyncState {
   const [db, setDb] = useState<WarlordMap>({});
   const [battleLog, setBattleLog] = useState<BattleRecord[]>([]);
+  const [factionColors, setFactionColors] = useState<FactionColorMap>({});
   const [hydrated, setHydrated] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
@@ -39,11 +43,12 @@ export function useDataSync(
     let active = true;
     setLoadError(false);
     setHydrated(false);
-    fetchState()
-      .then((state) => {
+    Promise.all([fetchState(), fetchFactionColors()])
+      .then(([state, colors]) => {
         if (!active) return;
         setDb(state.db);
         setBattleLog(state.log);
+        setFactionColors(colors);
         setLastFetchedAt(Date.now());
       })
       .catch(() => {
@@ -66,9 +71,13 @@ export function useDataSync(
   const refresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      const state = await fetchState();
+      const [state, colors] = await Promise.all([
+        fetchState(),
+        fetchFactionColors(),
+      ]);
       setDb(state.db);
       setBattleLog(state.log);
+      setFactionColors(colors);
       setLastFetchedAt(Date.now());
       pushToast("success", "最新の状態に更新しました");
     } catch {
@@ -83,6 +92,8 @@ export function useDataSync(
     setDb,
     battleLog,
     setBattleLog,
+    factionColors,
+    setFactionColors,
     hydrated,
     loadError,
     refreshing,

@@ -5,6 +5,7 @@ import type {
   Warlord,
   WarlordMap,
 } from "./types";
+import type { FactionColorMap } from "./factionColors";
 
 export type StateResponse = {
   db: WarlordMap;
@@ -124,6 +125,32 @@ export async function deleteUnitType(name: string): Promise<void> {
   });
   if (!res.ok) throw new Error("兵種の削除に失敗しました");
   invalidateUnitTypesCache();
+}
+
+/** 国の色設定をDBから取得する（認証不要）。取得失敗時は空マップを返す。 */
+export async function fetchFactionColors(): Promise<FactionColorMap> {
+  try {
+    const res = await fetch("/api/faction-colors", { cache: "no-store" });
+    if (!res.ok) return {};
+    return res.json();
+  } catch {
+    return {};
+  }
+}
+
+/** 国の色設定をDBへ保存する（管理者のみ）。 */
+export async function saveFactionColorsToDb(
+  colors: FactionColorMap
+): Promise<void> {
+  const res = await fetch("/api/faction-colors", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(colors),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new Error(data?.error ?? "国の色の保存に失敗しました");
+  }
 }
 
 /** 現在のログイン状態を取得する（未ログインなら null）。 */

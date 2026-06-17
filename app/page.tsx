@@ -15,13 +15,9 @@ import { WarlordDetail } from "@/components/detail/WarlordDetail";
 import { UnitDetail } from "@/components/detail/UnitDetail";
 import { EquipDetail } from "@/components/detail/EquipDetail";
 import { FactionDetail } from "@/components/detail/FactionDetail";
-import { registerState, importWarlordStats } from "@/lib/api";
+import { registerState, importWarlordStats, saveFactionColorsToDb } from "@/lib/api";
 import { parseBattleEntriesChecked } from "@/lib/parser";
-import {
-  loadFactionColors,
-  saveFactionColors,
-  type FactionColorMap,
-} from "@/lib/factionColors";
+import type { FactionColorMap } from "@/lib/factionColors";
 import { copyText } from "@/lib/clipboard";
 import { TAB_LABELS, TAB_GROUPS, GROUP_OF_TAB, PUBLIC_TAB_KEYS, type TabGroupKey } from "@/lib/tabs";
 import { useToasts } from "@/lib/useToasts";
@@ -98,12 +94,14 @@ export default function HomePage() {
   } = useTheme();
   // 認証状態（管理者ログイン）
   const { user, ready: authReady, isAdmin, logout } = useAuth();
-  // 共有DB・戦闘履歴の取得・更新
+  // 共有DB・戦闘履歴・国の色設定の取得・更新
   const {
     db,
     setDb,
     battleLog,
     setBattleLog,
+    factionColors,
+    setFactionColors,
     hydrated,
     loadError,
     refreshing,
@@ -148,14 +146,8 @@ export default function HomePage() {
     backDetail,
   } = useAppNavigation({ onCloseSidebar: closeSidebarOnMobile, allowedTabs });
 
-  const [factionColors, setFactionColors] = useState<FactionColorMap>({});
   const [linkCopied, setLinkCopied] = useState(false);
   const [showTop, setShowTop] = useState(false);
-
-  // 国カラー設定をローカルから読み込み
-  useEffect(() => {
-    setFactionColors(loadFactionColors());
-  }, []);
 
   // Escape で詳細ページを1つ戻る／モバイルのサイドバーを閉じる。
   useEffect(() => {
@@ -203,10 +195,16 @@ export default function HomePage() {
     window.scrollTo({ top: 0, left: 0, behavior: reduce ? "auto" : "smooth" });
   }, []);
 
-  const handleChangeFactionColors = useCallback((next: FactionColorMap) => {
-    setFactionColors(next);
-    saveFactionColors(next);
-  }, []);
+  const handleChangeFactionColors = useCallback(
+    (next: FactionColorMap) => {
+      setFactionColors(next);
+      if (!isAdmin) return;
+      saveFactionColorsToDb(next).catch(() => {
+        pushToast("error", "国の色の保存に失敗しました");
+      });
+    },
+    [isAdmin, setFactionColors, pushToast]
+  );
 
   const handleShareLink = useCallback(async () => {
     const ok = await copyText(window.location.href);
