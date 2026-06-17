@@ -74,6 +74,21 @@ const GROUP_ICONS: Record<TabGroupKey, ReactNode> = {
   settings: <SlidersIcon />,
 };
 
+/** ゲーム内年から期番号へ変換するためのオフセット（例: 1696年 -> 145期）。 */
+const TERM_YEAR_OFFSET = 1551;
+/** 現在の期（UI表示用）。 */
+const CURRENT_TERM = 145;
+
+/** 戦闘履歴レコードから期番号を取り出す。 */
+function termOfRecord(record: BattleRecord): number | null {
+  const m = record.time?.match(/(\d+)年/);
+  if (!m) return null;
+  const year = Number(m[1]);
+  if (!Number.isFinite(year)) return null;
+  const term = year - TERM_YEAR_OFFSET;
+  return term > 0 ? term : null;
+}
+
 /** 共有DBを最後に取得した時刻を HH:MM 表記にする。 */
 function formatClock(ts: number): string {
   return new Date(ts).toLocaleTimeString("ja-JP", {
@@ -148,6 +163,30 @@ export default function HomePage() {
 
   const [linkCopied, setLinkCopied] = useState(false);
   const [showTop, setShowTop] = useState(false);
+  const [selectedTerm, setSelectedTerm] = useState<number | "all">(CURRENT_TERM);
+
+  // 戦闘履歴に含まれる期の一覧（新しい順）。
+  const termOptions = useMemo(() => {
+    const set = new Set<number>();
+    for (const r of battleLog) {
+      const t = termOfRecord(r);
+      if (t != null) set.add(t);
+    }
+    return Array.from(set).sort((a, b) => b - a);
+  }, [battleLog]);
+
+  // 既定の期が存在しない場合は「すべて」にフォールバックする。
+  useEffect(() => {
+    if (selectedTerm !== "all" && !termOptions.includes(selectedTerm)) {
+      setSelectedTerm("all");
+    }
+  }, [selectedTerm, termOptions]);
+
+  // 選択中の期に応じて戦闘履歴を絞り込む（ランキング・履歴・詳細の集計に反映）。
+  const filteredBattleLog = useMemo(() => {
+    if (selectedTerm === "all") return battleLog;
+    return battleLog.filter((r) => termOfRecord(r) === selectedTerm);
+  }, [battleLog, selectedTerm]);
 
   // Escape で詳細ページを1つ戻る／モバイルのサイドバーを閉じる。
   useEffect(() => {
@@ -315,7 +354,7 @@ export default function HomePage() {
         return (
           <HistoryTab
             onRegister={handleRegister}
-            log={battleLog}
+            log={filteredBattleLog}
             factionColors={factionColors}
             onSelectWarlord={selectWarlord}
             onSelectUnit={selectUnit}
@@ -338,7 +377,7 @@ export default function HomePage() {
           />
         );
       case "swi":
-        return <SwiTab log={battleLog} onSelectWarlord={selectWarlord} />;
+        return <SwiTab log={filteredBattleLog} onSelectWarlord={selectWarlord} />;
       case "db":
         return <DbTab db={db} colors={factionColors} onSelectWarlord={selectWarlord} onSelectFaction={selectFaction} onImportStats={handleImportStats} />;
       case "units":
@@ -347,7 +386,7 @@ export default function HomePage() {
         return (
           <EquipTab
             variant="weapon"
-            log={battleLog}
+            log={filteredBattleLog}
             onSelectWarlord={selectWarlord}
             onSelectEquip={(name) => selectEquip(name, "weapon")}
           />
@@ -356,7 +395,7 @@ export default function HomePage() {
         return (
           <EquipTab
             variant="item"
-            log={battleLog}
+            log={filteredBattleLog}
             onSelectWarlord={selectWarlord}
             onSelectEquip={(name) => selectEquip(name, "item")}
           />
@@ -365,7 +404,7 @@ export default function HomePage() {
         return (
           <NationTab
             db={db}
-            log={battleLog}
+            log={filteredBattleLog}
             colors={factionColors}
             onSelectFaction={selectFaction}
           />
@@ -387,7 +426,7 @@ export default function HomePage() {
   }, [
     tab,
     db,
-    battleLog,
+    filteredBattleLog,
     factionColors,
     themePref,
     handleRegister,
@@ -407,7 +446,7 @@ export default function HomePage() {
         <WarlordDetail
           name={detail.name}
           db={db}
-          log={battleLog}
+          log={filteredBattleLog}
           colors={factionColors}
           canComment={isAdmin}
           onSelectWarlord={selectWarlord}
@@ -420,7 +459,7 @@ export default function HomePage() {
       detailView = (
         <UnitDetail
           name={detail.name}
-          log={battleLog}
+          log={filteredBattleLog}
           onSelectWarlord={selectWarlord}
           onSelectUnit={selectUnit}
           onBack={backDetail}
@@ -431,7 +470,7 @@ export default function HomePage() {
         <FactionDetail
           name={detail.name}
           db={db}
-          log={battleLog}
+          log={filteredBattleLog}
           colors={factionColors}
           onSelectWarlord={selectWarlord}
           onSelectUnit={selectUnit}
@@ -443,7 +482,7 @@ export default function HomePage() {
         <EquipDetail
           name={detail.name}
           slot={detail.kind}
-          log={battleLog}
+          log={filteredBattleLog}
           onSelectWarlord={selectWarlord}
           onSelectUnit={selectUnit}
           onBack={backDetail}
@@ -668,6 +707,35 @@ export default function HomePage() {
                       </button>
                     ))}
                   </div>
+                )}
+                {tab === "history" && (
+                  <section className="panel">
+                    <h2>対象の期</h2>
+                    <div className="filter-grid" style={{ marginTop: 8 }}>
+                      <label className="filter">
+                        <span>期</span>
+                        <select
+                          className="select"
+                          value={selectedTerm === "all" ? "all" : String(selectedTerm)}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setSelectedTerm(v === "all" ? "all" : Number(v));
+                          }}
+                        >
+                          <option value="all">すべての期</option>
+                          {termOptions.map((term) => (
+                            <option key={term} value={String(term)}>
+                              {term}期{term === CURRENT_TERM ? "（今期）" : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                    <p className="muted" style={{ margin: "8px 0 0", fontSize: 12 }}>
+                      現在の表示対象: {selectedTerm === "all" ? "全期" : `${selectedTerm}期`}（
+                      {filteredBattleLog.length.toLocaleString("ja-JP")}件）
+                    </p>
+                  </section>
                 )}
                 {content}
               </>
