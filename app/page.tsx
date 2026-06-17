@@ -889,7 +889,7 @@ export default function HomePage() {
             target="_blank"
             rel="noopener noreferrer"
           >
-            X @kani4dx
+            @kani4dx
           </a>
           までご連絡ください。
         </p>
