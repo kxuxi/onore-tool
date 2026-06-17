@@ -727,6 +727,7 @@ input:focus {
   width: 100%;
   margin-left: auto;
   margin-right: auto;
+  text-align: center;
   color: var(--muted);
   font-size: 13px;
 }

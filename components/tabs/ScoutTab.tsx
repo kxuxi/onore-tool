@@ -46,6 +46,7 @@ function shortType(type: string | undefined): string {
 export function ScoutTab({ db, colors, onSelectWarlord }: Props) {
   const [text, setText] = useState("");
   const [unregisteredOnly, setUnregisteredOnly] = useState(false);
+  const [includeUnit, setIncludeUnit] = useState(true);
   const [copied, setCopied] = useState<"idle" | "ok" | "fail">("idle");
   const [reportCopied, setReportCopied] = useState<"idle" | "ok" | "fail">(
     "idle"
@@ -111,17 +112,18 @@ export function ScoutTab({ db, colors, onSelectWarlord }: Props) {
   };
 
   // 国へ敵の守備の並びを報告するためのテキスト。
-  // 「名前［タイプ｜兵種］」を入力順に、読点で連結した形。未登録は［？］。
+  // 兵種を含める場合は「名前［タイプ｜兵種］」、外す場合は「名前［タイプ］」を入力順に連結する。
   const reportText = useMemo(
     () =>
       rows
         .map((r) => {
           if (!r.found) return `${r.name}［？］`;
+          if (!includeUnit) return `${r.name}［${shortType(r.type)}］`;
           const unit = r.unit ? shortUnit(normalizeDisplayToken(r.unit)) : "？";
           return `${r.name}［${shortType(r.type)}｜${unit}］`;
         })
         .join(", "),
-    [rows]
+    [includeUnit, rows]
   );
 
   const handleCopyReport = async () => {
@@ -177,9 +179,17 @@ export function ScoutTab({ db, colors, onSelectWarlord }: Props) {
           <div className="scout-report">
             <div className="scout-report-head">
               <span className="scout-report-title">
-                報告用テキスト（タイプ｜兵種）
+                報告用テキスト（{includeUnit ? "タイプ｜兵種" : "タイプのみ"}）
                 <span className="scout-report-count">{rows.length}件</span>
               </span>
+              <label className="scout-toggle">
+                <input
+                  type="checkbox"
+                  checked={includeUnit}
+                  onChange={(e) => setIncludeUnit(e.target.checked)}
+                />
+                <span>兵種を含める</span>
+              </label>
               <button
                 type="button"
                 className="btn"
