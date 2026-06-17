@@ -8,6 +8,7 @@ import type { FactionColorMap } from "@/lib/factionColors";
 
 interface Props {
   db: WarlordMap;
+  log: import("@/lib/types").BattleRecord[];
   colors: FactionColorMap;
   onChangeColors: (next: FactionColorMap) => void;
   onSelectFaction: (name: string) => void;
@@ -25,6 +26,7 @@ const THEME_CHOICES: { value: ThemePref; label: string }[] = [
 /** 環境設定タブ。テーマ（外観）と国カラーの設定をまとめて行う。 */
 export function SettingsTab({
   db,
+  log,
   colors,
   onChangeColors,
   onSelectFaction,
@@ -80,6 +82,7 @@ export function SettingsTab({
 
       <FactionTab
         db={db}
+        log={log}
         colors={colors}
         onChange={onChangeColors}
         onSelectFaction={onSelectFaction}

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { WarlordMap } from "@/lib/types";
+import type { BattleRecord, WarlordMap } from "@/lib/types";
+import { parseBattleCard } from "@/lib/parser";
 import {
   DEFAULT_WIN_LEFT,
   DEFAULT_WIN_RIGHT,
@@ -13,6 +14,7 @@ import {
 
 interface Props {
   db: WarlordMap;
+  log: BattleRecord[];
   colors: FactionColorMap;
   onChange: (next: FactionColorMap) => void;
   onSelectFaction: (name: string) => void;
@@ -36,7 +38,7 @@ function normalizeHex(input: string): string | null {
   return null;
 }
 
-export function FactionTab({ db, colors, onChange, onSelectFaction }: Props) {
+export function FactionTab({ db, log, colors, onChange, onSelectFaction }: Props) {
   const [openFor, setOpenFor] = useState<string | null>(null);
   // カスタムHEX入力の作業値（パレットを開いている国の現在色で初期化）。
   const [customHex, setCustomHex] = useState("");
@@ -49,12 +51,16 @@ export function FactionTab({ db, colors, onChange, onSelectFaction }: Props) {
     () =>
       Array.from(
         new Set(
-          Object.values(db)
-            .map((w) => w.faction?.trim())
-            .filter((v): v is string => !!v)
+          log.flatMap((record) => {
+            const card = parseBattleCard(record.line);
+            if (!card) return [] as string[];
+            return [card.left.faction?.trim(), card.right.faction?.trim()].filter(
+              (v): v is string => !!v
+            );
+          })
         )
       ).sort((a, b) => a.localeCompare(b, "ja")),
-    [db]
+    [log]
   );
 
   const setColor = (faction: string, color: string) => {
