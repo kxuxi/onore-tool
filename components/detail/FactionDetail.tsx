@@ -6,6 +6,7 @@ import {
   collectFactionBattles,
   summarize,
   factionMemberStats,
+  latestUnitsByBranch,
   branchStats,
   formatWinRate,
 } from "@/lib/stats";
@@ -14,6 +15,7 @@ import {
   factionNameStyle,
   type FactionColorMap,
 } from "@/lib/factionColors";
+import { copyText } from "@/lib/clipboard";
 import { BattleLogList } from "@/components/detail/BattleLogList";
 import { Section } from "@/components/detail/Section";
 import {
@@ -81,6 +83,20 @@ export function FactionDetail({
     });
   }, [db, log, name]);
 
+  const currentLatestUnits = useMemo(() => {
+    const target = name.trim();
+    const currentNames = new Set(
+      Object.values(db)
+        .filter((w) => w.faction?.trim() === target)
+        .map((w) => w.name.trim())
+        .filter(Boolean)
+    );
+    const currentMembers = factionMemberStats(log, target).filter((s) =>
+      currentNames.has(s.name)
+    );
+    return latestUnitsByBranch(currentMembers);
+  }, [db, log, name]);
+
   const tags = (
     <>
       {outcomes.length > 0 && (
@@ -116,6 +132,11 @@ export function FactionDetail({
             </>
           )}
 
+          <LatestUnitsSection
+            groups={currentLatestUnits}
+            onSelectUnit={onSelectUnit}
+          />
+
           <FactionMembers
             members={members}
             onSelectWarlord={onSelectWarlord}
@@ -141,6 +162,107 @@ export function FactionDetail({
         </>
       )}
     </section>
+  );
+}
+
+function LatestUnitsSection({
+  groups,
+  onSelectUnit,
+}: {
+  groups: ReturnType<typeof latestUnitsByBranch>;
+  onSelectUnit: (name: string) => void;
+}) {
+  const [reportCopied, setReportCopied] = useState<"idle" | "ok" | "fail">(
+    "idle"
+  );
+
+  const reportText = useMemo(
+    () =>
+      groups
+        .map(
+          (group) =>
+            `【${group.branch}】${group.units
+              .map((unit) => `${unit.unit}: ${unit.count.toLocaleString("ja-JP")}`)
+              .join("、")}`
+        )
+        .join("\n"),
+    [groups]
+  );
+
+  const handleCopyReport = async () => {
+    if (!reportText) return;
+    const ok = await copyText(reportText);
+    setReportCopied(ok ? "ok" : "fail");
+    window.setTimeout(() => setReportCopied("idle"), 1800);
+  };
+
+  return (
+    <Section title="現在の主力兵種" mobileCollapsed>
+      <p className="detail-note muted">
+        現在この国に所属する武将が、最後に使っていた兵種の一覧です。
+      </p>
+      {groups.length === 0 ? (
+        <p className="muted">
+          現所属の武将に、兵種付きの戦闘データがまだありません。
+        </p>
+      ) : (
+        <>
+          <ul className="latest-units">
+            {groups.map((group) => (
+              <li key={group.branch} className="latest-units-row">
+                <div className="latest-units-branch">
+                  <span>{group.branch}</span>
+                  <span className="latest-units-total">
+                    {group.total.toLocaleString("ja-JP")}人
+                  </span>
+                </div>
+                <div className="latest-units-units">
+                  {group.units.map((entry) => (
+                    <button
+                      key={`${group.branch}:${entry.unit}`}
+                      type="button"
+                      className="latest-unit-chip"
+                      onClick={() => onSelectUnit(entry.unit)}
+                      title={`${entry.unit} の詳細を見る`}
+                    >
+                      <span className="latest-unit-name">{entry.unit}</span>
+                      <span className="latest-unit-count">
+                        {entry.count.toLocaleString("ja-JP")}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          <div className="scout-report">
+            <div className="scout-report-head">
+              <span className="scout-report-title">連絡用テキスト</span>
+              <button
+                type="button"
+                className="btn"
+                onClick={handleCopyReport}
+                disabled={!reportText}
+              >
+                {reportCopied === "ok"
+                  ? "コピーしました"
+                  : reportCopied === "fail"
+                    ? "コピーできませんでした"
+                    : "連絡用をコピー"}
+              </button>
+            </div>
+            <textarea
+              className="scout-report-text"
+              readOnly
+              value={reportText}
+              rows={Math.max(2, groups.length)}
+              onFocus={(e) => e.currentTarget.select()}
+            />
+          </div>
+        </>
+      )}
+    </Section>
   );
 }
 
