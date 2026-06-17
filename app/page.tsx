@@ -566,6 +566,7 @@ export default function HomePage() {
           db={filteredDb}
           log={filteredBattleLog}
           colors={factionColors}
+          canViewLatestUnits={isAdmin}
           onSelectWarlord={selectWarlord}
           onSelectUnit={selectUnit}
           onBack={backDetail}

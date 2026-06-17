@@ -30,6 +30,7 @@ interface Props {
   db: WarlordMap;
   log: BattleRecord[];
   colors: FactionColorMap;
+  canViewLatestUnits: boolean;
   onSelectWarlord: (name: string) => void;
   onSelectUnit: (name: string) => void;
   onBack: () => void;
@@ -49,6 +50,7 @@ export function FactionDetail({
   db,
   log,
   colors,
+  canViewLatestUnits,
   onSelectWarlord,
   onSelectUnit,
   onBack,
@@ -132,10 +134,12 @@ export function FactionDetail({
             </>
           )}
 
-          <LatestUnitsSection
-            groups={currentLatestUnits}
-            onSelectUnit={onSelectUnit}
-          />
+          {canViewLatestUnits && (
+            <LatestUnitsSection
+              groups={currentLatestUnits}
+              onSelectUnit={onSelectUnit}
+            />
+          )}
 
           <FactionMembers
             members={members}
