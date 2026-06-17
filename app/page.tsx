@@ -880,6 +880,21 @@ export default function HomePage() {
         </main>
       </div>
 
+      <footer className="app-footer" aria-label="お問い合わせ">
+        <p className="app-footer-text">
+          不具合やご要望があれば、
+          <a
+            className="app-footer-link"
+            href="https://x.com/kani4dx"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            X @kani4dx
+          </a>
+          までご連絡ください。
+        </p>
+      </footer>
+
       {showTop && (
         <button
           type="button"
