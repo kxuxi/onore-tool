@@ -37,6 +37,8 @@ export function mergeWarlords(
       actions: actions.length > 0 ? actions : undefined,
       term: w.term ?? prev?.term,
       updatedAt: Math.max(prev?.updatedAt ?? 0, w.updatedAt),
+      // 家督名は新しい方を採用（未設定なら既存値を保持）
+      household: w.household ?? prev?.household,
       // 能力値・自己PR は戦闘登録では渡らないため、既存値を保持する。
       power: w.power ?? prev?.power,
       intelligence: w.intelligence ?? prev?.intelligence,
