@@ -85,6 +85,7 @@ async function loadLog(): Promise<BattleRecord[]> {
     orderBy: { id: "asc" },
   });
   return rows.map((r) => ({
+    id: r.id,
     line: r.raw || r.line,
     time: r.time ?? undefined,
     term: r.term,

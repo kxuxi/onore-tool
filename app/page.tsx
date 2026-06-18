@@ -348,6 +348,24 @@ export default function HomePage() {
     }
   }, [logout, pushToast]);
 
+  const handleDeleteBattle = useCallback(
+    async (id: number) => {
+      try {
+        const { deleteBattleRecord } = await import("@/lib/api");
+        await deleteBattleRecord(id);
+        // 削除後、戦闘履歴を再取得して画面を更新する。
+        const newLog = battleLog.filter((r) => r.id !== id);
+        setBattleLog(newLog);
+        pushToast("success", "戦闘履歴を削除しました");
+      } catch {
+        pushToast("error", "削除に失敗しました。もう一度お試しください。");
+        throw new Error("削除失敗");
+      }
+    },
+    [battleLog, setBattleLog, pushToast]
+  );
+
+
   const handleRegister = useCallback(
     async (text: string) => {
       const { entries, rejected } = parseBattleEntriesChecked(text);
@@ -443,11 +461,13 @@ export default function HomePage() {
         return (
           <HistoryTab
             canRegister={!authReady || isAdmin}
+            canDelete={isAdmin}
             onRegister={handleRegister}
             log={filteredBattleLog}
             factionColors={factionColors}
             onSelectWarlord={selectWarlord}
             onSelectUnit={selectUnit}
+            onDelete={handleDeleteBattle}
           />
         );
       case "scout":
@@ -527,6 +547,7 @@ export default function HomePage() {
     handleImportStats,
     handleChangeFactionColors,
     handleChangeTheme,
+    handleDeleteBattle,
     selectWarlord,
     selectUnit,
     selectEquip,

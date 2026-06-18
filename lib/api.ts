@@ -78,6 +78,17 @@ export async function registerState(
   return res.json();
 }
 
+/** 戦闘履歴を削除（管理者のみ）。 */
+export async function deleteBattleRecord(id: number): Promise<void> {
+  const res = await fetch(`/api/battle-records/${id}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new Error(data?.error ?? "削除に失敗しました");
+  }
+}
+
 /** 兵種一覧のメモリキャッシュ。画面ごとの重複取得を避ける。
  *  追加 / 更新 / 削除のたびに失効させ、次回取得で最新を取り直す。 */
 let unitTypesCache: UnitType[] | null = null;

@@ -41,6 +41,8 @@ export type WarlordMap = Record<string, Warlord>;
 
 /** 登録した戦闘履歴の 1 行（生データ） */
 export interface BattleRecord {
+  /** DB レコード ID（登録後は必須、登録前は不要） */
+  id?: number;
   /** 生の行テキスト（タブ等を含む、前後空白は除去済み） */
   line: string;
   /** 表示用の戦闘時刻（例: 1687年5月 06/15 09:30） */
