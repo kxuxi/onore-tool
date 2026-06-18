@@ -59,7 +59,22 @@ export function DbTab({ db, colors, onSelectWarlord, onSelectFaction, onImportSt
     { kind: "ok" | "error"; text: string } | null
   >(null);
 
-  const all = useMemo(() => Object.values(db), [db]);
+  const all = useMemo(() => {
+    // 同じ household を持つ武将をグループ化して、最新の武将だけを表示する。
+    const byHousehold = new Map<string, typeof db[string]>();
+    const noHousehold: typeof db[string][] = [];
+    for (const w of Object.values(db)) {
+      if (!w.household) {
+        noHousehold.push(w);
+      } else {
+        const existing = byHousehold.get(w.household);
+        if (!existing || w.updatedAt > existing.updatedAt) {
+          byHousehold.set(w.household, w);
+        }
+      }
+    }
+    return [...byHousehold.values(), ...noHousehold];
+  }, [db]);
 
   // 各項目の選択肢（出現する値を昇順で）
   const options = useMemo(() => {

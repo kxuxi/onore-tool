@@ -110,17 +110,18 @@ function unitMatches(side: BattleSide, target: string): boolean {
   return normalizeDisplayToken(side.unit) === target;
 }
 
-/** 指定武将が登場した戦闘を新しい順で集める。 */
+/** 指定武将が登場した戦闘を新しい順で集める。aliases に同一人物の別名を渡すと統合集計。 */
 export function collectWarlordBattles(
   log: BattleRecord[],
-  name: string
+  name: string,
+  aliases?: string[]
 ): BattleOutcome[] {
-  const target = name.trim();
+  const targets = new Set([name.trim(), ...(aliases ?? []).map((a) => a.trim())]);
   const out: BattleOutcome[] = [];
   for (const { record, card } of dedupedCards(log)) {
     // 通常は左右どちらか一方のみ一致する。両方一致した場合は左を優先。
-    if (card.left.name === target) out.push(makeOutcome(record, card, "left"));
-    else if (card.right.name === target)
+    if (targets.has(card.left.name ?? "")) out.push(makeOutcome(record, card, "left"));
+    else if (targets.has(card.right.name ?? ""))
       out.push(makeOutcome(record, card, "right"));
   }
   return sortByTimeDesc(out);

@@ -141,3 +141,16 @@ export function normalizationMap(map: WarlordMap): Record<string, string> {
   }
   return result;
 }
+
+/**
+ * 指定した武将と同じ household を持つ全ての武将名を返す（自身を含む）。
+ * household が未設定の場合は自身の名前のみを返す。
+ */
+export function householdAliases(map: WarlordMap, name: string): string[] {
+  const warlord = map[name];
+  if (!warlord?.household) return [name];
+  const household = warlord.household;
+  return Object.values(map)
+    .filter((w) => w.household === household)
+    .map((w) => w.name);
+}

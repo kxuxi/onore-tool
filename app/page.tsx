@@ -37,6 +37,7 @@ import {
   LogOutIcon,
 } from "@/components/icons";
 import type { BattleRecord, TabKey, WarlordMap } from "@/lib/types";
+import { normalizationMap } from "@/lib/storage";
 
 const HistoryTab = dynamic(
   () => import("@/components/tabs/HistoryTab").then((m) => m.HistoryTab)
@@ -256,6 +257,18 @@ export default function HomePage() {
     );
   }, [db, selectedTerm]);
 
+  // filteredDb 内の household 正規化マップ（同じ household → 最新の代表名）。
+  const householdNormMap = useMemo(() => normalizationMap(filteredDb), [filteredDb]);
+
+  // 武将詳細ページへの遷移。household がある場合は代表名（最新名）にリダイレクト。
+  const selectWarlordNormalized = useCallback(
+    (name: string) => {
+      const canonical = householdNormMap[name] ?? name;
+      selectWarlord(canonical);
+    },
+    [householdNormMap, selectWarlord]
+  );
+
   // Escape で詳細ページを1つ戻る／モバイルのサイドバーを閉じる。
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -465,7 +478,7 @@ export default function HomePage() {
             onRegister={handleRegister}
             log={filteredBattleLog}
             factionColors={factionColors}
-            onSelectWarlord={selectWarlord}
+            onSelectWarlord={selectWarlordNormalized}
             onSelectUnit={selectUnit}
             onDelete={handleDeleteBattle}
           />
@@ -475,7 +488,7 @@ export default function HomePage() {
           <ScoutTab
             db={db}
             colors={factionColors}
-            onSelectWarlord={selectWarlord}
+            onSelectWarlord={selectWarlordNormalized}
           />
         );
       case "damage":
@@ -483,11 +496,11 @@ export default function HomePage() {
           <DamageTab
             db={filteredDb}
             colors={factionColors}
-            onSelectWarlord={selectWarlord}
+            onSelectWarlord={selectWarlordNormalized}
           />
         );
       case "swi":
-        return <SwiTab log={filteredBattleLog} onSelectWarlord={selectWarlord} />;
+        return <SwiTab log={filteredBattleLog} db={filteredDb} onSelectWarlord={selectWarlordNormalized} />;
       case "db":
         return <DbTab db={filteredDb} colors={factionColors} onSelectWarlord={selectWarlord} onSelectFaction={selectFaction} onImportStats={handleImportStats} />;
       case "units":
@@ -497,7 +510,7 @@ export default function HomePage() {
           <EquipTab
             variant="weapon"
             log={filteredBattleLog}
-            onSelectWarlord={selectWarlord}
+            onSelectWarlord={selectWarlordNormalized}
             onSelectEquip={(name) => selectEquip(name, "weapon")}
           />
         );
@@ -506,7 +519,7 @@ export default function HomePage() {
           <EquipTab
             variant="item"
             log={filteredBattleLog}
-            onSelectWarlord={selectWarlord}
+            onSelectWarlord={selectWarlordNormalized}
             onSelectEquip={(name) => selectEquip(name, "item")}
           />
         );
@@ -549,6 +562,7 @@ export default function HomePage() {
     handleChangeTheme,
     handleDeleteBattle,
     selectWarlord,
+    selectWarlordNormalized,
     selectUnit,
     selectEquip,
     selectFaction,
@@ -564,7 +578,7 @@ export default function HomePage() {
           log={filteredBattleLog}
           colors={factionColors}
           canComment={isAdmin}
-          onSelectWarlord={selectWarlord}
+          onSelectWarlord={selectWarlordNormalized}
           onSelectUnit={selectUnit}
           onSelectFaction={selectFaction}
           onBack={backDetail}
@@ -575,7 +589,7 @@ export default function HomePage() {
         <UnitDetail
           name={detail.name}
           log={filteredBattleLog}
-          onSelectWarlord={selectWarlord}
+          onSelectWarlord={selectWarlordNormalized}
           onSelectUnit={selectUnit}
           onBack={backDetail}
         />
@@ -588,7 +602,7 @@ export default function HomePage() {
           log={filteredBattleLog}
           colors={factionColors}
           canViewLatestUnits={isAdmin}
-          onSelectWarlord={selectWarlord}
+          onSelectWarlord={selectWarlordNormalized}
           onSelectUnit={selectUnit}
           onBack={backDetail}
         />
@@ -599,7 +613,7 @@ export default function HomePage() {
           name={detail.name}
           slot={detail.kind}
           log={filteredBattleLog}
-          onSelectWarlord={selectWarlord}
+          onSelectWarlord={selectWarlordNormalized}
           onSelectUnit={selectUnit}
           onBack={backDetail}
         />
