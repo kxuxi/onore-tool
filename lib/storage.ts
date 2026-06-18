@@ -111,3 +111,31 @@ export function lookup(map: WarlordMap, name: string): Warlord | undefined {
   if (!key) return undefined;
   return map[key];
 }
+
+/**
+ * 同じ household を持つ武将を1つの代表名に正規化するマップを作成する。
+ * 各 household について、最新の updatedAt を持つ武将を代表として選ぶ。
+ * household が空の武将は、名前をそのまま返す。
+ */
+export function normalizationMap(map: WarlordMap): Record<string, string> {
+  const byHousehold = new Map<string | undefined, { name: string; updatedAt: number }[]>();
+
+  // household でグループ化
+  for (const w of Object.values(map)) {
+    const key = w.household || undefined;
+    if (!byHousehold.has(key)) {
+      byHousehold.set(key, []);
+    }
+    byHousehold.get(key)!.push({ name: w.name, updatedAt: w.updatedAt });
+  }
+
+  // 各グループで最新の代表を決定
+  const result: Record<string, string> = {};
+  for (const [household, warlords] of byHousehold) {
+    const latest = warlords.reduce((a, b) => (a.updatedAt >= b.updatedAt ? a : b));
+    for (const w of warlords) {
+      result[w.name] = latest.name;
+    }
+  }
+  return result;
+}

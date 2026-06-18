@@ -3,6 +3,8 @@ export type TabKey = "history" | "scout" | "db" | "damage" | "units" | "weapons"
 export interface Warlord {
   /** 武将名（プライマリキー） */
   name: string;
+  /** 家督名（同じ家督名を持つ異なる名前は同一武将と見なす） */
+  household?: string;
   /** 所属している国（勢力名） */
   faction?: string;
   /** タイプ: 武特 / 統特 / 知特 / 武統 / 統知 / 知武 / 政治家 / 謎 など */
