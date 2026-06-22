@@ -33,8 +33,9 @@ import {
   FlagIcon,
   SlidersIcon,
   BookIcon,
-  ZapIcon,
   LinkIcon,
+  GridIcon,
+  ActivityIcon,
   LogInIcon,
   LogOutIcon,
 } from "@/components/icons";
@@ -66,11 +67,17 @@ const SettingsTab = dynamic(
 const SwiTab = dynamic(
   () => import("@/components/tabs/SwiTab").then((m) => m.SwiTab)
 );
-const TurnAnalysisTab = dynamic(
-  () => import("@/components/tabs/TurnAnalysisTab").then((m) => m.TurnAnalysisTab)
+const RankingTab = dynamic(
+  () => import("@/components/tabs/RankingTab").then((m) => m.RankingTab)
 );
 const EquipSynergyTab = dynamic(
   () => import("@/components/tabs/EquipSynergyTab").then((m) => m.EquipSynergyTab)
+);
+const TraitMatrixTab = dynamic(
+  () => import("@/components/tabs/TraitMatrixTab").then((m) => m.TraitMatrixTab)
+);
+const MetaTab = dynamic(
+  () => import("@/components/tabs/MetaTab").then((m) => m.MetaTab)
 );
 const WarlordDetail = dynamic(
   () => import("@/components/detail/WarlordDetail").then((m) => m.WarlordDetail)
@@ -91,8 +98,12 @@ const TAB_ICONS: Record<TabKey, ReactNode> = {
   scout: <SearchIcon />,
   damage: <ShieldIcon />,
   swi: <TrophyIcon />,
-  turns: <ZapIcon />,
+  unitrank: <UsersIcon />,
+  weaponrank: <SwordIcon />,
+  itemrank: <PackageIcon />,
   synergy: <LinkIcon />,
+  matrix: <GridIcon />,
+  metaenv: <ActivityIcon />,
   db: <DatabaseIcon />,
   units: <UsersIcon />,
   weapons: <SwordIcon />,
@@ -106,6 +117,7 @@ const GROUP_ICONS: Record<TabGroupKey, ReactNode> = {
   history: <HistoryIcon />,
   warlords: <UsersIcon />,
   ranking: <TrophyIcon />,
+  meta: <GridIcon />,
   encyclopedia: <BookIcon />,
   nations: <FlagIcon />,
   settings: <SlidersIcon />,
@@ -511,8 +523,36 @@ export default function HomePage() {
         );
       case "swi":
         return <SwiTab log={filteredBattleLog} db={filteredDb} onSelectWarlord={selectWarlordNormalized} />;
-      case "turns":
-        return <TurnAnalysisTab log={filteredBattleLog} onSelectUnit={selectUnit} />;
+      case "unitrank":
+        return (
+          <RankingTab
+            variant="unit"
+            log={filteredBattleLog}
+            onSelectUnit={selectUnit}
+            onSelectEquip={selectEquip}
+            onSelectWarlord={selectWarlordNormalized}
+          />
+        );
+      case "weaponrank":
+        return (
+          <RankingTab
+            variant="weapon"
+            log={filteredBattleLog}
+            onSelectUnit={selectUnit}
+            onSelectEquip={selectEquip}
+            onSelectWarlord={selectWarlordNormalized}
+          />
+        );
+      case "itemrank":
+        return (
+          <RankingTab
+            variant="item"
+            log={filteredBattleLog}
+            onSelectUnit={selectUnit}
+            onSelectEquip={selectEquip}
+            onSelectWarlord={selectWarlordNormalized}
+          />
+        );
       case "synergy":
         return (
           <EquipSynergyTab
@@ -521,6 +561,16 @@ export default function HomePage() {
             onSelectEquip={selectEquip}
           />
         );
+      case "matrix":
+        return (
+          <TraitMatrixTab
+            log={filteredBattleLog}
+            onSelectWarlord={selectWarlordNormalized}
+            onSelectUnit={selectUnit}
+          />
+        );
+      case "metaenv":
+        return <MetaTab log={filteredBattleLog} onSelectUnit={selectUnit} />;
       case "db":
         return <DbTab db={filteredDb} colors={factionColors} onSelectWarlord={selectWarlord} onSelectFaction={selectFaction} onImportStats={handleImportStats} />;
       case "units":

@@ -3628,6 +3628,107 @@ button.tag.faction-link:focus-visible {
   opacity: 0.5;
 }
 
+/* 兵種・武器・品物ランキング（リーダーボード） */
+.rank-list {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.rank-row {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  align-items: start;
+  gap: 12px;
+}
+.rank-rank {
+  font-weight: 800;
+  font-size: 18px;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.4;
+}
+.rank-row:nth-child(1) .rank-rank {
+  color: #ffce63;
+}
+.rank-row:nth-child(2) .rank-rank {
+  color: #cdd6e0;
+}
+.rank-row:nth-child(3) .rank-rank {
+  color: #e0955a;
+}
+.rank-main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.rank-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.rank-name {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 14px;
+  min-width: 0;
+  text-align: left;
+}
+.rank-name > span.rank-branch {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--panel-2);
+  border: 0.5px solid var(--border);
+  border-radius: 6px;
+  padding: 1px 6px;
+}
+.rank-value {
+  flex: 0 0 auto;
+  font-weight: 800;
+  font-size: 16px;
+  color: #1d9e75;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.rank-value .rank-unit {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-left: 1px;
+}
+.rank-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  border: 0.5px solid var(--border);
+  overflow: hidden;
+}
+.rank-bar-fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #1d9e75, #2e9e57);
+}
+.rank-meta {
+  font-size: 11px;
+  line-height: 1.5;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+}
+.rank-users {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+}
+
 /* SWI 算出式・重みの凡例 */
 .swi-formula {
   margin: 4px 0 0;
@@ -3699,6 +3800,446 @@ button.tag.faction-link:focus-visible {
   color: var(--muted);
   font-size: 12px;
   opacity: 0.8;
+}
+
+/* ---------- 相性マトリックス（特性×特性のヒートマップ） ---------- */
+.tmx-periods {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  align-self: flex-start;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tmx-periods::-webkit-scrollbar {
+  display: none;
+}
+.tmx-period {
+  white-space: nowrap;
+  padding: 6px 14px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.tmx-period:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.tmx-period.active {
+  background: var(--panel);
+  color: var(--text);
+  border-color: var(--border);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+}
+.tmx-period:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.tmx-wrap {
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.tmx-table {
+  border-collapse: separate;
+  border-spacing: 4px;
+  margin: 0 auto;
+}
+.tmx-corner {
+  position: relative;
+  min-width: 56px;
+  height: 38px;
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.tmx-corner-atk {
+  position: absolute;
+  left: 4px;
+  bottom: 3px;
+}
+.tmx-corner-def {
+  position: absolute;
+  right: 4px;
+  top: 3px;
+}
+.tmx-colhead,
+.tmx-rowhead {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--label-type-fg);
+  white-space: nowrap;
+  padding: 2px 4px;
+}
+.tmx-rowhead {
+  text-align: right;
+  padding-right: 8px;
+}
+
+.tmx-td {
+  padding: 0;
+}
+.tmx-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  width: 100%;
+  min-width: 54px;
+  height: 46px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--text);
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease, filter 0.1s ease;
+}
+.tmx-cell:not(:disabled):hover {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+.tmx-cell:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.tmx-cell:disabled {
+  cursor: default;
+}
+.tmx-cell.empty {
+  color: var(--muted);
+  background: color-mix(in srgb, var(--panel-2) 55%, transparent);
+  border-style: dashed;
+}
+.tmx-cell.diag {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+.tmx-cell.sel {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+.tmx-rate {
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+.tmx-count {
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1;
+}
+
+/* 勝率ヒートマップの5段階配色（パネル色に混ぜてテーマ自動対応）。 */
+.tmx-cell.lv5 {
+  background: color-mix(in srgb, var(--success) 42%, var(--panel));
+  border-color: color-mix(in srgb, var(--success) 50%, var(--border));
+}
+.tmx-cell.lv4 {
+  background: color-mix(in srgb, var(--success) 22%, var(--panel));
+  border-color: color-mix(in srgb, var(--success) 32%, var(--border));
+}
+.tmx-cell.lv3 {
+  background: color-mix(in srgb, var(--muted) 14%, var(--panel));
+}
+.tmx-cell.lv2 {
+  background: color-mix(in srgb, var(--danger) 20%, var(--panel));
+  border-color: color-mix(in srgb, var(--danger) 30%, var(--border));
+}
+.tmx-cell.lv1 {
+  background: color-mix(in srgb, var(--danger) 40%, var(--panel));
+  border-color: color-mix(in srgb, var(--danger) 50%, var(--border));
+}
+.tmx-cell.lv5 .tmx-count,
+.tmx-cell.lv1 .tmx-count {
+  color: color-mix(in srgb, var(--text) 70%, transparent);
+}
+
+.tmx-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.tmx-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.tmx-chip {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  flex: 0 0 auto;
+}
+.tmx-chip.lv5 {
+  background: color-mix(in srgb, var(--success) 42%, var(--panel));
+}
+.tmx-chip.lv4 {
+  background: color-mix(in srgb, var(--success) 22%, var(--panel));
+}
+.tmx-chip.lv3 {
+  background: color-mix(in srgb, var(--muted) 14%, var(--panel));
+}
+.tmx-chip.lv2 {
+  background: color-mix(in srgb, var(--danger) 20%, var(--panel));
+}
+.tmx-chip.lv1 {
+  background: color-mix(in srgb, var(--danger) 40%, var(--panel));
+}
+
+.tmx-drill {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.tmx-drill-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 14px;
+  color: var(--muted);
+}
+.tmx-drill-head strong {
+  color: var(--label-type-fg);
+  font-weight: 800;
+}
+.tmx-drill-close {
+  min-height: 34px;
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+/* スマホ: 期間セレクタは折り返して全期間を見せ、相性マトリックスは勝敗数を隠して勝率だけにし、6×6を画面内に収める（詳細はマスをタップ）。 */
+@media (max-width: 680px) {
+  .tmx-periods {
+    flex-wrap: wrap;
+    overflow-x: visible;
+    align-self: stretch;
+  }
+  .tmx-period {
+    flex: 1 1 auto;
+    text-align: center;
+    padding: 6px 10px;
+  }
+  .tmx-table {
+    table-layout: fixed;
+    width: 100%;
+    min-width: 0;
+    border-spacing: 3px;
+  }
+  .tmx-corner {
+    width: 34px;
+    min-width: 0;
+    height: 32px;
+  }
+  .tmx-cell {
+    min-width: 0;
+    height: 36px;
+    padding: 1px;
+  }
+  .tmx-rate {
+    font-size: 13px;
+  }
+  .tmx-count {
+    display: none;
+  }
+  .tmx-colhead,
+  .tmx-rowhead {
+    font-size: 12px;
+    padding: 2px 3px;
+  }
+  .tmx-rowhead {
+    padding-right: 4px;
+  }
+}
+
+/* 環境ダッシュボード（メタゲーム） */
+.meta-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  flex-wrap: wrap;
+}
+.meta-filter-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.meta-filter .meta-filter-select {
+  width: auto;
+  min-width: 130px;
+  flex: 0 0 auto;
+}
+.meta-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+.meta-warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.meta-warning .icon {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+}
+.meta-warning.dominant {
+  color: color-mix(in srgb, var(--danger) 72%, var(--text));
+  background: color-mix(in srgb, var(--danger) 12%, var(--panel));
+  border-color: color-mix(in srgb, var(--danger) 32%, transparent);
+}
+.meta-warning.overpick {
+  color: color-mix(in srgb, var(--label-type-fg) 82%, var(--text));
+  background: color-mix(in srgb, var(--label-type-fg) 12%, var(--panel));
+  border-color: color-mix(in srgb, var(--label-type-fg) 30%, transparent);
+}
+
+.meta-block {
+  margin-top: 18px;
+}
+.meta-h3 {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+.meta-h3-sub {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.meta-h3-tag {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--label-type-fg);
+  background: color-mix(in srgb, var(--label-type-fg) 12%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--label-type-fg) 28%, transparent);
+  border-radius: 6px;
+  padding: 1px 7px;
+}
+
+.meta-units {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.meta-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.meta-rank {
+  flex: 0 0 auto;
+  width: 24px;
+  text-align: center;
+  font-weight: 800;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.meta-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
+  font-weight: 700;
+  font-size: 14px;
+}
+.meta-pick {
+  flex: 0 0 auto;
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.meta-pick strong {
+  color: var(--text);
+  font-size: 14px;
+}
+.meta-sub {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.meta-traits {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.meta-trait-row {
+  display: grid;
+  grid-template-columns: 52px 86px 1fr 120px;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+.meta-trait-name {
+  font-weight: 700;
+  color: var(--label-type-fg);
+}
+.meta-trait-pick {
+  color: var(--muted);
+  font-size: 12px;
+}
+.meta-trait-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  overflow: hidden;
+}
+.meta-trait-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--label-type-fg) 55%, transparent);
+}
+.meta-trait-rate {
+  text-align: right;
+  font-weight: 700;
+}
+@media (max-width: 560px) {
+  .meta-trait-row {
+    grid-template-columns: auto 1fr auto;
+  }
+  .meta-trait-pick {
+    display: none;
+  }
 }
 
 /* 時間帯・曜日別ヒートマップ */

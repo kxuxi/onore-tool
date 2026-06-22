@@ -19,8 +19,14 @@ import {
   warlordRanking,
   weaponStats,
   itemStats,
-  turnEfficiency,
+  unitStats,
   equipSynergy,
+  traitMatchupMatrix,
+  collectTraitMatchupBattles,
+  MATCHUP_TRAITS,
+  metaOverview,
+  metaTier,
+  META_PERIODS,
   formatWinRate,
 } from "./stats";
 import type { BattleRecord, WarlordMap } from "./types";
@@ -1011,6 +1017,75 @@ describe("weaponStats / itemStats", () => {
   });
 });
 
+describe("unitStats", () => {
+  // 攻撃側 信長: 左側、防衛側 勝頼: 右側。末尾 12 はターン数。
+  function line(o: {
+    leftUnit?: string;
+    leftBranch?: string;
+    rightUnit?: string;
+    rightBranch?: string;
+    result: string;
+    time: string;
+  }): string {
+    const {
+      leftUnit = "騎馬隊",
+      leftBranch = "騎兵",
+      rightUnit = "足軽隊",
+      rightBranch = "歩兵",
+      result,
+      time,
+    } = o;
+    return `【1戦目】 1600年4月 ${time} 京都 織田 信長 織田家 武特 ${leftUnit} ${leftBranch} 槍 饧 V.S. 武田 勝頼 武田家 統特 ${rightUnit} ${rightBranch} 馬 旗 ${result} 12`;
+  }
+
+  const log: BattleRecord[] = [
+    rec(line({ result: "信長の勝利", time: "04/10 10:00" }), 1),
+    rec(line({ result: "信長の勝利", time: "04/11 11:00" }), 2),
+    rec(line({ result: "勝頼の勝利", time: "04/12 12:00" }), 3),
+  ];
+
+  it("兵種ごとに使用回数・勝率・代表兵科・主な使用武将を集計する", () => {
+    const stats = unitStats(log);
+    const kiba = stats.find((s) => s.unit === "騎馬隊")!;
+    // 騎馬隊は左(信長)で 3 回出撃: 2勝1敗。
+    expect(kiba.battles).toBe(3);
+    expect(kiba.attackUses).toBe(3);
+    expect(kiba.defenseUses).toBe(0);
+    expect(kiba.wins).toBe(2);
+    expect(kiba.losses).toBe(1);
+    expect(kiba.decided).toBe(3);
+    expect(kiba.winRate).toBeCloseTo(2 / 3);
+    expect(kiba.branch).toBe("騎兵");
+    expect(kiba.topUsers[0]).toEqual({ name: "信長", count: 3 });
+
+    const ashi = stats.find((s) => s.unit === "足軽隊")!;
+    // 足軽隊は右(勝頼)で 3 回出撃: 1勝2敗。
+    expect(ashi.battles).toBe(3);
+    expect(ashi.defenseUses).toBe(3);
+    expect(ashi.wins).toBe(1);
+    expect(ashi.losses).toBe(2);
+    expect(ashi.branch).toBe("歩兵");
+  });
+
+  it("使用回数の多い順に並ぶ", () => {
+    const more: BattleRecord[] = [
+      ...log,
+      rec(
+        line({
+          leftUnit: "鉄砲隊",
+          leftBranch: "鉄砲",
+          result: "信長の勝利",
+          time: "04/13 13:00",
+        }),
+        4
+      ),
+    ];
+    // 足軽隊(右4戦) > 騎馬隊(左3戦) > 鉄砲隊(左1戦)。
+    const order = unitStats(more).map((s) => s.unit);
+    expect(order).toEqual(["足軽隊", "騎馬隊", "鉄砲隊"]);
+  });
+});
+
 describe("formatWinRate", () => {
   it("勝率を整数パーセントに丸める", () => {
     expect(formatWinRate(0.666, 30)).toBe("67%");
@@ -1023,49 +1098,6 @@ describe("formatWinRate", () => {
     expect(formatWinRate(0, 0)).toBe("—");
     expect(formatWinRate(0.5, 0)).toBe("—");
     expect(formatWinRate(0.5, -1)).toBe("—");
-  });
-});
-
-describe("turnEfficiency", () => {
-  // 注目側=織田 信長（兵種 leftUnit / 兵科 騎兵）、相手=武田 勝頼（兵種 rightUnit）。
-  // 末尾の数値がターン数。turns="" でターン不明（撤退などで欠落）を表現する。
-  function line(o: {
-    leftUnit?: string;
-    rightUnit?: string;
-    result: string;
-    turns: number | "";
-    time: string;
-  }): string {
-    const { leftUnit = "騎馬隊", rightUnit = "足軽隊", result, turns, time } = o;
-    const t = turns === "" ? "" : ` ${turns}`;
-    return `【1戦目】 1600年4月 ${time} 京都 織田 信長 織田家 武特 ${leftUnit} 騎兵 槍 鎧 V.S. 武田 勝頼 武田家 統特 ${rightUnit} 歩兵 馬 旗 ${result}${t}`;
-  }
-
-  const log: BattleRecord[] = [
-    rec(line({ result: "信長の勝利", turns: 2, time: "04/10 10:00" }), 1), // 騎馬隊 勝ち 2T（速攻）
-    rec(line({ result: "信長の勝利", turns: 4, time: "04/11 11:00" }), 2), // 騎馬隊 勝ち 4T
-    rec(line({ result: "勝頼の勝利", turns: 8, time: "04/12 12:00" }), 3), // 騎馬隊 負け 8T
-    rec(line({ result: "信長の勝利", turns: "", time: "04/13 13:00" }), 4), // ターン不明 → 除外
-  ];
-
-  it("勝利時・敗北時の平均ターンと速攻数を兵種ごとに集計する", () => {
-    const stats = turnEfficiency(log);
-    const kiba = stats.find((s) => s.unit === "騎馬隊")!;
-    expect(kiba.battles).toBe(3); // ターン不明の1戦を除く
-    expect(kiba.wins).toBe(2);
-    expect(kiba.losses).toBe(1);
-    expect(kiba.avgWinTurns).toBeCloseTo(3); // (2+4)/2
-    expect(kiba.avgLossTurns).toBeCloseTo(8);
-    expect(kiba.avgTurns).toBeCloseTo((2 + 4 + 8) / 3);
-    expect(kiba.fastWins).toBe(1); // 3T 以内は 2T のみ
-    expect(kiba.branch).toBe("騎兵");
-  });
-
-  it("ターン数が無い戦闘は母数から除外する", () => {
-    const onlyNoTurns: BattleRecord[] = [
-      rec(line({ result: "信長の勝利", turns: "", time: "05/10 10:00" }), 1),
-    ];
-    expect(turnEfficiency(onlyNoTurns)).toHaveLength(0);
   });
 });
 
@@ -1110,5 +1142,238 @@ describe("equipSynergy", () => {
     expect(equipSynergy(noItem)).toHaveLength(0);
   });
 });
+
+describe("traitMatchupMatrix / collectTraitMatchupBattles", () => {
+  // 攻撃側（左）の特性 leftType・防衛側（右）の特性 rightType を差し替える。
+  // dedup（battleAt の年月+時刻＋名前＋勝者でキー化）を避けるため時刻と名前は毎回変える。
+  function matrixLine(o: {
+    leftType: string;
+    rightType: string;
+    leftName: string;
+    rightName: string;
+    winner: "left" | "right";
+    time: string; // "MM/DD HH:mm"
+  }): string {
+    const result =
+      o.winner === "left" ? `${o.leftName}の勝利` : `${o.rightName}の勝利`;
+    return `【1戦目】 1600年4月 ${o.time} 京都 自国 ${o.leftName} 某家 ${o.leftType} 騎馬隊 騎兵 槍 鎧 V.S. 敵国 ${o.rightName} 敵家 ${o.rightType} 騎馬隊 騎兵 馬 旗 ${result} 12`;
+  }
+
+  const log: BattleRecord[] = [
+    // 統特 が 知特 に 2勝1敗（攻撃側＝左）
+    rec(matrixLine({ leftType: "統特", rightType: "知特", leftName: "統A", rightName: "知A", winner: "left", time: "04/10 10:00" }), 1),
+    rec(matrixLine({ leftType: "統特", rightType: "知特", leftName: "統B", rightName: "知B", winner: "left", time: "04/10 11:00" }), 2),
+    rec(matrixLine({ leftType: "統特", rightType: "知特", leftName: "統C", rightName: "知C", winner: "right", time: "04/10 12:00" }), 3),
+    // 知特 が 統特 に 1勝（鏡のマス）
+    rec(matrixLine({ leftType: "知特", rightType: "統特", leftName: "知D", rightName: "統D", winner: "left", time: "04/10 13:00" }), 4),
+    // 政治家 は MATCHUP_TRAITS 外 → 除外される
+    rec(matrixLine({ leftType: "政治家", rightType: "統特", leftName: "政E", rightName: "統E", winner: "left", time: "04/10 14:00" }), 5),
+  ];
+
+  const idx = (t: string) => MATCHUP_TRAITS.indexOf(t);
+
+  it("攻撃側視点で 行＝攻撃特性 × 列＝防衛特性 の勝敗を集計する", () => {
+    const { traits, matrix } = traitMatchupMatrix(log);
+    expect(traits).toEqual(MATCHUP_TRAITS);
+    const cell = matrix[idx("統特")][idx("知特")];
+    expect(cell.battles).toBe(3);
+    expect(cell.wins).toBe(2);
+    expect(cell.losses).toBe(1);
+    expect(cell.decided).toBe(3);
+    expect(cell.winRate).toBeCloseTo(2 / 3);
+  });
+
+  it("鏡のマス（知特→統特）は別集計になる", () => {
+    const { matrix } = traitMatchupMatrix(log);
+    const mirror = matrix[idx("知特")][idx("統特")];
+    expect(mirror.battles).toBe(1);
+    expect(mirror.wins).toBe(1);
+    expect(mirror.winRate).toBeCloseTo(1);
+  });
+
+  it("対戦のないマスは 0 戦・勝率0 になる", () => {
+    const { matrix } = traitMatchupMatrix(log);
+    const empty = matrix[idx("武特")][idx("統知")];
+    expect(empty.battles).toBe(0);
+    expect(empty.decided).toBe(0);
+    expect(empty.winRate).toBe(0);
+  });
+
+  it("MATCHUP_TRAITS 外の特性（政治家など）は集計対象から除外する", () => {
+    const { matrix } = traitMatchupMatrix(log);
+    const total = matrix.flat().reduce((sum, c) => sum + c.battles, 0);
+    expect(total).toBe(4); // 政治家の1戦を除く
+  });
+
+  it("年の範囲で期間を絞る（範囲外なら全マス0）", () => {
+    // フィクスチャは全て 1600 年→範囲外では 0 戦
+    const { matrix } = traitMatchupMatrix(log, { from: 1700, to: 1800 });
+    expect(matrix.flat().reduce((s, c) => s + c.battles, 0)).toBe(0);
+    // 範囲内なら MATCHUP_TRAITS 内の全戦を含む
+    const all = traitMatchupMatrix(log, { from: 1590, to: 1610 });
+    expect(all.matrix.flat().reduce((s, c) => s + c.battles, 0)).toBe(4);
+  });
+
+  it("collectTraitMatchupBattles はそのマスの戦闘を新しい順で返す", () => {
+    const battles = collectTraitMatchupBattles(log, "統特", "知特");
+    expect(battles).toHaveLength(3);
+    // 全て攻撃側視点
+    expect(battles.every((b) => b.side === "left")).toBe(true);
+    // 新しい順（12:00 が先頭・敗北）
+    expect(battles[0].result).toBe("loss");
+  });
+});
+
+describe("metaTier", () => {
+  it("採用率と勝率の条件で S+ / S / A+ を判定する", () => {
+    expect(metaTier(0.2, 0.7, 20)).toBe("S+");
+    expect(metaTier(0.12, 0.62, 20)).toBe("S");
+    expect(metaTier(0.06, 0.56, 20)).toBe("A+");
+  });
+
+  it("S 系の条件に届かない場合は勝率で A / B / C を判定する", () => {
+    expect(metaTier(0.5, 0.53, 20)).toBe("A"); // 高採用だが勝率が A+ 未満
+    expect(metaTier(0.5, 0.46, 20)).toBe("B");
+    expect(metaTier(0.5, 0.4, 20)).toBe("C");
+  });
+
+  it("確定戦数が不足すると null（サンプル不足）", () => {
+    expect(metaTier(0.9, 0.9, 5)).toBeNull();
+  });
+});
+
+describe("metaOverview", () => {
+  // 8 トークン/側: 国 名前 家 タイプ 兵種 兵科 装備1 装備2
+  function metaLine(o: {
+    leftUnit: string;
+    leftBranch: string;
+    rightUnit: string;
+    rightName: string;
+    leftName: string;
+    winner: "left" | "right";
+    time: string; // "MM/DD HH:mm"
+  }): string {
+    const result =
+      o.winner === "left" ? `${o.leftName}の勝利` : `${o.rightName}の勝利`;
+    return `【1戦目】 1600年4月 ${o.time} 京都 自国 ${o.leftName} 某家 武特 ${o.leftUnit} ${o.leftBranch} 槍 鎧 V.S. 敵国 ${o.rightName} 敵家 統特 ${o.rightUnit} 弓兵 馬 旗 ${result} 12`;
+  }
+
+  // 左側は常に「騎馬隊（騎兵）」。古い6戦（04/10）は 2勝4敗、新しい6戦（04/11）は 6勝0敗。
+  // 合計 8勝4敗（勝率 2/3）／採用率 12/(2*12)=0.5 → S+。トレンドは +（直近で上昇）。
+  const log: BattleRecord[] = [];
+  let savedAt = 0;
+  for (let i = 0; i < 6; i++) {
+    log.push(
+      rec(
+        metaLine({
+          leftUnit: "騎馬隊",
+          leftBranch: "騎兵",
+          rightUnit: `歩兵${i}`,
+          leftName: `自将O${i}`,
+          rightName: `敵将O${i}`,
+          winner: i < 2 ? "left" : "right", // 2勝4敗
+          time: `04/10 1${i}:00`,
+        }),
+        savedAt++
+      )
+    );
+  }
+  for (let i = 0; i < 6; i++) {
+    log.push(
+      rec(
+        metaLine({
+          leftUnit: "騎馬隊",
+          leftBranch: "騎兵",
+          rightUnit: `弓組${i}`,
+          leftName: `自将N${i}`,
+          rightName: `敵将N${i}`,
+          winner: "left", // 6勝0敗
+          time: `04/11 1${i}:00`,
+        }),
+        savedAt++
+      )
+    );
+  }
+
+  it("総戦闘数を数える", () => {
+    expect(metaOverview(log).totalBattles).toBe(12);
+  });
+
+  it("兵種ごとの採用率・勝率を集計し、採用率の高い順に並べる", () => {
+    const { units } = metaOverview(log);
+    const top = units[0];
+    expect(top.unit).toBe("騎馬隊");
+    expect(top.appearances).toBe(12);
+    expect(top.pickRate).toBeCloseTo(0.5); // 12 / (2*12)
+    expect(top.decided).toBe(12);
+    expect(top.winRate).toBeCloseTo(8 / 12);
+  });
+
+  it("採用率・勝率の高い兵種を S+ と判定する", () => {
+    const top = metaOverview(log).units[0];
+    expect(top.tier).toBe("S+");
+  });
+
+  it("直近で勝率が上がった兵種はトレンドが正になる", () => {
+    const top = metaOverview(log).units[0];
+    // 直近6戦=6/6、古い6戦=2/6 → 1 - 1/3 ≈ +0.667
+    expect(top.trend).not.toBeNull();
+    expect(top.trend as number).toBeCloseTo(1 - 2 / 6);
+  });
+
+  it("特性別の勝率を攻守両側で集計する", () => {
+    const { traits } = metaOverview(log);
+    const buToku = traits.find((t) => t.trait === "武特");
+    const touToku = traits.find((t) => t.trait === "統特");
+    expect(buToku?.appearances).toBe(12);
+    expect(buToku?.winRate).toBeCloseTo(8 / 12); // 左＝攻撃側
+    expect(touToku?.appearances).toBe(12);
+    expect(touToku?.winRate).toBeCloseTo(4 / 12); // 右＝防衛側（鏡）
+  });
+
+  it("支配的な兵種（S+）に環境警告を出す", () => {
+    const { warnings } = metaOverview(log);
+    const dominant = warnings.find((w) => w.level === "dominant");
+    expect(dominant?.unit).toBe("騎馬隊");
+  });
+
+  it("年の範囲で期間を絞る", () => {
+    // フィクスチャは全て 1600 年→範囲外は空
+    const out = metaOverview(log, { from: 1700, to: 1800 });
+    expect(out.totalBattles).toBe(0);
+    expect(out.units).toHaveLength(0);
+    // 範囲内なら全 12 戦を集計
+    expect(metaOverview(log, { from: 1590, to: 1610 }).totalBattles).toBe(12);
+  });
+
+  it("武将タイプで兵種ランキングを絞り込み、採用率はタイプ内の割合にする", () => {
+    // 武特（左側）は常に騎馬隊。武特で絞ると騎馬隊のみ・タイプ内採用率は 100%。
+    const { units, warnings } = metaOverview(log, undefined, "武特");
+    expect(units).toHaveLength(1);
+    expect(units[0].unit).toBe("騎馬隊");
+    expect(units[0].appearances).toBe(12);
+    expect(units[0].pickRate).toBeCloseTo(1); // 12 / 12（タイプ内）
+    expect(units[0].winRate).toBeCloseTo(8 / 12);
+    // 絞り込み時は全体基準の環境警告を出さない。
+    expect(warnings).toHaveLength(0);
+  });
+
+  it("武将タイプで絞り込んでも特性別の勝率は全タイプを残す（比較ビュー）", () => {
+    const { traits } = metaOverview(log, undefined, "武特");
+    expect(traits.find((t) => t.trait === "武特")).toBeTruthy();
+    expect(traits.find((t) => t.trait === "統特")).toBeTruthy();
+  });
+});
+
+describe("META_PERIODS", () => {
+  it("ゲーム内の年バケットを西暦の範囲で定義する", () => {
+    const byKey = Object.fromEntries(META_PERIODS.map((p) => [p.key, p]));
+    expect(byKey.y06).toMatchObject({ label: "06年-11年", from: 1606, to: 1611 });
+    expect(byKey.y60).toMatchObject({ label: "60年以降", from: 1660, to: null });
+    expect(byKey.all).toMatchObject({ from: null, to: null });
+  });
+});
+
+
 
 

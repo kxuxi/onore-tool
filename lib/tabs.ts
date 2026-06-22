@@ -10,6 +10,7 @@ export type TabGroupKey =
   | "history"
   | "warlords"
   | "ranking"
+  | "meta"
   | "encyclopedia"
   | "nations"
   | "settings";
@@ -20,8 +21,12 @@ export const TAB_LABELS: Record<TabKey, string> = {
   scout: "偵察検索",
   damage: "被弾表",
   swi: "武将ランキング",
-  turns: "ターン効率",
+  unitrank: "兵種ランキング",
+  weaponrank: "武器ランキング",
+  itemrank: "品物ランキング",
   synergy: "装備シナジー",
+  matrix: "相性表",
+  metaenv: "環境",
   db: "DB確認",
   units: "兵種",
   weapons: "武器",
@@ -44,7 +49,8 @@ export interface TabGroup {
 export const TAB_GROUPS: TabGroup[] = [
   { key: "history", label: "戦闘履歴", tabs: ["history"] },
   { key: "warlords", label: "武将", tabs: ["scout", "damage", "db"] },
-  { key: "ranking", label: "ランキング", tabs: ["swi", "turns", "synergy"] },
+  { key: "ranking", label: "ランキング", tabs: ["swi", "unitrank", "weaponrank", "itemrank"] },
+  { key: "meta", label: "メタ分析", tabs: ["matrix", "metaenv", "synergy"] },
   { key: "encyclopedia", label: "図鑑", tabs: ["units", "weapons", "items"] },
   { key: "nations", label: "国", tabs: ["nations"] },
   { key: "settings", label: "環境設定", tabs: ["factions"] },
@@ -64,11 +70,12 @@ export const ALL_TAB_KEYS: TabKey[] = TAB_GROUPS.flatMap((g) => g.tabs);
 
 /**
  * 未ログイン（管理者以外）でも閲覧できるグループ。
- * 図鑑・ランキング・国の 3 グループのみ公開し、残りは管理者専用にする。
+ * 戦闘履歴・ランキング・メタ分析・図鑑・国を公開し、残りは管理者専用にする。
  */
 export const PUBLIC_TAB_GROUPS: TabGroupKey[] = [
   "history",
   "ranking",
+  "meta",
   "encyclopedia",
   "nations",
 ];
