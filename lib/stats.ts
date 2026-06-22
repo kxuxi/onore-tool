@@ -1875,3 +1875,247 @@ export function collectTraitMatchupBattles(
   return sortByTimeDesc(out);
 }
 
+/* ---------- メタゲーム概観（環境ダッシュボード） ---------- */
+
+/** 兵種の強度ティア（上から S+ が最強）。 */
+export type MetaTier = "S+" | "S" | "A+" | "A" | "B" | "C";
+
+/** 強度ティアを判定するのに必要な、最小の勝敗確定戦数。 */
+export const META_MIN_TIER_DECIDED = 10;
+
+/** トレンド（直近半分 − 古い半分の勝率差）の算出に必要な、片側の最小サンプル。 */
+const META_TREND_MIN_HALF = 4;
+
+/** 環境ダッシュボードに表示する 1 兵種分の集計。 */
+export interface MetaUnitStat {
+  unit: string;
+  /** 最も多く登場した兵科。 */
+  branch?: string;
+  /** 延べ登場数（左右どちらでも 1 と数える）。 */
+  appearances: number;
+  /** 採用率 0..1（appearances / (2 × 総戦闘数)）。 */
+  pickRate: number;
+  wins: number;
+  losses: number;
+  /** 勝敗が確定した数（wins + losses）。 */
+  decided: number;
+  /** 勝率 0..1。 */
+  winRate: number;
+  /** 強度ティア。確定戦数が不足する場合は null。 */
+  tier: MetaTier | null;
+  /** 直近半分 − 古い半分の勝率差（-1..1）。サンプル不足は null。 */
+  trend: number | null;
+}
+
+/** 特性（タイプ）別の採用率・勝率。 */
+export interface MetaTraitStat {
+  trait: string;
+  appearances: number;
+  pickRate: number;
+  wins: number;
+  losses: number;
+  decided: number;
+  winRate: number;
+}
+
+/** 環境警告（支配的な兵種・採用率の突出など）。 */
+export interface MetaWarning {
+  unit: string;
+  /** dominant＝高採用かつ高勝率（S+）/ overpick＝採用率が突出。 */
+  level: "dominant" | "overpick";
+  message: string;
+}
+
+/** 環境ダッシュボードの集計結果。 */
+export interface MetaOverview {
+  /** 集計対象の総戦闘数（重複除外後）。 */
+  totalBattles: number;
+  /** 兵種別の集計（採用率の高い順）。 */
+  units: MetaUnitStat[];
+  /** 特性別の集計（採用率の高い順）。 */
+  traits: MetaTraitStat[];
+  /** 環境警告。 */
+  warnings: MetaWarning[];
+}
+
+/** 採用率・勝率・確定戦数から強度ティアを判定する。 */
+export function metaTier(
+  pickRate: number,
+  winRate: number,
+  decided: number
+): MetaTier | null {
+  if (decided < META_MIN_TIER_DECIDED) return null;
+  if (pickRate > 0.15 && winRate > 0.65) return "S+";
+  if (pickRate > 0.1 && winRate > 0.6) return "S";
+  if (pickRate > 0.05 && winRate > 0.55) return "A+";
+  if (winRate >= 0.52) return "A";
+  if (winRate >= 0.45) return "B";
+  return "C";
+}
+
+/** 確定戦（時刻つき）を新しい順に半分ずつ比較し、勝率差を返す。不足なら null。 */
+function computeTrend(decidedTimed: { t: number; win: boolean }[]): number | null {
+  const n = decidedTimed.length;
+  const half = Math.floor(n / 2);
+  if (half < META_TREND_MIN_HALF) return null;
+  const sorted = [...decidedTimed].sort((a, b) => b.t - a.t); // 新しい順
+  const recent = sorted.slice(0, half);
+  const older = sorted.slice(n - half);
+  const rateOf = (arr: { win: boolean }[]) =>
+    arr.filter((x) => x.win).length / arr.length;
+  return rateOf(recent) - rateOf(older);
+}
+
+interface MetaUnitAcc {
+  appearances: number;
+  wins: number;
+  losses: number;
+  branches: Map<string, number>;
+  /** トレンド算出用：勝敗が確定した戦闘を時刻つきで保持。 */
+  decidedTimed: { t: number; win: boolean }[];
+}
+
+interface MetaTraitAcc {
+  appearances: number;
+  wins: number;
+  losses: number;
+}
+
+/**
+ * 環境（メタゲーム）全体を概観する集計。
+ * 兵種ごとの採用率・勝率・強度ティア・トレンド、特性別の勝率、環境警告をまとめて返す。
+ * sinceMs を渡すと、その時刻以降（戦闘時刻が判明している分）に絞る。重複行は除外する。
+ */
+export function metaOverview(
+  log: BattleRecord[],
+  sinceMs?: number
+): MetaOverview {
+  const now = new Date();
+  const units = new Map<string, MetaUnitAcc>();
+  const traits = new Map<string, MetaTraitAcc>();
+  let totalBattles = 0;
+
+  const addUnit = (
+    side: BattleSide,
+    result: OutcomeResult,
+    t: number | null
+  ) => {
+    const name = side.unit ? normalizeDisplayToken(side.unit) : "";
+    if (!name) return;
+    let a = units.get(name);
+    if (!a) {
+      a = {
+        appearances: 0,
+        wins: 0,
+        losses: 0,
+        branches: new Map(),
+        decidedTimed: [],
+      };
+      units.set(name, a);
+    }
+    a.appearances++;
+    const branch = side.branch?.trim();
+    if (branch) a.branches.set(branch, (a.branches.get(branch) ?? 0) + 1);
+    if (result === "win") {
+      a.wins++;
+      if (t != null) a.decidedTimed.push({ t, win: true });
+    } else if (result === "loss") {
+      a.losses++;
+      if (t != null) a.decidedTimed.push({ t, win: false });
+    }
+  };
+
+  const addTrait = (side: BattleSide, result: OutcomeResult) => {
+    const trait = side.type?.trim();
+    if (!trait) return;
+    let s = traits.get(trait);
+    if (!s) {
+      s = { appearances: 0, wins: 0, losses: 0 };
+      traits.set(trait, s);
+    }
+    s.appearances++;
+    if (result === "win") s.wins++;
+    else if (result === "loss") s.losses++;
+  };
+
+  for (const { record, card } of dedupedCards(log)) {
+    if (!withinSince(record, sinceMs, now)) continue;
+    totalBattles++;
+    const t = parseActionDate(record.time, now)?.getTime() ?? null;
+    const leftResult = outcomeForSide(card.winner, "left");
+    const rightResult = outcomeForSide(card.winner, "right");
+    addUnit(card.left, leftResult, t);
+    addUnit(card.right, rightResult, t);
+    addTrait(card.left, leftResult);
+    addTrait(card.right, rightResult);
+  }
+
+  const denom = totalBattles * 2;
+
+  const unitStats: MetaUnitStat[] = Array.from(units.entries()).map(
+    ([unit, a]) => {
+      const decided = a.wins + a.losses;
+      const winRate = decided > 0 ? a.wins / decided : 0;
+      const pickRate = denom > 0 ? a.appearances / denom : 0;
+      let branch: string | undefined;
+      let bestN = 0;
+      for (const [b, n] of a.branches) {
+        if (n > bestN) {
+          branch = b;
+          bestN = n;
+        }
+      }
+      return {
+        unit,
+        branch,
+        appearances: a.appearances,
+        pickRate,
+        wins: a.wins,
+        losses: a.losses,
+        decided,
+        winRate,
+        tier: metaTier(pickRate, winRate, decided),
+        trend: computeTrend(a.decidedTimed),
+      };
+    }
+  );
+  unitStats.sort((x, y) => y.pickRate - x.pickRate || y.winRate - x.winRate);
+
+  const traitStats: MetaTraitStat[] = Array.from(traits.entries()).map(
+    ([trait, s]) => {
+      const decided = s.wins + s.losses;
+      return {
+        trait,
+        appearances: s.appearances,
+        pickRate: denom > 0 ? s.appearances / denom : 0,
+        wins: s.wins,
+        losses: s.losses,
+        decided,
+        winRate: decided > 0 ? s.wins / decided : 0,
+      };
+    }
+  );
+  traitStats.sort((x, y) => y.appearances - x.appearances);
+
+  const warnings: MetaWarning[] = [];
+  for (const u of unitStats) {
+    const pickPct = Math.round(u.pickRate * 100);
+    const winPct = Math.round(u.winRate * 100);
+    if (u.tier === "S+") {
+      warnings.push({
+        unit: u.unit,
+        level: "dominant",
+        message: `${u.unit} が高採用・高勝率で環境を支配しています（採用 ${pickPct}% / 勝率 ${winPct}%）。`,
+      });
+    } else if (u.pickRate > 0.22) {
+      warnings.push({
+        unit: u.unit,
+        level: "overpick",
+        message: `${u.unit} の採用率が突出しています（採用 ${pickPct}%）。`,
+      });
+    }
+  }
+
+  return { totalBattles, units: unitStats, traits: traitStats, warnings };
+}
+

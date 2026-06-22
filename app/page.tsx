@@ -36,6 +36,7 @@ import {
   ZapIcon,
   LinkIcon,
   GridIcon,
+  ActivityIcon,
   LogInIcon,
   LogOutIcon,
 } from "@/components/icons";
@@ -76,6 +77,9 @@ const EquipSynergyTab = dynamic(
 const TraitMatrixTab = dynamic(
   () => import("@/components/tabs/TraitMatrixTab").then((m) => m.TraitMatrixTab)
 );
+const MetaTab = dynamic(
+  () => import("@/components/tabs/MetaTab").then((m) => m.MetaTab)
+);
 const WarlordDetail = dynamic(
   () => import("@/components/detail/WarlordDetail").then((m) => m.WarlordDetail)
 );
@@ -98,6 +102,7 @@ const TAB_ICONS: Record<TabKey, ReactNode> = {
   turns: <ZapIcon />,
   synergy: <LinkIcon />,
   matrix: <GridIcon />,
+  metaenv: <ActivityIcon />,
   db: <DatabaseIcon />,
   units: <UsersIcon />,
   weapons: <SwordIcon />,
@@ -535,6 +540,8 @@ export default function HomePage() {
             onSelectUnit={selectUnit}
           />
         );
+      case "metaenv":
+        return <MetaTab log={filteredBattleLog} onSelectUnit={selectUnit} />;
       case "db":
         return <DbTab db={filteredDb} colors={factionColors} onSelectWarlord={selectWarlord} onSelectFaction={selectFaction} onImportStats={handleImportStats} />;
       case "units":

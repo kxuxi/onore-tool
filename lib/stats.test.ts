@@ -24,6 +24,8 @@ import {
   traitMatchupMatrix,
   collectTraitMatchupBattles,
   MATCHUP_TRAITS,
+  metaOverview,
+  metaTier,
   formatWinRate,
 } from "./stats";
 import type { BattleRecord, WarlordMap } from "./types";
@@ -1194,6 +1196,128 @@ describe("traitMatchupMatrix / collectTraitMatchupBattles", () => {
     expect(battles[0].result).toBe("loss");
   });
 });
+
+describe("metaTier", () => {
+  it("採用率と勝率の条件で S+ / S / A+ を判定する", () => {
+    expect(metaTier(0.2, 0.7, 20)).toBe("S+");
+    expect(metaTier(0.12, 0.62, 20)).toBe("S");
+    expect(metaTier(0.06, 0.56, 20)).toBe("A+");
+  });
+
+  it("S 系の条件に届かない場合は勝率で A / B / C を判定する", () => {
+    expect(metaTier(0.5, 0.53, 20)).toBe("A"); // 高採用だが勝率が A+ 未満
+    expect(metaTier(0.5, 0.46, 20)).toBe("B");
+    expect(metaTier(0.5, 0.4, 20)).toBe("C");
+  });
+
+  it("確定戦数が不足すると null（サンプル不足）", () => {
+    expect(metaTier(0.9, 0.9, 5)).toBeNull();
+  });
+});
+
+describe("metaOverview", () => {
+  // 8 トークン/側: 国 名前 家 タイプ 兵種 兵科 装備1 装備2
+  function metaLine(o: {
+    leftUnit: string;
+    leftBranch: string;
+    rightUnit: string;
+    rightName: string;
+    leftName: string;
+    winner: "left" | "right";
+    time: string; // "MM/DD HH:mm"
+  }): string {
+    const result =
+      o.winner === "left" ? `${o.leftName}の勝利` : `${o.rightName}の勝利`;
+    return `【1戦目】 1600年4月 ${o.time} 京都 自国 ${o.leftName} 某家 武特 ${o.leftUnit} ${o.leftBranch} 槍 鎧 V.S. 敵国 ${o.rightName} 敵家 統特 ${o.rightUnit} 弓兵 馬 旗 ${result} 12`;
+  }
+
+  // 左側は常に「騎馬隊（騎兵）」。古い6戦（04/10）は 2勝4敗、新しい6戦（04/11）は 6勝0敗。
+  // 合計 8勝4敗（勝率 2/3）／採用率 12/(2*12)=0.5 → S+。トレンドは +（直近で上昇）。
+  const log: BattleRecord[] = [];
+  let savedAt = 0;
+  for (let i = 0; i < 6; i++) {
+    log.push(
+      rec(
+        metaLine({
+          leftUnit: "騎馬隊",
+          leftBranch: "騎兵",
+          rightUnit: `歩兵${i}`,
+          leftName: `自将O${i}`,
+          rightName: `敵将O${i}`,
+          winner: i < 2 ? "left" : "right", // 2勝4敗
+          time: `04/10 1${i}:00`,
+        }),
+        savedAt++
+      )
+    );
+  }
+  for (let i = 0; i < 6; i++) {
+    log.push(
+      rec(
+        metaLine({
+          leftUnit: "騎馬隊",
+          leftBranch: "騎兵",
+          rightUnit: `弓組${i}`,
+          leftName: `自将N${i}`,
+          rightName: `敵将N${i}`,
+          winner: "left", // 6勝0敗
+          time: `04/11 1${i}:00`,
+        }),
+        savedAt++
+      )
+    );
+  }
+
+  it("総戦闘数を数える", () => {
+    expect(metaOverview(log).totalBattles).toBe(12);
+  });
+
+  it("兵種ごとの採用率・勝率を集計し、採用率の高い順に並べる", () => {
+    const { units } = metaOverview(log);
+    const top = units[0];
+    expect(top.unit).toBe("騎馬隊");
+    expect(top.appearances).toBe(12);
+    expect(top.pickRate).toBeCloseTo(0.5); // 12 / (2*12)
+    expect(top.decided).toBe(12);
+    expect(top.winRate).toBeCloseTo(8 / 12);
+  });
+
+  it("採用率・勝率の高い兵種を S+ と判定する", () => {
+    const top = metaOverview(log).units[0];
+    expect(top.tier).toBe("S+");
+  });
+
+  it("直近で勝率が上がった兵種はトレンドが正になる", () => {
+    const top = metaOverview(log).units[0];
+    // 直近6戦=6/6、古い6戦=2/6 → 1 - 1/3 ≈ +0.667
+    expect(top.trend).not.toBeNull();
+    expect(top.trend as number).toBeCloseTo(1 - 2 / 6);
+  });
+
+  it("特性別の勝率を攻守両側で集計する", () => {
+    const { traits } = metaOverview(log);
+    const buToku = traits.find((t) => t.trait === "武特");
+    const touToku = traits.find((t) => t.trait === "統特");
+    expect(buToku?.appearances).toBe(12);
+    expect(buToku?.winRate).toBeCloseTo(8 / 12); // 左＝攻撃側
+    expect(touToku?.appearances).toBe(12);
+    expect(touToku?.winRate).toBeCloseTo(4 / 12); // 右＝防衛側（鏡）
+  });
+
+  it("支配的な兵種（S+）に環境警告を出す", () => {
+    const { warnings } = metaOverview(log);
+    const dominant = warnings.find((w) => w.level === "dominant");
+    expect(dominant?.unit).toBe("騎馬隊");
+  });
+
+  it("sinceMs で期間を絞る（未来指定なら空）", () => {
+    const future = Date.now() + 400 * 24 * 60 * 60 * 1000;
+    const o = metaOverview(log, future);
+    expect(o.totalBattles).toBe(0);
+    expect(o.units).toHaveLength(0);
+  });
+});
+
 
 
 
