@@ -54,7 +54,6 @@ export const TAB_PATH: Record<TabKey, string[]> = {
   damage: ["warlords", "damage"],
   db: ["warlords", "db"],
   swi: ["ranking"],
-  turns: ["ranking", "turns"],
   synergy: ["ranking", "synergy"],
   matrix: ["meta"],
   metaenv: ["meta", "env"],

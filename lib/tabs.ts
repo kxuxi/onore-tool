@@ -21,7 +21,6 @@ export const TAB_LABELS: Record<TabKey, string> = {
   scout: "偵察検索",
   damage: "被弾表",
   swi: "武将ランキング",
-  turns: "ターン効率",
   synergy: "装備シナジー",
   matrix: "相性表",
   metaenv: "環境",
@@ -47,7 +46,7 @@ export interface TabGroup {
 export const TAB_GROUPS: TabGroup[] = [
   { key: "history", label: "戦闘履歴", tabs: ["history"] },
   { key: "warlords", label: "武将", tabs: ["scout", "damage", "db"] },
-  { key: "ranking", label: "ランキング", tabs: ["swi", "turns", "synergy"] },
+  { key: "ranking", label: "ランキング", tabs: ["swi", "synergy"] },
   { key: "meta", label: "メタ分析", tabs: ["matrix", "metaenv"] },
   { key: "encyclopedia", label: "図鑑", tabs: ["units", "weapons", "items"] },
   { key: "nations", label: "国", tabs: ["nations"] },

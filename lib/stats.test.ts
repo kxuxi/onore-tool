@@ -19,7 +19,6 @@ import {
   warlordRanking,
   weaponStats,
   itemStats,
-  turnEfficiency,
   equipSynergy,
   traitMatchupMatrix,
   collectTraitMatchupBattles,
@@ -1029,49 +1028,6 @@ describe("formatWinRate", () => {
     expect(formatWinRate(0, 0)).toBe("—");
     expect(formatWinRate(0.5, 0)).toBe("—");
     expect(formatWinRate(0.5, -1)).toBe("—");
-  });
-});
-
-describe("turnEfficiency", () => {
-  // 注目側=織田 信長（兵種 leftUnit / 兵科 騎兵）、相手=武田 勝頼（兵種 rightUnit）。
-  // 末尾の数値がターン数。turns="" でターン不明（撤退などで欠落）を表現する。
-  function line(o: {
-    leftUnit?: string;
-    rightUnit?: string;
-    result: string;
-    turns: number | "";
-    time: string;
-  }): string {
-    const { leftUnit = "騎馬隊", rightUnit = "足軽隊", result, turns, time } = o;
-    const t = turns === "" ? "" : ` ${turns}`;
-    return `【1戦目】 1600年4月 ${time} 京都 織田 信長 織田家 武特 ${leftUnit} 騎兵 槍 鎧 V.S. 武田 勝頼 武田家 統特 ${rightUnit} 歩兵 馬 旗 ${result}${t}`;
-  }
-
-  const log: BattleRecord[] = [
-    rec(line({ result: "信長の勝利", turns: 2, time: "04/10 10:00" }), 1), // 騎馬隊 勝ち 2T（速攻）
-    rec(line({ result: "信長の勝利", turns: 4, time: "04/11 11:00" }), 2), // 騎馬隊 勝ち 4T
-    rec(line({ result: "勝頼の勝利", turns: 8, time: "04/12 12:00" }), 3), // 騎馬隊 負け 8T
-    rec(line({ result: "信長の勝利", turns: "", time: "04/13 13:00" }), 4), // ターン不明 → 除外
-  ];
-
-  it("勝利時・敗北時の平均ターンと速攻数を兵種ごとに集計する", () => {
-    const stats = turnEfficiency(log);
-    const kiba = stats.find((s) => s.unit === "騎馬隊")!;
-    expect(kiba.battles).toBe(3); // ターン不明の1戦を除く
-    expect(kiba.wins).toBe(2);
-    expect(kiba.losses).toBe(1);
-    expect(kiba.avgWinTurns).toBeCloseTo(3); // (2+4)/2
-    expect(kiba.avgLossTurns).toBeCloseTo(8);
-    expect(kiba.avgTurns).toBeCloseTo((2 + 4 + 8) / 3);
-    expect(kiba.fastWins).toBe(1); // 3T 以内は 2T のみ
-    expect(kiba.branch).toBe("騎兵");
-  });
-
-  it("ターン数が無い戦闘は母数から除外する", () => {
-    const onlyNoTurns: BattleRecord[] = [
-      rec(line({ result: "信長の勝利", turns: "", time: "05/10 10:00" }), 1),
-    ];
-    expect(turnEfficiency(onlyNoTurns)).toHaveLength(0);
   });
 });
 
