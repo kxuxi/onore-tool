@@ -1319,6 +1319,24 @@ describe("metaOverview", () => {
     // 範囲内なら全 12 戦を集計
     expect(metaOverview(log, { from: 1590, to: 1610 }).totalBattles).toBe(12);
   });
+
+  it("武将タイプで兵種ランキングを絞り込み、採用率はタイプ内の割合にする", () => {
+    // 武特（左側）は常に騎馬隊。武特で絞ると騎馬隊のみ・タイプ内採用率は 100%。
+    const { units, warnings } = metaOverview(log, undefined, "武特");
+    expect(units).toHaveLength(1);
+    expect(units[0].unit).toBe("騎馬隊");
+    expect(units[0].appearances).toBe(12);
+    expect(units[0].pickRate).toBeCloseTo(1); // 12 / 12（タイプ内）
+    expect(units[0].winRate).toBeCloseTo(8 / 12);
+    // 絞り込み時は全体基準の環境警告を出さない。
+    expect(warnings).toHaveLength(0);
+  });
+
+  it("武将タイプで絞り込んでも特性別の勝率は全タイプを残す（比較ビュー）", () => {
+    const { traits } = metaOverview(log, undefined, "武特");
+    expect(traits.find((t) => t.trait === "武特")).toBeTruthy();
+    expect(traits.find((t) => t.trait === "統特")).toBeTruthy();
+  });
 });
 
 describe("META_PERIODS", () => {

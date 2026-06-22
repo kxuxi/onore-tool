@@ -3972,6 +3972,23 @@ button.tag.faction-link:focus-visible {
 }
 
 /* 環境ダッシュボード（メタゲーム） */
+.meta-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  flex-wrap: wrap;
+}
+.meta-filter-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.meta-filter .meta-filter-select {
+  width: auto;
+  min-width: 130px;
+  flex: 0 0 auto;
+}
 .meta-warnings {
   display: flex;
   flex-direction: column;
@@ -4018,6 +4035,15 @@ button.tag.faction-link:focus-visible {
   font-size: 12px;
   font-weight: 500;
   color: var(--muted);
+}
+.meta-h3-tag {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--label-type-fg);
+  background: color-mix(in srgb, var(--label-type-fg) 12%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--label-type-fg) 28%, transparent);
+  border-radius: 6px;
+  padding: 1px 7px;
 }
 
 .meta-units {

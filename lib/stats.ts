@@ -2015,11 +2015,15 @@ interface MetaTraitAcc {
  * 環境（メタゲーム）全体を概観する集計。
  * 兵種ごとの採用率・勝率・強度ティア・トレンド、特性別の勝率、環境警告をまとめて返す。
  * range を渡すと、その年範囲（ゲーム内の年が判明している分）に絞る。重複行は除外する。
+ * typeFilter を渡すと、兵種採用ランキングをその武将タイプ（特性）のものだけに絞り、
+ * 採用率は「そのタイプの中での割合」として計算する（特性別の勝率セクションは比較用なので絞らない）。
  */
 export function metaOverview(
   log: BattleRecord[],
-  range?: YearRange
+  range?: YearRange,
+  typeFilter?: string
 ): MetaOverview {
+  const typeOf = typeFilter?.trim() || null;
   const now = new Date();
   const units = new Map<string, MetaUnitAcc>();
   const traits = new Map<string, MetaTraitAcc>();
@@ -2074,19 +2078,27 @@ export function metaOverview(
     const t = parseActionDate(record.time, now)?.getTime() ?? null;
     const leftResult = outcomeForSide(card.winner, "left");
     const rightResult = outcomeForSide(card.winner, "right");
-    addUnit(card.left, leftResult, t);
-    addUnit(card.right, rightResult, t);
+    // 兵種ランキングは typeFilter 指定時にそのタイプの側だけ集計する。
+    if (typeOf == null || card.left.type?.trim() === typeOf)
+      addUnit(card.left, leftResult, t);
+    if (typeOf == null || card.right.type?.trim() === typeOf)
+      addUnit(card.right, rightResult, t);
+    // 特性別の勝率は比較ビューなので typeFilter に関わらず全タイプを集計する。
     addTrait(card.left, leftResult);
     addTrait(card.right, rightResult);
   }
 
   const denom = totalBattles * 2;
+  // typeFilter 指定時の採用率は「そのタイプの延べ登場数」を分母にし、タイプ内の割合として示す。
+  let unitAppearances = 0;
+  for (const a of units.values()) unitAppearances += a.appearances;
+  const unitDenom = typeOf ? unitAppearances : denom;
 
   const unitStats: MetaUnitStat[] = Array.from(units.entries()).map(
     ([unit, a]) => {
       const decided = a.wins + a.losses;
       const winRate = decided > 0 ? a.wins / decided : 0;
-      const pickRate = denom > 0 ? a.appearances / denom : 0;
+      const pickRate = unitDenom > 0 ? a.appearances / unitDenom : 0;
       let branch: string | undefined;
       let bestN = 0;
       for (const [b, n] of a.branches) {
@@ -2128,21 +2140,24 @@ export function metaOverview(
   traitStats.sort((x, y) => y.appearances - x.appearances);
 
   const warnings: MetaWarning[] = [];
-  for (const u of unitStats) {
-    const pickPct = Math.round(u.pickRate * 100);
-    const winPct = Math.round(u.winRate * 100);
-    if (u.tier === "S+") {
-      warnings.push({
-        unit: u.unit,
-        level: "dominant",
-        message: `${u.unit} が高採用・高勝率で環境を支配しています（採用 ${pickPct}% / 勝率 ${winPct}%）。`,
-      });
-    } else if (u.pickRate > 0.22) {
-      warnings.push({
-        unit: u.unit,
-        level: "overpick",
-        message: `${u.unit} の採用率が突出しています（採用 ${pickPct}%）。`,
-      });
+  // タイプで絞り込んだときの採用率はタイプ内割合なので、全体基準の警告は出さない。
+  if (!typeOf) {
+    for (const u of unitStats) {
+      const pickPct = Math.round(u.pickRate * 100);
+      const winPct = Math.round(u.winRate * 100);
+      if (u.tier === "S+") {
+        warnings.push({
+          unit: u.unit,
+          level: "dominant",
+          message: `${u.unit} が高採用・高勝率で環境を支配しています（採用 ${pickPct}% / 勝率 ${winPct}%）。`,
+        });
+      } else if (u.pickRate > 0.22) {
+        warnings.push({
+          unit: u.unit,
+          level: "overpick",
+          message: `${u.unit} の採用率が突出しています（採用 ${pickPct}%）。`,
+        });
+      }
     }
   }
 
