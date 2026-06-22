@@ -3927,6 +3927,50 @@ button.tag.faction-link:focus-visible {
   font-size: 13px;
 }
 
+/* スマホ: 期間セレクタは折り返して全期間を見せ、相性マトリックスは勝敗数を隠して勝率だけにし、6×6を画面内に収める（詳細はマスをタップ）。 */
+@media (max-width: 680px) {
+  .tmx-periods {
+    flex-wrap: wrap;
+    overflow-x: visible;
+    align-self: stretch;
+  }
+  .tmx-period {
+    flex: 1 1 auto;
+    text-align: center;
+    padding: 6px 10px;
+  }
+  .tmx-table {
+    table-layout: fixed;
+    width: 100%;
+    min-width: 0;
+    border-spacing: 3px;
+  }
+  .tmx-corner {
+    width: 34px;
+    min-width: 0;
+    height: 32px;
+  }
+  .tmx-cell {
+    min-width: 0;
+    height: 36px;
+    padding: 1px;
+  }
+  .tmx-rate {
+    font-size: 13px;
+  }
+  .tmx-count {
+    display: none;
+  }
+  .tmx-colhead,
+  .tmx-rowhead {
+    font-size: 12px;
+    padding: 2px 3px;
+  }
+  .tmx-rowhead {
+    padding-right: 4px;
+  }
+}
+
 /* 環境ダッシュボード（メタゲーム） */
 .meta-warnings {
   display: flex;
