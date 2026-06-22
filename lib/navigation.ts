@@ -56,6 +56,7 @@ export const TAB_PATH: Record<TabKey, string[]> = {
   swi: ["ranking"],
   turns: ["ranking", "turns"],
   synergy: ["ranking", "synergy"],
+  matrix: ["meta"],
   units: ["encyclopedia", "units"],
   weapons: ["encyclopedia", "weapons"],
   items: ["encyclopedia", "items"],

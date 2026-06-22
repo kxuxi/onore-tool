@@ -1773,3 +1773,105 @@ export function equipSynergy(log: BattleRecord[]): EquipSynergyStat[] {
     .sort((a, b) => b.battles - a.battles);
 }
 
+/**
+ * 相性マトリックスで扱う主要な特性（タイプ）の表示順。
+ * 政治家・謎などの非戦闘タイプは対戦相性の対象外とする。
+ */
+export const MATCHUP_TRAITS = ["統特", "知特", "武特", "統知", "知武", "武統"];
+
+/** 相性マトリックスの 1 セル（攻撃側の特性 × 防衛側の特性）。 */
+export interface TraitMatchupCell {
+  /** 対戦数（攻撃側＝左側の延べ） */
+  battles: number;
+  wins: number;
+  losses: number;
+  /** 勝敗が確定した数（wins + losses） */
+  decided: number;
+  /** 勝率 0..1（decided が 0 のときは 0） */
+  winRate: number;
+}
+
+/** 特性ごとの相性マトリックス。 */
+export interface TraitMatchupMatrix {
+  /** 行（攻撃側）・列（防衛側）に並ぶ特性。 */
+  traits: string[];
+  /** matrix[i][j] = traits[i]（攻撃側）が traits[j]（防衛側）と戦った成績。 */
+  matrix: TraitMatchupCell[][];
+}
+
+/** record の戦闘時刻が sinceMs 以降か（sinceMs 未指定なら常に true）。 */
+function withinSince(
+  record: BattleRecord,
+  sinceMs: number | undefined,
+  now: Date
+): boolean {
+  if (sinceMs == null) return true;
+  const d = parseActionDate(record.time, now);
+  return d != null && d.getTime() >= sinceMs;
+}
+
+/**
+ * 特性（タイプ）の組み合わせごとの勝率を、攻撃側（左）視点で集計する。
+ * 行＝攻撃側の特性 / 列＝防衛側の特性。各セルは「行の特性で攻めて列の特性に勝った率」。
+ * sinceMs を渡すと、その時刻以降（戦闘時刻が判明している分）に絞る。重複行は除外する。
+ */
+export function traitMatchupMatrix(
+  log: BattleRecord[],
+  sinceMs?: number,
+  traits: string[] = MATCHUP_TRAITS
+): TraitMatchupMatrix {
+  const index = new Map<string, number>();
+  traits.forEach((t, i) => index.set(t, i));
+  const acc = traits.map(() =>
+    traits.map(() => ({ battles: 0, wins: 0, losses: 0 }))
+  );
+  const now = new Date();
+  for (const { record, card } of dedupedCards(log)) {
+    if (!withinSince(record, sinceMs, now)) continue;
+    const ri = index.get(card.left.type?.trim() ?? "");
+    const ci = index.get(card.right.type?.trim() ?? "");
+    if (ri == null || ci == null) continue;
+    const cell = acc[ri][ci];
+    cell.battles++;
+    const result = outcomeForSide(card.winner, "left");
+    if (result === "win") cell.wins++;
+    else if (result === "loss") cell.losses++;
+  }
+  const matrix = acc.map((row) =>
+    row.map((c) => {
+      const decided = c.wins + c.losses;
+      return {
+        battles: c.battles,
+        wins: c.wins,
+        losses: c.losses,
+        decided,
+        winRate: decided > 0 ? c.wins / decided : 0,
+      };
+    })
+  );
+  return { traits, matrix };
+}
+
+/**
+ * 特定の相性（攻撃側＝rowTrait × 防衛側＝colTrait）の戦闘を新しい順で集める。
+ * マトリックスのセルをクリックしたときの対戦履歴表示に使う。
+ */
+export function collectTraitMatchupBattles(
+  log: BattleRecord[],
+  rowTrait: string,
+  colTrait: string,
+  sinceMs?: number
+): BattleOutcome[] {
+  const row = rowTrait.trim();
+  const col = colTrait.trim();
+  const now = new Date();
+  const out: BattleOutcome[] = [];
+  for (const { record, card } of dedupedCards(log)) {
+    if (!withinSince(record, sinceMs, now)) continue;
+    if ((card.left.type?.trim() ?? "") !== row) continue;
+    if ((card.right.type?.trim() ?? "") !== col) continue;
+    out.push(makeOutcome(record, card, "left"));
+  }
+  return sortByTimeDesc(out);
+}
+

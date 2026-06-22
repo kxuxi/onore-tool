@@ -21,6 +21,9 @@ import {
   itemStats,
   turnEfficiency,
   equipSynergy,
+  traitMatchupMatrix,
+  collectTraitMatchupBattles,
+  MATCHUP_TRAITS,
   formatWinRate,
 } from "./stats";
 import type { BattleRecord, WarlordMap } from "./types";
@@ -1110,5 +1113,87 @@ describe("equipSynergy", () => {
     expect(equipSynergy(noItem)).toHaveLength(0);
   });
 });
+
+describe("traitMatchupMatrix / collectTraitMatchupBattles", () => {
+  // 攻撃側（左）の特性 leftType・防衛側（右）の特性 rightType を差し替える。
+  // dedup（battleAt の年月+時刻＋名前＋勝者でキー化）を避けるため時刻と名前は毎回変える。
+  function matrixLine(o: {
+    leftType: string;
+    rightType: string;
+    leftName: string;
+    rightName: string;
+    winner: "left" | "right";
+    time: string; // "MM/DD HH:mm"
+  }): string {
+    const result =
+      o.winner === "left" ? `${o.leftName}の勝利` : `${o.rightName}の勝利`;
+    return `【1戦目】 1600年4月 ${o.time} 京都 自国 ${o.leftName} 某家 ${o.leftType} 騎馬隊 騎兵 槍 鎧 V.S. 敵国 ${o.rightName} 敵家 ${o.rightType} 騎馬隊 騎兵 馬 旗 ${result} 12`;
+  }
+
+  const log: BattleRecord[] = [
+    // 統特 が 知特 に 2勝1敗（攻撃側＝左）
+    rec(matrixLine({ leftType: "統特", rightType: "知特", leftName: "統A", rightName: "知A", winner: "left", time: "04/10 10:00" }), 1),
+    rec(matrixLine({ leftType: "統特", rightType: "知特", leftName: "統B", rightName: "知B", winner: "left", time: "04/10 11:00" }), 2),
+    rec(matrixLine({ leftType: "統特", rightType: "知特", leftName: "統C", rightName: "知C", winner: "right", time: "04/10 12:00" }), 3),
+    // 知特 が 統特 に 1勝（鏡のマス）
+    rec(matrixLine({ leftType: "知特", rightType: "統特", leftName: "知D", rightName: "統D", winner: "left", time: "04/10 13:00" }), 4),
+    // 政治家 は MATCHUP_TRAITS 外 → 除外される
+    rec(matrixLine({ leftType: "政治家", rightType: "統特", leftName: "政E", rightName: "統E", winner: "left", time: "04/10 14:00" }), 5),
+  ];
+
+  const idx = (t: string) => MATCHUP_TRAITS.indexOf(t);
+
+  it("攻撃側視点で 行＝攻撃特性 × 列＝防衛特性 の勝敗を集計する", () => {
+    const { traits, matrix } = traitMatchupMatrix(log);
+    expect(traits).toEqual(MATCHUP_TRAITS);
+    const cell = matrix[idx("統特")][idx("知特")];
+    expect(cell.battles).toBe(3);
+    expect(cell.wins).toBe(2);
+    expect(cell.losses).toBe(1);
+    expect(cell.decided).toBe(3);
+    expect(cell.winRate).toBeCloseTo(2 / 3);
+  });
+
+  it("鏡のマス（知特→統特）は別集計になる", () => {
+    const { matrix } = traitMatchupMatrix(log);
+    const mirror = matrix[idx("知特")][idx("統特")];
+    expect(mirror.battles).toBe(1);
+    expect(mirror.wins).toBe(1);
+    expect(mirror.winRate).toBeCloseTo(1);
+  });
+
+  it("対戦のないマスは 0 戦・勝率0 になる", () => {
+    const { matrix } = traitMatchupMatrix(log);
+    const empty = matrix[idx("武特")][idx("統知")];
+    expect(empty.battles).toBe(0);
+    expect(empty.decided).toBe(0);
+    expect(empty.winRate).toBe(0);
+  });
+
+  it("MATCHUP_TRAITS 外の特性（政治家など）は集計対象から除外する", () => {
+    const { matrix } = traitMatchupMatrix(log);
+    const total = matrix.flat().reduce((sum, c) => sum + c.battles, 0);
+    expect(total).toBe(4); // 政治家の1戦を除く
+  });
+
+  it("sinceMs で期間を絞る（未来指定なら全マス0）", () => {
+    const future = Date.now() + 400 * 24 * 60 * 60 * 1000;
+    const { matrix } = traitMatchupMatrix(log, future);
+    expect(matrix.flat().reduce((s, c) => s + c.battles, 0)).toBe(0);
+    // sinceMs=0 なら時刻が判明している全戦闘を含む
+    const all = traitMatchupMatrix(log, 0);
+    expect(all.matrix.flat().reduce((s, c) => s + c.battles, 0)).toBe(4);
+  });
+
+  it("collectTraitMatchupBattles はそのマスの戦闘を新しい順で返す", () => {
+    const battles = collectTraitMatchupBattles(log, "統特", "知特");
+    expect(battles).toHaveLength(3);
+    // 全て攻撃側視点
+    expect(battles.every((b) => b.side === "left")).toBe(true);
+    // 新しい順（12:00 が先頭・敗北）
+    expect(battles[0].result).toBe("loss");
+  });
+});
+
 
 

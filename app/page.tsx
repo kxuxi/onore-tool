@@ -35,6 +35,7 @@ import {
   BookIcon,
   ZapIcon,
   LinkIcon,
+  GridIcon,
   LogInIcon,
   LogOutIcon,
 } from "@/components/icons";
@@ -72,6 +73,9 @@ const TurnAnalysisTab = dynamic(
 const EquipSynergyTab = dynamic(
   () => import("@/components/tabs/EquipSynergyTab").then((m) => m.EquipSynergyTab)
 );
+const TraitMatrixTab = dynamic(
+  () => import("@/components/tabs/TraitMatrixTab").then((m) => m.TraitMatrixTab)
+);
 const WarlordDetail = dynamic(
   () => import("@/components/detail/WarlordDetail").then((m) => m.WarlordDetail)
 );
@@ -93,6 +97,7 @@ const TAB_ICONS: Record<TabKey, ReactNode> = {
   swi: <TrophyIcon />,
   turns: <ZapIcon />,
   synergy: <LinkIcon />,
+  matrix: <GridIcon />,
   db: <DatabaseIcon />,
   units: <UsersIcon />,
   weapons: <SwordIcon />,
@@ -106,6 +111,7 @@ const GROUP_ICONS: Record<TabGroupKey, ReactNode> = {
   history: <HistoryIcon />,
   warlords: <UsersIcon />,
   ranking: <TrophyIcon />,
+  meta: <GridIcon />,
   encyclopedia: <BookIcon />,
   nations: <FlagIcon />,
   settings: <SlidersIcon />,
@@ -519,6 +525,14 @@ export default function HomePage() {
             log={filteredBattleLog}
             onSelectWarlord={selectWarlordNormalized}
             onSelectEquip={selectEquip}
+          />
+        );
+      case "matrix":
+        return (
+          <TraitMatrixTab
+            log={filteredBattleLog}
+            onSelectWarlord={selectWarlordNormalized}
+            onSelectUnit={selectUnit}
           />
         );
       case "db":
