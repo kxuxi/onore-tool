@@ -67,6 +67,9 @@ const SettingsTab = dynamic(
 const SwiTab = dynamic(
   () => import("@/components/tabs/SwiTab").then((m) => m.SwiTab)
 );
+const RankingTab = dynamic(
+  () => import("@/components/tabs/RankingTab").then((m) => m.RankingTab)
+);
 const EquipSynergyTab = dynamic(
   () => import("@/components/tabs/EquipSynergyTab").then((m) => m.EquipSynergyTab)
 );
@@ -95,6 +98,9 @@ const TAB_ICONS: Record<TabKey, ReactNode> = {
   scout: <SearchIcon />,
   damage: <ShieldIcon />,
   swi: <TrophyIcon />,
+  unitrank: <UsersIcon />,
+  weaponrank: <SwordIcon />,
+  itemrank: <PackageIcon />,
   synergy: <LinkIcon />,
   matrix: <GridIcon />,
   metaenv: <ActivityIcon />,
@@ -517,6 +523,36 @@ export default function HomePage() {
         );
       case "swi":
         return <SwiTab log={filteredBattleLog} db={filteredDb} onSelectWarlord={selectWarlordNormalized} />;
+      case "unitrank":
+        return (
+          <RankingTab
+            variant="unit"
+            log={filteredBattleLog}
+            onSelectUnit={selectUnit}
+            onSelectEquip={selectEquip}
+            onSelectWarlord={selectWarlordNormalized}
+          />
+        );
+      case "weaponrank":
+        return (
+          <RankingTab
+            variant="weapon"
+            log={filteredBattleLog}
+            onSelectUnit={selectUnit}
+            onSelectEquip={selectEquip}
+            onSelectWarlord={selectWarlordNormalized}
+          />
+        );
+      case "itemrank":
+        return (
+          <RankingTab
+            variant="item"
+            log={filteredBattleLog}
+            onSelectUnit={selectUnit}
+            onSelectEquip={selectEquip}
+            onSelectWarlord={selectWarlordNormalized}
+          />
+        );
       case "synergy":
         return (
           <EquipSynergyTab

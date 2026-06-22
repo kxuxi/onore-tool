@@ -19,6 +19,7 @@ import {
   warlordRanking,
   weaponStats,
   itemStats,
+  unitStats,
   equipSynergy,
   traitMatchupMatrix,
   collectTraitMatchupBattles,
@@ -1013,6 +1014,75 @@ describe("weaponStats / itemStats", () => {
     expect(kabuto.attackUses).toBe(0);
     expect(kabuto.losses).toBe(2);
     expect(kabuto.winRate).toBeCloseTo(0);
+  });
+});
+
+describe("unitStats", () => {
+  // 攻撃側 信長: 左側、防衛側 勝頼: 右側。末尾 12 はターン数。
+  function line(o: {
+    leftUnit?: string;
+    leftBranch?: string;
+    rightUnit?: string;
+    rightBranch?: string;
+    result: string;
+    time: string;
+  }): string {
+    const {
+      leftUnit = "騎馬隊",
+      leftBranch = "騎兵",
+      rightUnit = "足軽隊",
+      rightBranch = "歩兵",
+      result,
+      time,
+    } = o;
+    return `【1戦目】 1600年4月 ${time} 京都 織田 信長 織田家 武特 ${leftUnit} ${leftBranch} 槍 饧 V.S. 武田 勝頼 武田家 統特 ${rightUnit} ${rightBranch} 馬 旗 ${result} 12`;
+  }
+
+  const log: BattleRecord[] = [
+    rec(line({ result: "信長の勝利", time: "04/10 10:00" }), 1),
+    rec(line({ result: "信長の勝利", time: "04/11 11:00" }), 2),
+    rec(line({ result: "勝頼の勝利", time: "04/12 12:00" }), 3),
+  ];
+
+  it("兵種ごとに使用回数・勝率・代表兵科・主な使用武将を集計する", () => {
+    const stats = unitStats(log);
+    const kiba = stats.find((s) => s.unit === "騎馬隊")!;
+    // 騎馬隊は左(信長)で 3 回出撃: 2勝1敗。
+    expect(kiba.battles).toBe(3);
+    expect(kiba.attackUses).toBe(3);
+    expect(kiba.defenseUses).toBe(0);
+    expect(kiba.wins).toBe(2);
+    expect(kiba.losses).toBe(1);
+    expect(kiba.decided).toBe(3);
+    expect(kiba.winRate).toBeCloseTo(2 / 3);
+    expect(kiba.branch).toBe("騎兵");
+    expect(kiba.topUsers[0]).toEqual({ name: "信長", count: 3 });
+
+    const ashi = stats.find((s) => s.unit === "足軽隊")!;
+    // 足軽隊は右(勝頼)で 3 回出撃: 1勝2敗。
+    expect(ashi.battles).toBe(3);
+    expect(ashi.defenseUses).toBe(3);
+    expect(ashi.wins).toBe(1);
+    expect(ashi.losses).toBe(2);
+    expect(ashi.branch).toBe("歩兵");
+  });
+
+  it("使用回数の多い順に並ぶ", () => {
+    const more: BattleRecord[] = [
+      ...log,
+      rec(
+        line({
+          leftUnit: "鉄砲隊",
+          leftBranch: "鉄砲",
+          result: "信長の勝利",
+          time: "04/13 13:00",
+        }),
+        4
+      ),
+    ];
+    // 足軽隊(右4戦) > 騎馬隊(左3戦) > 鉄砲隊(左1戦)。
+    const order = unitStats(more).map((s) => s.unit);
+    expect(order).toEqual(["足軽隊", "騎馬隊", "鉄砲隊"]);
   });
 });
 

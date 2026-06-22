@@ -1558,6 +1558,109 @@ export function itemStats(log: BattleRecord[]): EquipStat[] {
   return collectEquipStats(log, (s) => s.equip1);
 }
 
+/** 兵種ランキングの集計単位。 */
+export interface UnitStat {
+  /** 兵種名（normalizeDisplayToken 済み） */
+  unit: string;
+  /** 代表兵科（その兵種で最も多い兵科） */
+  branch: string;
+  /** 登場した戦闘数（攻守の延べ） */
+  battles: number;
+  wins: number;
+  losses: number;
+  others: number;
+  /** 勝敗が確定した数（wins + losses） */
+  decided: number;
+  /** 勝率 0..1（decided が 0 のときは 0） */
+  winRate: number;
+  /** 攻撃側で出撃した回数 */
+  attackUses: number;
+  /** 守備側で出撃した回数 */
+  defenseUses: number;
+  /** よく使う武将 TOP3 */
+  topUsers: { name: string; count: number }[];
+}
+
+/**
+ * 兵種ごとの出撃実績を集計し、使用回数・勝率・主な使用武将を求める。
+ * 攻撃側・守備側の両方を対象とし、重複行は除外する。兵科は最頻のものを代表とする。
+ */
+export function unitStats(log: BattleRecord[]): UnitStat[] {
+  interface Acc {
+    unit: string;
+    branches: Map<string, number>;
+    battles: number;
+    wins: number;
+    losses: number;
+    others: number;
+    attackUses: number;
+    defenseUses: number;
+    users: Map<string, number>;
+  }
+  const map = new Map<string, Acc>();
+  const sides: SideKey[] = ["left", "right"];
+  for (const { card } of dedupedCards(log)) {
+    for (const side of sides) {
+      const self = side === "left" ? card.left : card.right;
+      const raw = self.unit;
+      if (!raw) continue;
+      const unit = normalizeDisplayToken(raw);
+      if (!unit) continue;
+      const result = outcomeForSide(card.winner, side);
+      let e = map.get(unit);
+      if (!e) {
+        e = {
+          unit,
+          branches: new Map(),
+          battles: 0,
+          wins: 0,
+          losses: 0,
+          others: 0,
+          attackUses: 0,
+          defenseUses: 0,
+          users: new Map(),
+        };
+        map.set(unit, e);
+      }
+      e.battles++;
+      if (result === "win") e.wins++;
+      else if (result === "loss") e.losses++;
+      else e.others++;
+      if (side === "left") e.attackUses++;
+      else e.defenseUses++;
+      const branch = self.branch?.trim();
+      if (branch) e.branches.set(branch, (e.branches.get(branch) ?? 0) + 1);
+      const user = self.name?.trim();
+      if (user) e.users.set(user, (e.users.get(user) ?? 0) + 1);
+    }
+  }
+  return Array.from(map.values())
+    .map((e) => {
+      const decided = e.wins + e.losses;
+      const branch =
+        Array.from(e.branches.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ??
+        "";
+      const topUsers = Array.from(e.users.entries())
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 3);
+      return {
+        unit: e.unit,
+        branch,
+        battles: e.battles,
+        wins: e.wins,
+        losses: e.losses,
+        others: e.others,
+        decided,
+        winRate: decided > 0 ? e.wins / decided : 0,
+        attackUses: e.attackUses,
+        defenseUses: e.defenseUses,
+        topUsers,
+      };
+    })
+    .sort((a, b) => b.battles - a.battles);
+}
+
 /** 装備枠。weapon=武器(装備2) / item=品物(装備1)。 */
 export type EquipSlot = "weapon" | "item";
 
