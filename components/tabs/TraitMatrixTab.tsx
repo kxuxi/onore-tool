@@ -6,6 +6,7 @@ import {
   traitMatchupMatrix,
   collectTraitMatchupBattles,
   formatWinRate,
+  META_PERIODS,
 } from "@/lib/stats";
 import { BattleLogList } from "@/components/detail/BattleLogList";
 import { CloseIcon } from "@/components/icons";
@@ -16,14 +17,8 @@ interface Props {
   onSelectUnit: (name: string) => void;
 }
 
-/** 集計期間のプリセット（日数 / 全期間）。 */
-const PERIODS = [
-  { key: "7", label: "7日", days: 7 },
-  { key: "30", label: "30日", days: 30 },
-  { key: "90", label: "90日", days: 90 },
-  { key: "all", label: "全期間", days: null },
-] as const;
-type PeriodKey = (typeof PERIODS)[number]["key"];
+/** 集計期間のプリセット（ゲーム内の年で区切る）。環境ダッシュボードと共通。 */
+type PeriodKey = (typeof META_PERIODS)[number]["key"];
 
 /** 統計的に意味を持たせる最小サンプル数（これ未満のマスは「–」表示）。 */
 const MIN_SAMPLE = 5;
@@ -49,15 +44,14 @@ export function TraitMatrixTab({ log, onSelectWarlord, onSelectUnit }: Props) {
     null
   );
 
-  const sinceMs = useMemo(() => {
-    const def = PERIODS.find((p) => p.key === period)!;
-    if (def.days == null) return undefined;
-    return Date.now() - def.days * 24 * 60 * 60 * 1000;
-  }, [period]);
+  const range = useMemo(
+    () => META_PERIODS.find((p) => p.key === period) ?? null,
+    [period]
+  );
 
   const { traits, matrix } = useMemo(
-    () => traitMatchupMatrix(log, sinceMs),
-    [log, sinceMs]
+    () => traitMatchupMatrix(log, range ?? undefined),
+    [log, range]
   );
 
   const totalBattles = useMemo(
@@ -68,8 +62,13 @@ export function TraitMatrixTab({ log, onSelectWarlord, onSelectUnit }: Props) {
   // 選択中マスの対戦履歴（新しい順）。
   const drilldown = useMemo(() => {
     if (!selected) return [];
-    return collectTraitMatchupBattles(log, selected.row, selected.col, sinceMs);
-  }, [log, selected, sinceMs]);
+    return collectTraitMatchupBattles(
+      log,
+      selected.row,
+      selected.col,
+      range ?? undefined
+    );
+  }, [log, selected, range]);
 
   const selectPeriod = (key: PeriodKey) => {
     setPeriod(key);
@@ -80,13 +79,13 @@ export function TraitMatrixTab({ log, onSelectWarlord, onSelectUnit }: Props) {
     <section className="panel">
       <h2>相性マトリックス</h2>
       <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-        攻撃側（行）の特性が、防衛側（列）の特性にどれだけ勝てるかを示します。各マスは
-        攻撃側視点の勝率で、{MIN_SAMPLE}戦未満は「–」と表示します。マスをクリックすると
+        出兵側（行）の特性が、守備側（列）の特性にどれだけ勝てるかを示します。各マスは
+        出兵側視点の勝率で、{MIN_SAMPLE}戦未満は「–」と表示します。マスをクリックすると
         その相性の対戦履歴を表示します。
       </p>
 
       <div className="tmx-periods" role="tablist" aria-label="集計期間">
-        {PERIODS.map((p) => (
+        {META_PERIODS.map((p) => (
           <button
             key={p.key}
             type="button"

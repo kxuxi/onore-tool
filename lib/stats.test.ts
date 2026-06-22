@@ -26,6 +26,7 @@ import {
   MATCHUP_TRAITS,
   metaOverview,
   metaTier,
+  META_PERIODS,
   formatWinRate,
 } from "./stats";
 import type { BattleRecord, WarlordMap } from "./types";
@@ -1178,12 +1179,12 @@ describe("traitMatchupMatrix / collectTraitMatchupBattles", () => {
     expect(total).toBe(4); // 政治家の1戦を除く
   });
 
-  it("sinceMs で期間を絞る（未来指定なら全マス0）", () => {
-    const future = Date.now() + 400 * 24 * 60 * 60 * 1000;
-    const { matrix } = traitMatchupMatrix(log, future);
+  it("年の範囲で期間を絞る（範囲外なら全マス0）", () => {
+    // フィクスチャは全て 1600 年→範囲外では 0 戦
+    const { matrix } = traitMatchupMatrix(log, { from: 1700, to: 1800 });
     expect(matrix.flat().reduce((s, c) => s + c.battles, 0)).toBe(0);
-    // sinceMs=0 なら時刻が判明している全戦闘を含む
-    const all = traitMatchupMatrix(log, 0);
+    // 範囲内なら MATCHUP_TRAITS 内の全戦を含む
+    const all = traitMatchupMatrix(log, { from: 1590, to: 1610 });
     expect(all.matrix.flat().reduce((s, c) => s + c.battles, 0)).toBe(4);
   });
 
@@ -1310,11 +1311,22 @@ describe("metaOverview", () => {
     expect(dominant?.unit).toBe("騎馬隊");
   });
 
-  it("sinceMs で期間を絞る（未来指定なら空）", () => {
-    const future = Date.now() + 400 * 24 * 60 * 60 * 1000;
-    const o = metaOverview(log, future);
-    expect(o.totalBattles).toBe(0);
-    expect(o.units).toHaveLength(0);
+  it("年の範囲で期間を絞る", () => {
+    // フィクスチャは全て 1600 年→範囲外は空
+    const out = metaOverview(log, { from: 1700, to: 1800 });
+    expect(out.totalBattles).toBe(0);
+    expect(out.units).toHaveLength(0);
+    // 範囲内なら全 12 戦を集計
+    expect(metaOverview(log, { from: 1590, to: 1610 }).totalBattles).toBe(12);
+  });
+});
+
+describe("META_PERIODS", () => {
+  it("ゲーム内の年バケットを西暦の範囲で定義する", () => {
+    const byKey = Object.fromEntries(META_PERIODS.map((p) => [p.key, p]));
+    expect(byKey.y06).toMatchObject({ label: "06年-11年", from: 1606, to: 1611 });
+    expect(byKey.y60).toMatchObject({ label: "60年以降", from: 1660, to: null });
+    expect(byKey.all).toMatchObject({ from: null, to: null });
   });
 });
 

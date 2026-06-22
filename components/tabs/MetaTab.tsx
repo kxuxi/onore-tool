@@ -2,7 +2,12 @@
 
 import { useMemo, useState } from "react";
 import type { BattleRecord } from "@/lib/types";
-import { metaOverview, formatWinRate, type MetaTier } from "@/lib/stats";
+import {
+  metaOverview,
+  formatWinRate,
+  META_PERIODS,
+  type MetaTier,
+} from "@/lib/stats";
 import { AlertTriangleIcon } from "@/components/icons";
 
 interface Props {
@@ -10,14 +15,8 @@ interface Props {
   onSelectUnit: (name: string) => void;
 }
 
-/** 集計期間のプリセット（日数 / 全期間）。相性マトリックスと共通の刻み。 */
-const PERIODS = [
-  { key: "7", label: "7日", days: 7 },
-  { key: "30", label: "30日", days: 30 },
-  { key: "90", label: "90日", days: 90 },
-  { key: "all", label: "全期間", days: null },
-] as const;
-type PeriodKey = (typeof PERIODS)[number]["key"];
+/** 集計期間のプリセット（ゲーム内の年で区切る）。相性マトリックスと共通。 */
+type PeriodKey = (typeof META_PERIODS)[number]["key"];
 
 /** 採用率ランキングに表示する上位件数。 */
 const TOP_N = 10;
@@ -52,15 +51,14 @@ function trendInfo(
 export function MetaTab({ log, onSelectUnit }: Props) {
   const [period, setPeriod] = useState<PeriodKey>("all");
 
-  const sinceMs = useMemo(() => {
-    const def = PERIODS.find((p) => p.key === period)!;
-    if (def.days == null) return undefined;
-    return Date.now() - def.days * 24 * 60 * 60 * 1000;
-  }, [period]);
+  const range = useMemo(
+    () => META_PERIODS.find((p) => p.key === period) ?? null,
+    [period]
+  );
 
   const { totalBattles, units, traits, warnings } = useMemo(
-    () => metaOverview(log, sinceMs),
-    [log, sinceMs]
+    () => metaOverview(log, range ?? undefined),
+    [log, range]
   );
 
   // 採用率上位（少なくとも 1 回は登場した兵種のみ）。
@@ -88,7 +86,7 @@ export function MetaTab({ log, onSelectUnit }: Props) {
       </p>
 
       <div className="tmx-periods" role="tablist" aria-label="集計期間">
-        {PERIODS.map((p) => (
+        {META_PERIODS.map((p) => (
           <button
             key={p.key}
             type="button"

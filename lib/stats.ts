@@ -1799,25 +1799,57 @@ export interface TraitMatchupMatrix {
   matrix: TraitMatchupCell[][];
 }
 
-/** record の戦闘時刻が sinceMs 以降か（sinceMs 未指定なら常に true）。 */
-function withinSince(
-  record: BattleRecord,
-  sinceMs: number | undefined,
-  now: Date
+/** ゲーム内の年でフィルタする範囲（西暦・両端を含む、null＝無制限）。 */
+export interface YearRange {
+  from: number | null;
+  to: number | null;
+}
+
+/** メタ分析の集計期間プリセット（ゲーム内の年で区切る）。 */
+export interface MetaPeriod extends YearRange {
+  key: string;
+  label: string;
+}
+
+/**
+ * メタ分析（相性マトリックス・環境ダッシュボード）の集計期間プリセット。
+ * ゲーム内の通算年（西暦の下2桁が「○年」）で区切る。from/to は西暦で両端を含む。
+ */
+export const META_PERIODS: MetaPeriod[] = [
+  { key: "y06", label: "06年-11年", from: 1606, to: 1611 },
+  { key: "y12", label: "12年-17年", from: 1612, to: 1617 },
+  { key: "y18", label: "18年-23年", from: 1618, to: 1623 },
+  { key: "y24", label: "24年-35年", from: 1624, to: 1635 },
+  { key: "y36", label: "36年-47年", from: 1636, to: 1647 },
+  { key: "y48", label: "48年-59年", from: 1648, to: 1659 },
+  { key: "y60", label: "60年以降", from: 1660, to: null },
+  { key: "all", label: "全期間", from: null, to: null },
+];
+
+/**
+ * card のゲーム内の年が範囲 [from, to]（両端含む）に入るか。
+ * range 未指定または両端 null なら常に true。年が判別できない戦闘は範囲指定時は除外する。
+ */
+function withinYearRange(
+  card: BattleCard,
+  range: YearRange | undefined
 ): boolean {
-  if (sinceMs == null) return true;
-  const d = parseActionDate(record.time, now);
-  return d != null && d.getTime() >= sinceMs;
+  if (!range || (range.from == null && range.to == null)) return true;
+  const y = gameYear(card);
+  if (y == null) return false;
+  if (range.from != null && y < range.from) return false;
+  if (range.to != null && y > range.to) return false;
+  return true;
 }
 
 /**
  * 特性（タイプ）の組み合わせごとの勝率を、攻撃側（左）視点で集計する。
  * 行＝攻撃側の特性 / 列＝防衛側の特性。各セルは「行の特性で攻めて列の特性に勝った率」。
- * sinceMs を渡すと、その時刻以降（戦闘時刻が判明している分）に絞る。重複行は除外する。
+ * range を渡すと、その年範囲（ゲーム内の年が判明している分）に絞る。重複行は除外する。
  */
 export function traitMatchupMatrix(
   log: BattleRecord[],
-  sinceMs?: number,
+  range?: YearRange,
   traits: string[] = MATCHUP_TRAITS
 ): TraitMatchupMatrix {
   const index = new Map<string, number>();
@@ -1825,9 +1857,8 @@ export function traitMatchupMatrix(
   const acc = traits.map(() =>
     traits.map(() => ({ battles: 0, wins: 0, losses: 0 }))
   );
-  const now = new Date();
-  for (const { record, card } of dedupedCards(log)) {
-    if (!withinSince(record, sinceMs, now)) continue;
+  for (const { card } of dedupedCards(log)) {
+    if (!withinYearRange(card, range)) continue;
     const ri = index.get(card.left.type?.trim() ?? "");
     const ci = index.get(card.right.type?.trim() ?? "");
     if (ri == null || ci == null) continue;
@@ -1860,14 +1891,13 @@ export function collectTraitMatchupBattles(
   log: BattleRecord[],
   rowTrait: string,
   colTrait: string,
-  sinceMs?: number
+  range?: YearRange
 ): BattleOutcome[] {
   const row = rowTrait.trim();
   const col = colTrait.trim();
-  const now = new Date();
   const out: BattleOutcome[] = [];
   for (const { record, card } of dedupedCards(log)) {
-    if (!withinSince(record, sinceMs, now)) continue;
+    if (!withinYearRange(card, range)) continue;
     if ((card.left.type?.trim() ?? "") !== row) continue;
     if ((card.right.type?.trim() ?? "") !== col) continue;
     out.push(makeOutcome(record, card, "left"));
@@ -1984,11 +2014,11 @@ interface MetaTraitAcc {
 /**
  * 環境（メタゲーム）全体を概観する集計。
  * 兵種ごとの採用率・勝率・強度ティア・トレンド、特性別の勝率、環境警告をまとめて返す。
- * sinceMs を渡すと、その時刻以降（戦闘時刻が判明している分）に絞る。重複行は除外する。
+ * range を渡すと、その年範囲（ゲーム内の年が判明している分）に絞る。重複行は除外する。
  */
 export function metaOverview(
   log: BattleRecord[],
-  sinceMs?: number
+  range?: YearRange
 ): MetaOverview {
   const now = new Date();
   const units = new Map<string, MetaUnitAcc>();
@@ -2039,7 +2069,7 @@ export function metaOverview(
   };
 
   for (const { record, card } of dedupedCards(log)) {
-    if (!withinSince(record, sinceMs, now)) continue;
+    if (!withinYearRange(card, range)) continue;
     totalBattles++;
     const t = parseActionDate(record.time, now)?.getTime() ?? null;
     const leftResult = outcomeForSide(card.winner, "left");
