@@ -1,8 +1,10 @@
-export type TabKey = "history" | "scout" | "db" | "damage" | "units" | "weapons" | "items" | "nations" | "factions" | "swi";
+export type TabKey = "history" | "scout" | "db" | "damage" | "units" | "weapons" | "items" | "nations" | "factions" | "swi" | "turns" | "synergy";
 
 export interface Warlord {
   /** 武将名（プライマリキー） */
   name: string;
+  /** 家督名（同じ家督名を持つ異なる名前は同一武将と見なす） */
+  household?: string;
   /** 所属している国（勢力名） */
   faction?: string;
   /** タイプ: 武特 / 統特 / 知特 / 武統 / 統知 / 知武 / 政治家 / 謎 など */
@@ -41,6 +43,8 @@ export type WarlordMap = Record<string, Warlord>;
 
 /** 登録した戦闘履歴の 1 行（生データ） */
 export interface BattleRecord {
+  /** DB レコード ID（登録後は必須、登録前は不要） */
+  id?: number;
   /** 生の行テキスト（タブ等を含む、前後空白は除去済み） */
   line: string;
   /** 表示用の戦闘時刻（例: 1687年5月 06/15 09:30） */

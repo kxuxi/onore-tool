@@ -33,10 +33,13 @@ import {
   FlagIcon,
   SlidersIcon,
   BookIcon,
+  ZapIcon,
+  LinkIcon,
   LogInIcon,
   LogOutIcon,
 } from "@/components/icons";
 import type { BattleRecord, TabKey, WarlordMap } from "@/lib/types";
+import { normalizationMap } from "@/lib/storage";
 
 const HistoryTab = dynamic(
   () => import("@/components/tabs/HistoryTab").then((m) => m.HistoryTab)
@@ -63,6 +66,12 @@ const SettingsTab = dynamic(
 const SwiTab = dynamic(
   () => import("@/components/tabs/SwiTab").then((m) => m.SwiTab)
 );
+const TurnAnalysisTab = dynamic(
+  () => import("@/components/tabs/TurnAnalysisTab").then((m) => m.TurnAnalysisTab)
+);
+const EquipSynergyTab = dynamic(
+  () => import("@/components/tabs/EquipSynergyTab").then((m) => m.EquipSynergyTab)
+);
 const WarlordDetail = dynamic(
   () => import("@/components/detail/WarlordDetail").then((m) => m.WarlordDetail)
 );
@@ -82,6 +91,8 @@ const TAB_ICONS: Record<TabKey, ReactNode> = {
   scout: <SearchIcon />,
   damage: <ShieldIcon />,
   swi: <TrophyIcon />,
+  turns: <ZapIcon />,
+  synergy: <LinkIcon />,
   db: <DatabaseIcon />,
   units: <UsersIcon />,
   weapons: <SwordIcon />,
@@ -256,6 +267,18 @@ export default function HomePage() {
     );
   }, [db, selectedTerm]);
 
+  // filteredDb 内の household 正規化マップ（同じ household → 最新の代表名）。
+  const householdNormMap = useMemo(() => normalizationMap(filteredDb), [filteredDb]);
+
+  // 武将詳細ページへの遷移。household がある場合は代表名（最新名）にリダイレクト。
+  const selectWarlordNormalized = useCallback(
+    (name: string) => {
+      const canonical = householdNormMap[name] ?? name;
+      selectWarlord(canonical);
+    },
+    [householdNormMap, selectWarlord]
+  );
+
   // Escape で詳細ページを1つ戻る／モバイルのサイドバーを閉じる。
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -347,6 +370,24 @@ export default function HomePage() {
       pushToast("error", "ログアウトに失敗しました");
     }
   }, [logout, pushToast]);
+
+  const handleDeleteBattle = useCallback(
+    async (id: number) => {
+      try {
+        const { deleteBattleRecord } = await import("@/lib/api");
+        await deleteBattleRecord(id);
+        // 削除後、戦闘履歴を再取得して画面を更新する。
+        const newLog = battleLog.filter((r) => r.id !== id);
+        setBattleLog(newLog);
+        pushToast("success", "戦闘履歴を削除しました");
+      } catch {
+        pushToast("error", "削除に失敗しました。もう一度お試しください。");
+        throw new Error("削除失敗");
+      }
+    },
+    [battleLog, setBattleLog, pushToast]
+  );
+
 
   const handleRegister = useCallback(
     async (text: string) => {
@@ -443,11 +484,13 @@ export default function HomePage() {
         return (
           <HistoryTab
             canRegister={!authReady || isAdmin}
+            canDelete={isAdmin}
             onRegister={handleRegister}
             log={filteredBattleLog}
             factionColors={factionColors}
-            onSelectWarlord={selectWarlord}
+            onSelectWarlord={selectWarlordNormalized}
             onSelectUnit={selectUnit}
+            onDelete={handleDeleteBattle}
           />
         );
       case "scout":
@@ -455,7 +498,7 @@ export default function HomePage() {
           <ScoutTab
             db={db}
             colors={factionColors}
-            onSelectWarlord={selectWarlord}
+            onSelectWarlord={selectWarlordNormalized}
           />
         );
       case "damage":
@@ -463,11 +506,21 @@ export default function HomePage() {
           <DamageTab
             db={filteredDb}
             colors={factionColors}
-            onSelectWarlord={selectWarlord}
+            onSelectWarlord={selectWarlordNormalized}
           />
         );
       case "swi":
-        return <SwiTab log={filteredBattleLog} onSelectWarlord={selectWarlord} />;
+        return <SwiTab log={filteredBattleLog} db={filteredDb} onSelectWarlord={selectWarlordNormalized} />;
+      case "turns":
+        return <TurnAnalysisTab log={filteredBattleLog} onSelectUnit={selectUnit} />;
+      case "synergy":
+        return (
+          <EquipSynergyTab
+            log={filteredBattleLog}
+            onSelectWarlord={selectWarlordNormalized}
+            onSelectEquip={selectEquip}
+          />
+        );
       case "db":
         return <DbTab db={filteredDb} colors={factionColors} onSelectWarlord={selectWarlord} onSelectFaction={selectFaction} onImportStats={handleImportStats} />;
       case "units":
@@ -477,7 +530,7 @@ export default function HomePage() {
           <EquipTab
             variant="weapon"
             log={filteredBattleLog}
-            onSelectWarlord={selectWarlord}
+            onSelectWarlord={selectWarlordNormalized}
             onSelectEquip={(name) => selectEquip(name, "weapon")}
           />
         );
@@ -486,7 +539,7 @@ export default function HomePage() {
           <EquipTab
             variant="item"
             log={filteredBattleLog}
-            onSelectWarlord={selectWarlord}
+            onSelectWarlord={selectWarlordNormalized}
             onSelectEquip={(name) => selectEquip(name, "item")}
           />
         );
@@ -527,7 +580,9 @@ export default function HomePage() {
     handleImportStats,
     handleChangeFactionColors,
     handleChangeTheme,
+    handleDeleteBattle,
     selectWarlord,
+    selectWarlordNormalized,
     selectUnit,
     selectEquip,
     selectFaction,
@@ -543,7 +598,7 @@ export default function HomePage() {
           log={filteredBattleLog}
           colors={factionColors}
           canComment={isAdmin}
-          onSelectWarlord={selectWarlord}
+          onSelectWarlord={selectWarlordNormalized}
           onSelectUnit={selectUnit}
           onSelectFaction={selectFaction}
           onBack={backDetail}
@@ -554,7 +609,7 @@ export default function HomePage() {
         <UnitDetail
           name={detail.name}
           log={filteredBattleLog}
-          onSelectWarlord={selectWarlord}
+          onSelectWarlord={selectWarlordNormalized}
           onSelectUnit={selectUnit}
           onBack={backDetail}
         />
@@ -567,7 +622,7 @@ export default function HomePage() {
           log={filteredBattleLog}
           colors={factionColors}
           canViewLatestUnits={isAdmin}
-          onSelectWarlord={selectWarlord}
+          onSelectWarlord={selectWarlordNormalized}
           onSelectUnit={selectUnit}
           onBack={backDetail}
         />
@@ -578,7 +633,7 @@ export default function HomePage() {
           name={detail.name}
           slot={detail.kind}
           log={filteredBattleLog}
-          onSelectWarlord={selectWarlord}
+          onSelectWarlord={selectWarlordNormalized}
           onSelectUnit={selectUnit}
           onBack={backDetail}
         />

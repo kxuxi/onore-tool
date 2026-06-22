@@ -37,6 +37,8 @@ export function mergeWarlords(
       actions: actions.length > 0 ? actions : undefined,
       term: w.term ?? prev?.term,
       updatedAt: Math.max(prev?.updatedAt ?? 0, w.updatedAt),
+      // 家督名は新しい方を採用（未設定なら既存値を保持）
+      household: w.household ?? prev?.household,
       // 能力値・自己PR は戦闘登録では渡らないため、既存値を保持する。
       power: w.power ?? prev?.power,
       intelligence: w.intelligence ?? prev?.intelligence,
@@ -110,4 +112,45 @@ export function lookup(map: WarlordMap, name: string): Warlord | undefined {
   const key = name.trim();
   if (!key) return undefined;
   return map[key];
+}
+
+/**
+ * 同じ household を持つ武将を1つの代表名に正規化するマップを作成する。
+ * 各 household について、最新の updatedAt を持つ武将を代表として選ぶ。
+ * household が空の武将は、名前をそのまま返す。
+ */
+export function normalizationMap(map: WarlordMap): Record<string, string> {
+  const byHousehold = new Map<string | undefined, { name: string; updatedAt: number }[]>();
+
+  // household でグループ化
+  for (const w of Object.values(map)) {
+    const key = w.household || undefined;
+    if (!byHousehold.has(key)) {
+      byHousehold.set(key, []);
+    }
+    byHousehold.get(key)!.push({ name: w.name, updatedAt: w.updatedAt });
+  }
+
+  // 各グループで最新の代表を決定
+  const result: Record<string, string> = {};
+  for (const [household, warlords] of byHousehold) {
+    const latest = warlords.reduce((a, b) => (a.updatedAt >= b.updatedAt ? a : b));
+    for (const w of warlords) {
+      result[w.name] = latest.name;
+    }
+  }
+  return result;
+}
+
+/**
+ * 指定した武将と同じ household を持つ全ての武将名を返す（自身を含む）。
+ * household が未設定の場合は自身の名前のみを返す。
+ */
+export function householdAliases(map: WarlordMap, name: string): string[] {
+  const warlord = map[name];
+  if (!warlord?.household) return [name];
+  const household = warlord.household;
+  return Object.values(map)
+    .filter((w) => w.household === household)
+    .map((w) => w.name);
 }

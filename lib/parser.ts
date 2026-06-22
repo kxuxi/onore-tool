@@ -156,10 +156,11 @@ function sliceWarlord(
   block: string[]
 ): Omit<Warlord, "updatedAt" | "battleAt"> | null {
   if (block.length !== 8) return null;
-  const [faction, name, , type, unit, branch] = block;
+  const [faction, name, household, type, unit, branch] = block;
   if (!name || !type || !branch) return null;
   return {
     name: name.trim(),
+    household: household?.trim() || undefined,
     // 国名のプレースホルダー（なし/-/ー）は除去する。
     // 戦闘カード表示（sideFromBlock）と正規化を揃え、DBに偽の国名が残らないようにする。
     faction: cleanToken(faction),

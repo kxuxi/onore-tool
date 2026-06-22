@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { BattleRecord } from "@/lib/types";
+import type { BattleRecord, WarlordMap } from "@/lib/types";
 import { FilterIcon, CloseIcon } from "@/components/icons";
 import { SearchBox } from "@/components/SearchBox";
 import {
@@ -12,6 +12,7 @@ import {
 
 interface Props {
   log: BattleRecord[];
+  db?: WarlordMap;
   onSelectWarlord: (name: string) => void;
 }
 
@@ -30,14 +31,14 @@ const METRIC_OPTIONS: {
   { key: "assists", label: "アシスト数", kind: "count" },
 ];
 
-export function SwiTab({ log, onSelectWarlord }: Props) {
+export function SwiTab({ log, db, onSelectWarlord }: Props) {
   const [metric, setMetric] = useState<RankMetric>("attackWinRate");
   const [minSorties, setMinSorties] = useState(10);
   const [query, setQuery] = useState("");
   const [branch, setBranch] = useState("");
   const [showFilter, setShowFilter] = useState(false);
 
-  const ranking = useMemo(() => warlordRanking(log), [log]);
+  const ranking = useMemo(() => warlordRanking(log, db), [log, db]);
 
   const metricKind =
     METRIC_OPTIONS.find((m) => m.key === metric)?.kind ?? "count";

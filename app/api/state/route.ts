@@ -10,6 +10,7 @@ export const dynamic = "force-dynamic";
 
 type WarlordRow = {
   name: string;
+  household: string | null;
   faction: string | null;
   type: string;
   branch: string;
@@ -31,6 +32,7 @@ type WarlordRow = {
 function rowToWarlord(r: WarlordRow): Warlord {
   return {
     name: r.name,
+    household: r.household ?? undefined,
     faction: r.faction ?? undefined,
     type: r.type,
     branch: r.branch,
@@ -53,6 +55,7 @@ function rowToWarlord(r: WarlordRow): Warlord {
 function warlordToRow(w: Warlord) {
   return {
     name: w.name,
+    household: w.household ?? null,
     faction: w.faction ?? null,
     type: w.type,
     branch: w.branch,
@@ -85,6 +88,7 @@ async function loadLog(): Promise<BattleRecord[]> {
     orderBy: { id: "asc" },
   });
   return rows.map((r) => ({
+    id: r.id,
     line: r.raw || r.line,
     time: r.time ?? undefined,
     term: r.term,

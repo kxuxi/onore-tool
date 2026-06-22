@@ -19,6 +19,8 @@ import {
   warlordRanking,
   weaponStats,
   itemStats,
+  turnEfficiency,
+  equipSynergy,
   formatWinRate,
 } from "./stats";
 import type { BattleRecord, WarlordMap } from "./types";
@@ -1021,6 +1023,91 @@ describe("formatWinRate", () => {
     expect(formatWinRate(0, 0)).toBe("—");
     expect(formatWinRate(0.5, 0)).toBe("—");
     expect(formatWinRate(0.5, -1)).toBe("—");
+  });
+});
+
+describe("turnEfficiency", () => {
+  // 注目側=織田 信長（兵種 leftUnit / 兵科 騎兵）、相手=武田 勝頼（兵種 rightUnit）。
+  // 末尾の数値がターン数。turns="" でターン不明（撤退などで欠落）を表現する。
+  function line(o: {
+    leftUnit?: string;
+    rightUnit?: string;
+    result: string;
+    turns: number | "";
+    time: string;
+  }): string {
+    const { leftUnit = "騎馬隊", rightUnit = "足軽隊", result, turns, time } = o;
+    const t = turns === "" ? "" : ` ${turns}`;
+    return `【1戦目】 1600年4月 ${time} 京都 織田 信長 織田家 武特 ${leftUnit} 騎兵 槍 鎧 V.S. 武田 勝頼 武田家 統特 ${rightUnit} 歩兵 馬 旗 ${result}${t}`;
+  }
+
+  const log: BattleRecord[] = [
+    rec(line({ result: "信長の勝利", turns: 2, time: "04/10 10:00" }), 1), // 騎馬隊 勝ち 2T（速攻）
+    rec(line({ result: "信長の勝利", turns: 4, time: "04/11 11:00" }), 2), // 騎馬隊 勝ち 4T
+    rec(line({ result: "勝頼の勝利", turns: 8, time: "04/12 12:00" }), 3), // 騎馬隊 負け 8T
+    rec(line({ result: "信長の勝利", turns: "", time: "04/13 13:00" }), 4), // ターン不明 → 除外
+  ];
+
+  it("勝利時・敗北時の平均ターンと速攻数を兵種ごとに集計する", () => {
+    const stats = turnEfficiency(log);
+    const kiba = stats.find((s) => s.unit === "騎馬隊")!;
+    expect(kiba.battles).toBe(3); // ターン不明の1戦を除く
+    expect(kiba.wins).toBe(2);
+    expect(kiba.losses).toBe(1);
+    expect(kiba.avgWinTurns).toBeCloseTo(3); // (2+4)/2
+    expect(kiba.avgLossTurns).toBeCloseTo(8);
+    expect(kiba.avgTurns).toBeCloseTo((2 + 4 + 8) / 3);
+    expect(kiba.fastWins).toBe(1); // 3T 以内は 2T のみ
+    expect(kiba.branch).toBe("騎兵");
+  });
+
+  it("ターン数が無い戦闘は母数から除外する", () => {
+    const onlyNoTurns: BattleRecord[] = [
+      rec(line({ result: "信長の勝利", turns: "", time: "05/10 10:00" }), 1),
+    ];
+    expect(turnEfficiency(onlyNoTurns)).toHaveLength(0);
+  });
+});
+
+describe("equipSynergy", () => {
+  // 注目側=織田 信長（品物=item / 武器=weapon）、相手側は装備なしで集計対象外。
+  function line(o: {
+    item?: string;
+    weapon?: string;
+    result: string;
+    time: string;
+  }): string {
+    const { item = "金の腕輪", weapon = "鬼丸", result, time } = o;
+    return `【1戦目】 1600年4月 ${time} 京都 織田 信長 織田家 武特 騎馬隊 騎兵 ${item} ${weapon} V.S. 武田 勝頼 武田家 統特 騎馬隊 騎兵 なし なし ${result} 12`;
+  }
+
+  const log: BattleRecord[] = [
+    rec(line({ result: "信長の勝利", time: "04/10 10:00" }), 1),
+    rec(line({ result: "信長の勝利", time: "04/11 11:00" }), 2),
+    rec(line({ result: "勝頼の勝利", time: "04/12 12:00" }), 3),
+    rec(line({ item: "なし", result: "信長の勝利", time: "04/13 13:00" }), 4), // 品物なし → 除外
+  ];
+
+  it("武器×品物の組み合わせごとに勝率を集計する", () => {
+    const stats = equipSynergy(log);
+    // 相手側は装備なしで除外されるため、組み合わせは1つだけ。
+    expect(stats).toHaveLength(1);
+    const s = stats[0];
+    expect(s.weapon).toBe("鬼丸");
+    expect(s.item).toBe("金の腕輪");
+    expect(s.battles).toBe(3); // 品物なしの1戦を除く
+    expect(s.wins).toBe(2);
+    expect(s.losses).toBe(1);
+    expect(s.decided).toBe(3);
+    expect(s.winRate).toBeCloseTo(2 / 3);
+    expect(s.topUsers[0]).toEqual({ name: "信長", count: 3 });
+  });
+
+  it("片方でも装備が欠ける側は組み合わせ集計に含めない", () => {
+    const noItem: BattleRecord[] = [
+      rec(line({ item: "なし", result: "信長の勝利", time: "06/10 10:00" }), 1),
+    ];
+    expect(equipSynergy(noItem)).toHaveLength(0);
   });
 });
 

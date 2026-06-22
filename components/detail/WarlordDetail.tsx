@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import type { WarlordMap } from "@/lib/types";
 import type { BattleRecord } from "@/lib/types";
-import { lookup } from "@/lib/storage";
+import { lookup, householdAliases } from "@/lib/storage";
 import { factionBadgeStyle, type FactionColorMap } from "@/lib/factionColors";
 import {
   collectWarlordBattles,
@@ -56,9 +56,10 @@ export function WarlordDetail({
   onSelectFaction,
   onBack,
 }: Props) {
+  const aliases = useMemo(() => householdAliases(db, name), [db, name]);
   const outcomes = useMemo(
-    () => collectWarlordBattles(log, name),
-    [log, name]
+    () => collectWarlordBattles(log, name, aliases),
+    [log, name, aliases]
   );
   const summary = useMemo(() => summarize(outcomes), [outcomes]);
   const usage = useMemo(() => unitUsage(outcomes), [outcomes]);

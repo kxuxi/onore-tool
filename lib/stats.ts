@@ -7,6 +7,7 @@ import {
   type BattleWinner,
 } from "./parser";
 import { parseActionDate } from "./action";
+import { normalizationMap } from "./storage";
 import type { BattleRecord, WarlordMap } from "./types";
 
 export type SideKey = "left" | "right";
@@ -109,17 +110,18 @@ function unitMatches(side: BattleSide, target: string): boolean {
   return normalizeDisplayToken(side.unit) === target;
 }
 
-/** 指定武将が登場した戦闘を新しい順で集める。 */
+/** 指定武将が登場した戦闘を新しい順で集める。aliases に同一人物の別名を渡すと統合集計。 */
 export function collectWarlordBattles(
   log: BattleRecord[],
-  name: string
+  name: string,
+  aliases?: string[]
 ): BattleOutcome[] {
-  const target = name.trim();
+  const targets = new Set([name.trim(), ...(aliases ?? []).map((a) => a.trim())]);
   const out: BattleOutcome[] = [];
   for (const { record, card } of dedupedCards(log)) {
     // 通常は左右どちらか一方のみ一致する。両方一致した場合は左を優先。
-    if (card.left.name === target) out.push(makeOutcome(record, card, "left"));
-    else if (card.right.name === target)
+    if (targets.has(card.left.name ?? "")) out.push(makeOutcome(record, card, "left"));
+    else if (targets.has(card.right.name ?? ""))
       out.push(makeOutcome(record, card, "right"));
   }
   return sortByTimeDesc(out);
@@ -1057,11 +1059,19 @@ export interface SideSwiStat {
  * 出撃 = (注目側武将, 戦闘時刻) でまとめた 1 回。枚抜き = 1戦目からの連勝数。
  * 守備側も同様に (防衛側武将, 戦闘時刻) でまとめ、1戦目から連続で守り切った数を
  * 「枚抜き（守備）」として攻撃と同じ重みで評価する。重複行は除外する。
+ * 
+ * @param log 戦闘ログ
+ * @param side 集計対象の側（left=攻撃 / right=守備）
+ * @param db 武将DB。渡された場合、同じ household の複数の名前を1つに正規化。
  */
 function computeSideSwi(
   log: BattleRecord[],
-  side: SideKey
+  side: SideKey,
+  db?: WarlordMap
 ): Map<string, SideSwiStat> {
+  // 同じ household の複数の名前を最新の代表名に正規化するマップ
+  const normMap = db ? normalizationMap(db) : null;
+
   // 出撃単位に集約。
   const sorties = new Map<string, SortieAgg>();
   // 武将ごとの最新の勢力・兵科（表示・フィルタ用）。
@@ -1070,8 +1080,12 @@ function computeSideSwi(
 
   for (const { card } of dedupedCards(log)) {
     const self = side === "left" ? card.left : card.right;
-    const name = self.name?.trim();
+    let name = self.name?.trim();
     if (!name) continue;
+    // household でグループ化（normMap が有効な場合）
+    if (normMap && normMap[name]) {
+      name = normMap[name];
+    }
     const key = `${name}@@${card.battleAt ?? ""}`;
     let s = sorties.get(key);
     if (!s) {
@@ -1237,7 +1251,8 @@ const ASSIST_WINDOW_MS = 40 * 60 * 1000;
  * - 同一 battleAt（同一タイムスタンプ）内の別ラウンドは 0 分差のため
  *   「別イベント」に含めない（T < T2 の厳格チェック）。
  */
-function computeAssists(log: BattleRecord[]): Map<string, number> {
+function computeAssists(log: BattleRecord[], db?: WarlordMap): Map<string, number> {
+  const normMap = db ? normalizationMap(db) : null;
   const now = new Date();
   const cards = dedupedCards(log);
 
@@ -1269,12 +1284,18 @@ function computeAssists(log: BattleRecord[]): Map<string, number> {
     const t = getTime(card.battleAt);
     if (t === null) continue;
 
-    const winnerName = (
+    let winnerName = (
       card.winner === "left" ? card.left : card.right
     ).name?.trim();
-    const loserName = (
+    let loserName = (
       card.winner === "left" ? card.right : card.left
     ).name?.trim();
+    if (winnerName && normMap && normMap[winnerName]) {
+      winnerName = normMap[winnerName];
+    }
+    if (loserName && normMap && normMap[loserName]) {
+      loserName = normMap[loserName];
+    }
     if (!winnerName || !loserName) continue;
 
     // 敗者の被倒時刻を記録。
@@ -1308,13 +1329,21 @@ function computeAssists(log: BattleRecord[]): Map<string, number> {
 
 /** 決着戦目ごとの攻撃/守備勝率集計（撤退・引き分けを除く）。 */
 function computeRoundWinRates(
-  log: BattleRecord[]
+  log: BattleRecord[],
+  db?: WarlordMap
 ): Map<string, { attackWins: number; attackRounds: number; defenseWins: number; defenseRounds: number }> {
+  const normMap = db ? normalizationMap(db) : null;
   const out = new Map<string, { attackWins: number; attackRounds: number; defenseWins: number; defenseRounds: number }>();
   for (const { card } of dedupedCards(log)) {
     if (card.winner !== "left" && card.winner !== "right") continue;
-    const leftName = card.left.name?.trim();
-    const rightName = card.right.name?.trim();
+    let leftName = card.left.name?.trim();
+    let rightName = card.right.name?.trim();
+    if (leftName && normMap && normMap[leftName]) {
+      leftName = normMap[leftName];
+    }
+    if (rightName && normMap && normMap[rightName]) {
+      rightName = normMap[rightName];
+    }
     if (leftName) {
       const cur = out.get(leftName) ?? { attackWins: 0, attackRounds: 0, defenseWins: 0, defenseRounds: 0 };
       cur.attackRounds += 1;
@@ -1334,8 +1363,10 @@ function computeRoundWinRates(
 /** 撤退を含む出撃を除外した効率用の集計。 */
 function computeEfficiency(
   log: BattleRecord[],
-  side: SideKey
+  side: SideKey,
+  db?: WarlordMap
 ): Map<string, { wins: number; sorties: number }> {
+  const normMap = db ? normalizationMap(db) : null;
   interface Sortie {
     wins: Set<number>;
     hasRetreat: boolean;
@@ -1344,7 +1375,10 @@ function computeEfficiency(
 
   for (const { card } of dedupedCards(log)) {
     const self = side === "left" ? card.left : card.right;
-    const name = self.name?.trim();
+    let name = self.name?.trim();
+    if (name && normMap && normMap[name]) {
+      name = normMap[name];
+    }
     if (!name) continue;
     const key = `${name}@@${card.battleAt ?? ""}`;
     let s = sorties.get(key);
@@ -1373,14 +1407,17 @@ function computeEfficiency(
  * 武将ごとに攻撃・守備の出撃数 / 勝利数 / SWI をまとめて集計する。
  * 出兵勝利数・守備勝利数はその側で勝った戦目の総数、
  * SWI（攻撃 / 守備）はそれぞれの側を 1戦目からの連勝（枚抜き）で重み付け評価したもの。
+ * 
+ * @param log 戦闘ログ
+ * @param db 武将DB。渡された場合、同じ household の複数の名前を1つに正規化。
  */
-export function warlordRanking(log: BattleRecord[]): WarlordRankStat[] {
-  const atk = computeSideSwi(log, "left");
-  const def = computeSideSwi(log, "right");
-  const atkEff = computeEfficiency(log, "left");
-  const defEff = computeEfficiency(log, "right");
-  const roundRates = computeRoundWinRates(log);
-  const assistsMap = computeAssists(log);
+export function warlordRanking(log: BattleRecord[], db?: WarlordMap): WarlordRankStat[] {
+  const atk = computeSideSwi(log, "left", db);
+  const def = computeSideSwi(log, "right", db);
+  const atkEff = computeEfficiency(log, "left", db);
+  const defEff = computeEfficiency(log, "right", db);
+  const roundRates = computeRoundWinRates(log, db);
+  const assistsMap = computeAssists(log, db);
   const names = new Set<string>([...atk.keys(), ...def.keys()]);
   const out: WarlordRankStat[] = [];
   for (const name of names) {
@@ -1558,5 +1595,181 @@ export function collectEquipBattles(
       out.push(makeOutcome(record, card, "right"));
   }
   return sortByTimeDesc(out);
+}
+
+/** ターン効率の集計単位（兵種ごと）。 */
+export interface TurnEfficiencyStat {
+  /** 兵種名（normalizeDisplayToken 済み） */
+  unit: string;
+  /** 代表兵科（その兵種で最も多い兵科） */
+  branch: string;
+  /** ターン数が判明した出撃数（攻守の延べ） */
+  battles: number;
+  /** ターン数が判明した勝利数 */
+  wins: number;
+  /** ターン数が判明した敗北数 */
+  losses: number;
+  /** 勝利時の平均ターン（少ないほど速攻＝攻撃効率が高い） */
+  avgWinTurns: number;
+  /** 敗北時の平均ターン（多いほど粘る＝守備で時間を稼ぐ） */
+  avgLossTurns: number;
+  /** 全体の平均ターン */
+  avgTurns: number;
+  /** 3 ターン以内に勝った回数（速攻数） */
+  fastWins: number;
+}
+
+/**
+ * 兵種ごとに「決着までのターン数」を集計し、戦闘効率を求める。
+ * ターン数は戦闘全体の値なので、勝者側＝速く倒した・敗者側＝長く粘った、と解釈する。
+ * ターン数が不明な戦闘（撤退などで turns 無し）は母数から除外する。重複行も除外する。
+ */
+export function turnEfficiency(log: BattleRecord[]): TurnEfficiencyStat[] {
+  interface Acc {
+    unit: string;
+    branches: Map<string, number>;
+    battles: number;
+    wins: number;
+    losses: number;
+    winTurnSum: number;
+    lossTurnSum: number;
+    turnSum: number;
+    fastWins: number;
+  }
+  const map = new Map<string, Acc>();
+  const sides: SideKey[] = ["left", "right"];
+  for (const { card } of dedupedCards(log)) {
+    const turns = card.turns ? Number(card.turns) : NaN;
+    if (!Number.isFinite(turns) || turns <= 0) continue;
+    for (const side of sides) {
+      const self = side === "left" ? card.left : card.right;
+      if (!self.unit) continue;
+      const unit = normalizeDisplayToken(self.unit);
+      if (!unit) continue;
+      const result = outcomeForSide(card.winner, side);
+      let e = map.get(unit);
+      if (!e) {
+        e = {
+          unit,
+          branches: new Map(),
+          battles: 0,
+          wins: 0,
+          losses: 0,
+          winTurnSum: 0,
+          lossTurnSum: 0,
+          turnSum: 0,
+          fastWins: 0,
+        };
+        map.set(unit, e);
+      }
+      e.battles++;
+      e.turnSum += turns;
+      const branch = self.branch?.trim();
+      if (branch) e.branches.set(branch, (e.branches.get(branch) ?? 0) + 1);
+      if (result === "win") {
+        e.wins++;
+        e.winTurnSum += turns;
+        if (turns <= 3) e.fastWins++;
+      } else if (result === "loss") {
+        e.losses++;
+        e.lossTurnSum += turns;
+      }
+    }
+  }
+  return Array.from(map.values())
+    .map((e) => {
+      const branch =
+        Array.from(e.branches.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ??
+        "";
+      return {
+        unit: e.unit,
+        branch,
+        battles: e.battles,
+        wins: e.wins,
+        losses: e.losses,
+        avgWinTurns: e.wins > 0 ? e.winTurnSum / e.wins : 0,
+        avgLossTurns: e.losses > 0 ? e.lossTurnSum / e.losses : 0,
+        avgTurns: e.battles > 0 ? e.turnSum / e.battles : 0,
+        fastWins: e.fastWins,
+      };
+    })
+    .sort((a, b) => b.battles - a.battles);
+}
+
+/** 装備の組み合わせ（武器＝装備2 × 品物＝装備1）ごとの勝率。 */
+export interface EquipSynergyStat {
+  /** 武器（装備2） */
+  weapon: string;
+  /** 品物（装備1） */
+  item: string;
+  /** 登場した戦闘数（攻守の延べ） */
+  battles: number;
+  wins: number;
+  losses: number;
+  /** 勝敗が確定した数（wins + losses） */
+  decided: number;
+  /** 勝率 0..1（decided が 0 のときは 0） */
+  winRate: number;
+  /** よく使う武将 TOP3 */
+  topUsers: { name: string; count: number }[];
+}
+
+/**
+ * 武器（装備2）と品物（装備1）の組み合わせごとに勝率を集計し、どの組み合わせが
+ * 強いかを数値化する。両方の装備が揃っている側のみ対象（片方でも空・「なし」は除外）。
+ * 攻撃側・守備側の両方を対象とし、重複行は除外する。
+ */
+export function equipSynergy(log: BattleRecord[]): EquipSynergyStat[] {
+  interface Acc {
+    weapon: string;
+    item: string;
+    battles: number;
+    wins: number;
+    losses: number;
+    users: Map<string, number>;
+  }
+  const map = new Map<string, Acc>();
+  const sides: SideKey[] = ["left", "right"];
+  for (const { card } of dedupedCards(log)) {
+    for (const side of sides) {
+      const self = side === "left" ? card.left : card.right;
+      if (!self.equip1 || !self.equip2) continue;
+      const weapon = normalizeDisplayToken(self.equip2);
+      const item = normalizeDisplayToken(self.equip1);
+      if (!weapon || weapon === "なし") continue;
+      if (!item || item === "なし") continue;
+      const key = `${weapon}\u0000${item}`;
+      const result = outcomeForSide(card.winner, side);
+      let e = map.get(key);
+      if (!e) {
+        e = { weapon, item, battles: 0, wins: 0, losses: 0, users: new Map() };
+        map.set(key, e);
+      }
+      e.battles++;
+      if (result === "win") e.wins++;
+      else if (result === "loss") e.losses++;
+      const user = self.name?.trim();
+      if (user) e.users.set(user, (e.users.get(user) ?? 0) + 1);
+    }
+  }
+  return Array.from(map.values())
+    .map((e) => {
+      const decided = e.wins + e.losses;
+      const topUsers = Array.from(e.users.entries())
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 3);
+      return {
+        weapon: e.weapon,
+        item: e.item,
+        battles: e.battles,
+        wins: e.wins,
+        losses: e.losses,
+        decided,
+        winRate: decided > 0 ? e.wins / decided : 0,
+        topUsers,
+      };
+    })
+    .sort((a, b) => b.battles - a.battles);
 }
 

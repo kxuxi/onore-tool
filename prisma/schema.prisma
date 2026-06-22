@@ -28,6 +28,7 @@ model UnitType {
 // 武将DB
 model Warlord {
   name         String   @id // 武将名
+  household    String?  // 家督名（同じ家督名を持つ異なる名前は同一武将と見なす）
   faction      String?  // 勢力/国
   type         String   @default("") // タイプ
   branch       String   @default("") // 兵科
