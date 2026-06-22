@@ -33,6 +33,8 @@ import {
   FlagIcon,
   SlidersIcon,
   BookIcon,
+  ZapIcon,
+  LinkIcon,
   LogInIcon,
   LogOutIcon,
 } from "@/components/icons";
@@ -64,6 +66,12 @@ const SettingsTab = dynamic(
 const SwiTab = dynamic(
   () => import("@/components/tabs/SwiTab").then((m) => m.SwiTab)
 );
+const TurnAnalysisTab = dynamic(
+  () => import("@/components/tabs/TurnAnalysisTab").then((m) => m.TurnAnalysisTab)
+);
+const EquipSynergyTab = dynamic(
+  () => import("@/components/tabs/EquipSynergyTab").then((m) => m.EquipSynergyTab)
+);
 const WarlordDetail = dynamic(
   () => import("@/components/detail/WarlordDetail").then((m) => m.WarlordDetail)
 );
@@ -83,6 +91,8 @@ const TAB_ICONS: Record<TabKey, ReactNode> = {
   scout: <SearchIcon />,
   damage: <ShieldIcon />,
   swi: <TrophyIcon />,
+  turns: <ZapIcon />,
+  synergy: <LinkIcon />,
   db: <DatabaseIcon />,
   units: <UsersIcon />,
   weapons: <SwordIcon />,
@@ -501,6 +511,16 @@ export default function HomePage() {
         );
       case "swi":
         return <SwiTab log={filteredBattleLog} db={filteredDb} onSelectWarlord={selectWarlordNormalized} />;
+      case "turns":
+        return <TurnAnalysisTab log={filteredBattleLog} onSelectUnit={selectUnit} />;
+      case "synergy":
+        return (
+          <EquipSynergyTab
+            log={filteredBattleLog}
+            onSelectWarlord={selectWarlordNormalized}
+            onSelectEquip={selectEquip}
+          />
+        );
       case "db":
         return <DbTab db={filteredDb} colors={factionColors} onSelectWarlord={selectWarlord} onSelectFaction={selectFaction} onImportStats={handleImportStats} />;
       case "units":

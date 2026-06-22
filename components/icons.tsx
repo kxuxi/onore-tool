@@ -283,3 +283,19 @@ export function TrashIcon({ className = "icon" }: IconProps) {
   );
 }
 
+export function ZapIcon({ className = "icon" }: IconProps) {
+  return (
+    <svg className={className} {...base}>
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+    </svg>
+  );
+}
+
+export function LinkIcon({ className = "icon" }: IconProps) {
+  return (
+    <svg className={className} {...base}>
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+    </svg>
+  );
+}

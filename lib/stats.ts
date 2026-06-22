@@ -1597,3 +1597,179 @@ export function collectEquipBattles(
   return sortByTimeDesc(out);
 }
 
+/** ターン効率の集計単位（兵種ごと）。 */
+export interface TurnEfficiencyStat {
+  /** 兵種名（normalizeDisplayToken 済み） */
+  unit: string;
+  /** 代表兵科（その兵種で最も多い兵科） */
+  branch: string;
+  /** ターン数が判明した出撃数（攻守の延べ） */
+  battles: number;
+  /** ターン数が判明した勝利数 */
+  wins: number;
+  /** ターン数が判明した敗北数 */
+  losses: number;
+  /** 勝利時の平均ターン（少ないほど速攻＝攻撃効率が高い） */
+  avgWinTurns: number;
+  /** 敗北時の平均ターン（多いほど粘る＝守備で時間を稼ぐ） */
+  avgLossTurns: number;
+  /** 全体の平均ターン */
+  avgTurns: number;
+  /** 3 ターン以内に勝った回数（速攻数） */
+  fastWins: number;
+}
+
+/**
+ * 兵種ごとに「決着までのターン数」を集計し、戦闘効率を求める。
+ * ターン数は戦闘全体の値なので、勝者側＝速く倒した・敗者側＝長く粘った、と解釈する。
+ * ターン数が不明な戦闘（撤退などで turns 無し）は母数から除外する。重複行も除外する。
+ */
+export function turnEfficiency(log: BattleRecord[]): TurnEfficiencyStat[] {
+  interface Acc {
+    unit: string;
+    branches: Map<string, number>;
+    battles: number;
+    wins: number;
+    losses: number;
+    winTurnSum: number;
+    lossTurnSum: number;
+    turnSum: number;
+    fastWins: number;
+  }
+  const map = new Map<string, Acc>();
+  const sides: SideKey[] = ["left", "right"];
+  for (const { card } of dedupedCards(log)) {
+    const turns = card.turns ? Number(card.turns) : NaN;
+    if (!Number.isFinite(turns) || turns <= 0) continue;
+    for (const side of sides) {
+      const self = side === "left" ? card.left : card.right;
+      if (!self.unit) continue;
+      const unit = normalizeDisplayToken(self.unit);
+      if (!unit) continue;
+      const result = outcomeForSide(card.winner, side);
+      let e = map.get(unit);
+      if (!e) {
+        e = {
+          unit,
+          branches: new Map(),
+          battles: 0,
+          wins: 0,
+          losses: 0,
+          winTurnSum: 0,
+          lossTurnSum: 0,
+          turnSum: 0,
+          fastWins: 0,
+        };
+        map.set(unit, e);
+      }
+      e.battles++;
+      e.turnSum += turns;
+      const branch = self.branch?.trim();
+      if (branch) e.branches.set(branch, (e.branches.get(branch) ?? 0) + 1);
+      if (result === "win") {
+        e.wins++;
+        e.winTurnSum += turns;
+        if (turns <= 3) e.fastWins++;
+      } else if (result === "loss") {
+        e.losses++;
+        e.lossTurnSum += turns;
+      }
+    }
+  }
+  return Array.from(map.values())
+    .map((e) => {
+      const branch =
+        Array.from(e.branches.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ??
+        "";
+      return {
+        unit: e.unit,
+        branch,
+        battles: e.battles,
+        wins: e.wins,
+        losses: e.losses,
+        avgWinTurns: e.wins > 0 ? e.winTurnSum / e.wins : 0,
+        avgLossTurns: e.losses > 0 ? e.lossTurnSum / e.losses : 0,
+        avgTurns: e.battles > 0 ? e.turnSum / e.battles : 0,
+        fastWins: e.fastWins,
+      };
+    })
+    .sort((a, b) => b.battles - a.battles);
+}
+
+/** 装備の組み合わせ（武器＝装備2 × 品物＝装備1）ごとの勝率。 */
+export interface EquipSynergyStat {
+  /** 武器（装備2） */
+  weapon: string;
+  /** 品物（装備1） */
+  item: string;
+  /** 登場した戦闘数（攻守の延べ） */
+  battles: number;
+  wins: number;
+  losses: number;
+  /** 勝敗が確定した数（wins + losses） */
+  decided: number;
+  /** 勝率 0..1（decided が 0 のときは 0） */
+  winRate: number;
+  /** よく使う武将 TOP3 */
+  topUsers: { name: string; count: number }[];
+}
+
+/**
+ * 武器（装備2）と品物（装備1）の組み合わせごとに勝率を集計し、どの組み合わせが
+ * 強いかを数値化する。両方の装備が揃っている側のみ対象（片方でも空・「なし」は除外）。
+ * 攻撃側・守備側の両方を対象とし、重複行は除外する。
+ */
+export function equipSynergy(log: BattleRecord[]): EquipSynergyStat[] {
+  interface Acc {
+    weapon: string;
+    item: string;
+    battles: number;
+    wins: number;
+    losses: number;
+    users: Map<string, number>;
+  }
+  const map = new Map<string, Acc>();
+  const sides: SideKey[] = ["left", "right"];
+  for (const { card } of dedupedCards(log)) {
+    for (const side of sides) {
+      const self = side === "left" ? card.left : card.right;
+      if (!self.equip1 || !self.equip2) continue;
+      const weapon = normalizeDisplayToken(self.equip2);
+      const item = normalizeDisplayToken(self.equip1);
+      if (!weapon || weapon === "なし") continue;
+      if (!item || item === "なし") continue;
+      const key = `${weapon}\u0000${item}`;
+      const result = outcomeForSide(card.winner, side);
+      let e = map.get(key);
+      if (!e) {
+        e = { weapon, item, battles: 0, wins: 0, losses: 0, users: new Map() };
+        map.set(key, e);
+      }
+      e.battles++;
+      if (result === "win") e.wins++;
+      else if (result === "loss") e.losses++;
+      const user = self.name?.trim();
+      if (user) e.users.set(user, (e.users.get(user) ?? 0) + 1);
+    }
+  }
+  return Array.from(map.values())
+    .map((e) => {
+      const decided = e.wins + e.losses;
+      const topUsers = Array.from(e.users.entries())
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 3);
+      return {
+        weapon: e.weapon,
+        item: e.item,
+        battles: e.battles,
+        wins: e.wins,
+        losses: e.losses,
+        decided,
+        winRate: decided > 0 ? e.wins / decided : 0,
+        topUsers,
+      };
+    })
+    .sort((a, b) => b.battles - a.battles);
+}
+

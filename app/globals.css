@@ -3688,6 +3688,19 @@ button.tag.faction-link:focus-visible {
   font-size: 11px;
 }
 
+/* 装備シナジーの組み合わせ（武器 × 品物） */
+.synergy-combo {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+}
+.synergy-plus {
+  color: var(--muted);
+  font-size: 12px;
+  opacity: 0.8;
+}
+
 /* 時間帯・曜日別ヒートマップ */
 .heatmap-wrap {
   overflow-x: auto;
