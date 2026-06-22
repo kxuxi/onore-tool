@@ -79,9 +79,7 @@ export function TraitMatrixTab({ log, onSelectWarlord, onSelectUnit }: Props) {
     <section className="panel">
       <h2>相性マトリックス</h2>
       <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-        出兵側（行）の特性が、守備側（列）の特性にどれだけ勝てるかを示します。各マスは
-        出兵側視点の勝率で、{MIN_SAMPLE}戦未満は「–」と表示します。マスをクリックすると
-        その相性の対戦履歴を表示します。
+        出兵側が、守備側にどれだけ勝てるかを示します。
       </p>
 
       <div className="tmx-periods" role="tablist" aria-label="集計期間">
@@ -108,8 +106,8 @@ export function TraitMatrixTab({ log, onSelectWarlord, onSelectUnit }: Props) {
               <thead>
                 <tr>
                   <th className="tmx-corner" scope="col">
-                    <span className="tmx-corner-atk">攻 ↓</span>
-                    <span className="tmx-corner-def">防 →</span>
+                    <span className="tmx-corner-atk">出 ↓</span>
+                    <span className="tmx-corner-def">守 →</span>
                   </th>
                   {traits.map((t) => (
                     <th key={t} scope="col" className="tmx-colhead">

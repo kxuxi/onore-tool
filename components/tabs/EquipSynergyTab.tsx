@@ -62,8 +62,7 @@ export function EquipSynergyTab({ log, onSelectWarlord, onSelectEquip }: Props) 
     <section className="panel">
       <h2>装備シナジー</h2>
       <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-        武器（装備2）と品物（装備1）の組み合わせごとに勝率を集計します。両方の装備が
-        揃っている側のみが対象で、勝率は勝敗が確定した戦闘のみで算出します。
+        武器と品物の組み合わせごとに勝率を集計します。
       </p>
 
       <div className="stat-grid">
