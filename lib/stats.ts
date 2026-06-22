@@ -1777,7 +1777,7 @@ export function equipSynergy(log: BattleRecord[]): EquipSynergyStat[] {
  * 相性マトリックスで扱う主要な特性（タイプ）の表示順。
  * 政治家・謎などの非戦闘タイプは対戦相性の対象外とする。
  */
-export const MATCHUP_TRAITS = ["統特", "知特", "武特", "統知", "知武", "武統"];
+export const MATCHUP_TRAITS = ["武特", "知特", "統特", "武統", "知武", "統知"];
 
 /** 相性マトリックスの 1 セル（攻撃側の特性 × 防衛側の特性）。 */
 export interface TraitMatchupCell {

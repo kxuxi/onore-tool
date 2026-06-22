@@ -4045,112 +4045,26 @@ button.tag.faction-link:focus-visible {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
-.meta-main {
+.meta-name {
   flex: 1 1 auto;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.meta-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.meta-name {
+  text-align: left;
   font-weight: 700;
   font-size: 14px;
 }
-.meta-tier {
-  font-weight: 800;
-  font-size: 12px;
-  padding: 1px 7px;
-  border-radius: 6px;
-  border: 1px solid transparent;
-  line-height: 1.5;
-}
-.tier-splus {
-  color: color-mix(in srgb, var(--success) 80%, var(--text));
-  background: color-mix(in srgb, var(--success) 22%, var(--panel));
-  border-color: color-mix(in srgb, var(--success) 46%, transparent);
-}
-.tier-s {
-  color: color-mix(in srgb, var(--success) 72%, var(--text));
-  background: color-mix(in srgb, var(--success) 14%, var(--panel));
-  border-color: color-mix(in srgb, var(--success) 32%, transparent);
-}
-.tier-aplus {
-  color: color-mix(in srgb, var(--accent) 80%, var(--text));
-  background: color-mix(in srgb, var(--accent) 16%, var(--panel));
-  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
-}
-.tier-a {
-  color: var(--muted);
-  background: color-mix(in srgb, var(--muted) 6%, var(--panel));
-  border-color: var(--border);
-}
-.tier-b {
-  color: var(--muted);
-  background: var(--panel);
-  border-color: var(--border);
-}
-.tier-c {
-  color: color-mix(in srgb, var(--danger) 66%, var(--text));
-  background: color-mix(in srgb, var(--danger) 12%, var(--panel));
-  border-color: color-mix(in srgb, var(--danger) 28%, transparent);
-}
-.meta-trend {
-  margin-left: auto;
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-.trend-up {
-  color: var(--success);
-}
-.trend-down {
-  color: var(--danger);
-}
-.trend-flat,
-.trend-none {
-  color: var(--muted);
-}
-.meta-metrics {
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
+.meta-pick {
+  flex: 0 0 auto;
   font-size: 13px;
   color: var(--muted);
+  white-space: nowrap;
 }
-.meta-metric strong {
+.meta-pick strong {
   color: var(--text);
   font-size: 14px;
 }
 .meta-sub {
   color: var(--muted);
   font-size: 12px;
-}
-.meta-bar {
-  position: relative;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--panel);
-  overflow: hidden;
-}
-.meta-bar-fill {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 78%, transparent);
-}
-.meta-bar-mid {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  width: 1px;
-  background: color-mix(in srgb, var(--muted) 50%, transparent);
 }
 
 .meta-traits {
@@ -4198,9 +4112,6 @@ button.tag.faction-link:focus-visible {
   }
   .meta-trait-pick {
     display: none;
-  }
-  .meta-trend {
-    margin-left: 0;
   }
 }
 

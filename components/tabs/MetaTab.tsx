@@ -6,7 +6,6 @@ import {
   metaOverview,
   formatWinRate,
   META_PERIODS,
-  type MetaTier,
 } from "@/lib/stats";
 import { AlertTriangleIcon } from "@/components/icons";
 
@@ -20,33 +19,15 @@ type PeriodKey = (typeof META_PERIODS)[number]["key"];
 
 /** 採用率ランキングに表示する上位件数。 */
 const TOP_N = 10;
-/** トレンドを「横ばい」とみなす勝率差のしきい値（ポイント）。 */
-const TREND_FLAT = 0.02;
 
 /** パーセント表示（整数）。 */
 function pct(rate: number): string {
   return `${Math.round(rate * 100)}%`;
 }
 
-/** ティアを CSS クラス用の安全な接尾辞に変換する（"S+" → "splus"）。 */
-function tierClass(tier: MetaTier): string {
-  return tier.toLowerCase().replace("+", "plus");
-}
-
-/** トレンド値（勝率差 -1..1）を表示用ラベル＋方向に変換する。 */
-function trendInfo(
-  trend: number | null
-): { dir: "up" | "down" | "flat" | "none"; label: string } {
-  if (trend == null) return { dir: "none", label: "—" };
-  const pt = Math.round(trend * 100);
-  if (trend > TREND_FLAT) return { dir: "up", label: `▲ +${pt}pt` };
-  if (trend < -TREND_FLAT) return { dir: "down", label: `▼ ${pt}pt` };
-  return { dir: "flat", label: "→ 横ばい" };
-}
-
 /**
- * 環境ダッシュボード。期間内の兵種採用率・勝率・強度ティア・トレンド、特性別勝率、
- * 環境警告をまとめて表示する。兵種名クリックで兵種詳細へ遷移する。
+ * 環境ダッシュボード。期間内の兵種採用率ランキングと特性別勝率、環境警告を
+ * まとめて表示する。兵種名クリックで兵種詳細へ遷移する。
  */
 export function MetaTab({ log, onSelectUnit }: Props) {
   const [period, setPeriod] = useState<PeriodKey>("all");
@@ -81,8 +62,8 @@ export function MetaTab({ log, onSelectUnit }: Props) {
     <section className="panel">
       <h2>環境ダッシュボード</h2>
       <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-        期間内に登場した兵種の採用率・勝率・強度（S+〜C）とトレンド、特性別の勝率、
-        環境警告をまとめて表示します。兵種名をクリックすると詳細を確認できます。
+        期間内に登場した兵種の採用率ランキングと特性別の勝率、環境警告を
+        まとめて表示します。兵種名をクリックすると詳細を確認できます。
       </p>
 
       <div className="tmx-periods" role="tablist" aria-label="集計期間">
@@ -124,66 +105,21 @@ export function MetaTab({ log, onSelectUnit }: Props) {
               <span className="meta-h3-sub">全{totalBattles}戦</span>
             </h3>
             <ol className="meta-units">
-              {topUnits.map((u, i) => {
-                const tr = trendInfo(u.trend);
-                return (
-                  <li className="meta-row" key={u.unit}>
-                    <span className="meta-rank">{i + 1}</span>
-                    <div className="meta-main">
-                      <div className="meta-head">
-                        <button
-                          type="button"
-                          className="link-like meta-name"
-                          onClick={() => onSelectUnit(u.unit)}
-                        >
-                          {u.unit}
-                        </button>
-                        {u.branch && (
-                          <span className="tag branch">{u.branch}</span>
-                        )}
-                        {u.tier && (
-                          <span
-                            className={`meta-tier tier-${tierClass(u.tier)}`}
-                          >
-                            {u.tier}
-                          </span>
-                        )}
-                        <span className={`meta-trend trend-${tr.dir}`}>
-                          {tr.label}
-                        </span>
-                      </div>
-                      <div className="meta-metrics">
-                        <span className="meta-metric">
-                          採用 <strong>{pct(u.pickRate)}</strong>
-                        </span>
-                        <span className="meta-metric">
-                          勝率{" "}
-                          <strong>
-                            {formatWinRate(u.winRate, u.decided)}
-                          </strong>{" "}
-                          <span className="meta-sub">
-                            （{u.wins}-{u.losses}）
-                          </span>
-                        </span>
-                      </div>
-                      <div
-                        className="meta-bar"
-                        role="img"
-                        aria-label={`勝率 ${formatWinRate(
-                          u.winRate,
-                          u.decided
-                        )}`}
-                      >
-                        <span
-                          className="meta-bar-fill"
-                          style={{ width: `${Math.round(u.winRate * 100)}%` }}
-                        />
-                        <span className="meta-bar-mid" aria-hidden="true" />
-                      </div>
-                    </div>
-                  </li>
-                );
-              })}
+              {topUnits.map((u, i) => (
+                <li className="meta-row" key={u.unit}>
+                  <span className="meta-rank">{i + 1}</span>
+                  <button
+                    type="button"
+                    className="link-like meta-name"
+                    onClick={() => onSelectUnit(u.unit)}
+                  >
+                    {u.unit}
+                  </button>
+                  <span className="meta-pick">
+                    採用 <strong>{pct(u.pickRate)}</strong>
+                  </span>
+                </li>
+              ))}
             </ol>
           </div>
 
