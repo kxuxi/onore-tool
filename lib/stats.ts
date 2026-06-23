@@ -389,6 +389,61 @@ export function opponentTraitStats(
   return arr.sort((a, b) => b.battles - a.battles);
 }
 
+/* ---------- 先週比の勝率トレンド（ホーム用） ---------- */
+
+/** 「先週比」の勝率トレンド。 */
+export interface WeeklyTrend {
+  /** 今週（基準日からさかのぼって 7 日間）の勝率 0..1 */
+  thisRate: number;
+  /** 今週の勝敗確定数 */
+  thisDecided: number;
+  /** 先週（基準日の 7〜14 日前）の勝率 0..1 */
+  lastRate: number;
+  /** 先週の勝敗確定数 */
+  lastDecided: number;
+  /** 今週 − 先週 の勝率差（0..1 単位）。両週とも確定戦が無いと null。 */
+  delta: number | null;
+}
+
+/**
+ * 「先週比」の勝率トレンドを算出する。
+ * 直近の戦闘日時 (record.time) を基準（アンカー）に、過去 7 日間（今週）と
+ * その前の 7 日間（先週）の勝率を比較する。実日時が無い戦闘は対象外。
+ */
+export function weeklyWinRateTrend(
+  outcomes: BattleOutcome[],
+  now: Date = new Date()
+): WeeklyTrend {
+  const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+  const dated: { o: BattleOutcome; t: number }[] = [];
+  for (const o of outcomes) {
+    const d = parseActionDate(o.record.time, now);
+    if (d) dated.push({ o, t: d.getTime() });
+  }
+  if (dated.length === 0) {
+    return { thisRate: 0, thisDecided: 0, lastRate: 0, lastDecided: 0, delta: null };
+  }
+  const anchor = Math.max(...dated.map((x) => x.t));
+  const thisStart = anchor - WEEK_MS;
+  const lastStart = anchor - 2 * WEEK_MS;
+  const thisWeek: BattleOutcome[] = [];
+  const lastWeek: BattleOutcome[] = [];
+  for (const { o, t } of dated) {
+    if (t > thisStart) thisWeek.push(o);
+    else if (t > lastStart) lastWeek.push(o);
+  }
+  const a = summarize(thisWeek);
+  const b = summarize(lastWeek);
+  const delta = a.decided > 0 && b.decided > 0 ? a.winRate - b.winRate : null;
+  return {
+    thisRate: a.winRate,
+    thisDecided: a.decided,
+    lastRate: b.winRate,
+    lastDecided: b.decided,
+    delta,
+  };
+}
+
 /* ---------- 時間帯・曜日別の勝率ヒートマップ ---------- */
 
 /** 曜日ラベル（getDay() の 0..6 に対応）。 */

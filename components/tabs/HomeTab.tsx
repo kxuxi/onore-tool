@@ -15,6 +15,7 @@ import {
   opponentStats,
   metaOverview,
   latestSelfProfile,
+  weeklyWinRateTrend,
   formatWinRate,
   type BattleOutcome,
 } from "@/lib/stats";
@@ -28,16 +29,6 @@ interface Props {
   onSelectWarlord: (name: string) => void;
   onSelectUnit: (name: string) => void;
   onSelectFaction: (name: string) => void;
-}
-
-/** 勝率（0..1）を「直近の前半 vs 後半」で比較し、改善ポイントを返す。 */
-function trendPoints(recent: BattleOutcome[]): number | null {
-  const half = Math.floor(recent.length / 2);
-  if (half < 3) return null;
-  const newer = summarize(recent.slice(0, half));
-  const older = summarize(recent.slice(recent.length - half));
-  if (newer.decided === 0 || older.decided === 0) return null;
-  return Math.round((newer.winRate - older.winRate) * 100);
 }
 
 /** 時系列（新しい順）の結果から、現在の連勝／連敗を表すラベルを返す。 */
@@ -65,7 +56,7 @@ function rateTone(winRate: number, decided: number): string {
   return " even";
 }
 
-/** 勝率を 1 本のバー＋数値で示す行（兵種習熟度・特性別勝率で共用）。 */
+/** 勝率を 1 本のバー＋数値で示す行（兵種別勝率・敵タイプ別勝率で共用）。 */
 function RateRow({
   label,
   battles,
@@ -170,6 +161,9 @@ export function HomeTab({
   );
   const meta = useMemo(() => metaOverview(log), [log]);
 
+  // 先週比の勝率トレンド（直近の戦闘日時を基準に今週 vs 先週）。
+  const weekly = useMemo(() => weeklyWinRateTrend(outcomes), [outcomes]);
+
   const trend = useMemo(
     () => [
       { label: "直近10戦", s: summarize(outcomes.slice(0, 10)) },
@@ -179,7 +173,7 @@ export function HomeTab({
     [outcomes, summary30, overall]
   );
 
-  // 苦手な相手特性（5戦以上・全体勝率より明確に低い）と、得意な特性。
+  // 苦手な相手タイプ（5戦以上・全体勝率より明確に低い）と、得意なタイプ。
   const eligTraits = useMemo(
     () => traitStats.filter((t) => t.decided >= 5),
     [traitStats]
@@ -290,16 +284,17 @@ export function HomeTab({
     </>
   );
 
-  const dpts = trendPoints(recent30);
-  const trendText =
-    dpts == null
+  const weekPct = weekly.delta == null ? null : Math.round(weekly.delta * 100);
+  const weekText =
+    weekPct == null
       ? "—"
-      : dpts > 0
-        ? `▲ +${dpts}pt`
-        : dpts < 0
-          ? `▼ ${dpts}pt`
-          : "→ 0pt";
-  const trendTone = dpts == null ? "" : dpts > 0 ? " good" : dpts < 0 ? " bad" : "";
+      : weekPct > 0
+        ? `▲ +${weekPct}%`
+        : weekPct < 0
+          ? `▼ ${weekPct}%`
+          : "→ ±0%";
+  const weekTone =
+    weekPct == null ? "" : weekPct > 0 ? " good" : weekPct < 0 ? " bad" : "";
 
   const metaTop = meta.units[0] ?? null;
   const rivalVerdict =
@@ -319,7 +314,7 @@ export function HomeTab({
           <div className="home-hero-head">
             <div className="home-hero-id">
               <div className="home-hero-eyebrow">
-                📊 あなたの成績（直近{recent30.length}戦）
+                📊 あなたの成績（通算）
               </div>
               <h2 className="home-hero-name">
                 <button
@@ -354,21 +349,22 @@ export function HomeTab({
               <div className="home-hero-stats">
                 <div className="home-bigstat">
                   <div className="home-bigstat-val">
-                    {formatWinRate(summary30.winRate, summary30.decided)}
+                    {formatWinRate(overall.winRate, overall.decided)}
                   </div>
                   <div className="home-bigstat-label">勝率</div>
                 </div>
                 <div className="home-bigstat">
                   <div className="home-bigstat-val">
-                    {summary30.wins} - {summary30.losses}
+                    {overall.wins.toLocaleString("ja-JP")} -{" "}
+                    {overall.losses.toLocaleString("ja-JP")}
                   </div>
                   <div className="home-bigstat-label">勝敗</div>
                 </div>
                 <div className="home-bigstat">
-                  <div className={"home-bigstat-val" + trendTone}>
-                    {trendText}
+                  <div className={"home-bigstat-val" + weekTone}>
+                    {weekText}
                   </div>
-                  <div className="home-bigstat-label">トレンド（前半比）</div>
+                  <div className="home-bigstat-label">先週比</div>
                 </div>
                 <div className="home-bigstat">
                   <div className="home-bigstat-val">
@@ -377,16 +373,16 @@ export function HomeTab({
                   <div className="home-bigstat-label">総戦闘数</div>
                 </div>
               </div>
-              <WinRateBar summary={summary30} />
+              <WinRateBar summary={overall} />
             </>
           )}
         </div>
 
         {outcomes.length > 0 && (
           <div className="home-grid">
-            {/* 🎖️ ユニット習熟度 TOP3 */}
+            {/* 🎖️ 兵種別勝率 TOP3 */}
             <div className="home-card">
-              <h3 className="home-card-title">🎖️ ユニット習熟度（TOP3）</h3>
+              <h3 className="home-card-title">🎖️ 兵種別勝率（TOP3）</h3>
               {unitProf.length === 0 ? (
                 <p className="muted">データがありません。</p>
               ) : (
@@ -429,9 +425,9 @@ export function HomeTab({
               </div>
             </div>
 
-            {/* ⚔️ 敵特性別勝率 */}
+            {/* ⚔️ 敵武将タイプ別の勝率 */}
             <div className="home-card">
-              <h3 className="home-card-title">⚔️ 敵特性別の勝率</h3>
+              <h3 className="home-card-title">⚔️ 敵武将タイプ別の勝率</h3>
               {traitStats.length === 0 ? (
                 <p className="muted">データがありません。</p>
               ) : (
@@ -451,9 +447,9 @@ export function HomeTab({
               )}
             </div>
 
-            {/* 🎯 次のアクション */}
+            {/* 🎯 傾向分析 */}
             <div className="home-card">
-              <h3 className="home-card-title">🎯 次のアクション</h3>
+              <h3 className="home-card-title">🎯 傾向分析</h3>
               {weakTrait ? (
                 <div className="home-action home-action-warn">
                   <p className="home-action-head">
@@ -462,13 +458,13 @@ export function HomeTab({
                   <p className="muted">
                     勝率 {formatWinRate(weakTrait.winRate, weakTrait.decided)}
                     （全体 {formatWinRate(overall.winRate, overall.decided)}）。
-                    この特性が相手のときは兵種・装備の見直しを検討しましょう。
+                    このタイプが相手のときは兵種・装備の見直しを検討しましょう。
                   </p>
                 </div>
               ) : (
                 <div className="home-action home-action-ok">
                   <p className="home-action-head">✅ 大きな弱点はありません</p>
-                  <p className="muted">特性別の勝率が安定しています。</p>
+                  <p className="muted">タイプ別の勝率が安定しています。</p>
                 </div>
               )}
               {strongTrait && (
@@ -488,7 +484,7 @@ export function HomeTab({
                     <tr>
                       <th>日時</th>
                       <th>相手</th>
-                      <th>ユニット</th>
+                      <th>相手の兵種</th>
                       <th>結果</th>
                       <th className="num">ターン</th>
                     </tr>
@@ -496,8 +492,8 @@ export function HomeTab({
                   <tbody>
                     {outcomes.slice(0, 5).map((o, i) => {
                       const badge = resultBadge(o);
-                      const unit = o.self.unit
-                        ? normalizeDisplayToken(o.self.unit)
+                      const unit = o.opponent.unit
+                        ? normalizeDisplayToken(o.opponent.unit)
                         : "—";
                       return (
                         <tr key={o.record.id ?? `${o.record.savedAt}-${i}`}>
