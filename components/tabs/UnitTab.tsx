@@ -44,8 +44,10 @@ const COLUMNS: {
 
 export function UnitTab({
   onSelectUnit,
+  isAdmin,
 }: {
   onSelectUnit: (name: string) => void;
+  isAdmin: boolean;
 }) {
   const [units, setUnits] = useState<UnitType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -209,62 +211,70 @@ export function UnitTab({
         )}
       </div>
 
-      <div className="row">
-        <button type="button" className="btn btn-primary" onClick={openNew}>
-          兵種を追加
-        </button>
-        <button
-          type="button"
-          className={"btn import-toggle" + (showImport ? " active" : "")}
-          onClick={() => setShowImport((v) => !v)}
-          aria-expanded={showImport}
-        >
-          <span>一括インポート</span>
-        </button>
-      </div>
-
-      {showImport && (
-        <div className="import-block">
-          <div className="import-body">
-            <p className="import-hint">
-              兵種一覧の表をコピーして、そのまま貼り付けてください。名前が一致する兵種は上書き、無い兵種は新規追加します（一覧に無い既存の兵種は削除されません）。
-            </p>
-            <textarea
-              className="import-box"
-              value={importText}
-              aria-label="兵種一覧の表の貼り付け"
-              placeholder={
-                "兵種\t種類\t得意兵種\t攻撃\t防御\t雇用金\t技術\t年数\t必要能力値\t施設/国宝\t特殊攻撃\tボーナス\n（兵種一覧の表をタブ区切りのまま貼り付け）"
-              }
-              onChange={(e) => setImportText(e.target.value)}
-              spellCheck={false}
-            />
-            <div className="import-actions">
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={handleImport}
-                disabled={importing || importPreview.parsed === 0}
-              >
-                {importing
-                  ? "取り込み中…"
-                  : importPreview.parsed > 0
-                    ? `${importPreview.parsed.toLocaleString("ja-JP")}件を取り込む`
-                    : "取り込む"}
-              </button>
-              {importMsg && (
-                <span
-                  className={
-                    "import-msg" +
-                    (importMsg.kind === "error" ? " error" : " ok")
-                  }
-                >
-                  {importMsg.text}
-                </span>
-              )}
-            </div>
+      {isAdmin && (
+        <>
+          <div className="row">
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={openNew}
+            >
+              兵種を追加
+            </button>
+            <button
+              type="button"
+              className={"btn import-toggle" + (showImport ? " active" : "")}
+              onClick={() => setShowImport((v) => !v)}
+              aria-expanded={showImport}
+            >
+              <span>一括インポート</span>
+            </button>
           </div>
-        </div>
+
+          {showImport && (
+            <div className="import-block">
+              <div className="import-body">
+                <p className="import-hint">
+                  兵種一覧の表をコピーして、そのまま貼り付けてください。名前が一致する兵種は上書き、無い兵種は新規追加します（一覧に無い既存の兵種は削除されません）。
+                </p>
+                <textarea
+                  className="import-box"
+                  value={importText}
+                  aria-label="兵種一覧の表の貼り付け"
+                  placeholder={
+                    "兵種\t種類\t得意兵種\t攻撃\t防御\t雇用金\t技術\t年数\t必要能力値\t施設/国宝\t特殊攻撃\tボーナス\n（兵種一覧の表をタブ区切りのまま貼り付け）"
+                  }
+                  onChange={(e) => setImportText(e.target.value)}
+                  spellCheck={false}
+                />
+                <div className="import-actions">
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={handleImport}
+                    disabled={importing || importPreview.parsed === 0}
+                  >
+                    {importing
+                      ? "取り込み中…"
+                      : importPreview.parsed > 0
+                        ? `${importPreview.parsed.toLocaleString("ja-JP")}件を取り込む`
+                        : "取り込む"}
+                  </button>
+                  {importMsg && (
+                    <span
+                      className={
+                        "import-msg" +
+                        (importMsg.kind === "error" ? " error" : " ok")
+                      }
+                    >
+                      {importMsg.text}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {error && (
