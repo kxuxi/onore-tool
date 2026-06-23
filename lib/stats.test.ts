@@ -5,6 +5,8 @@ import {
   opponentStats,
   matchupRanking,
   branchStats,
+  selfUnitStats,
+  opponentTraitStats,
   winHeatmap,
   factionTimeline,
   collectFactionBattles,
@@ -1371,6 +1373,79 @@ describe("META_PERIODS", () => {
     expect(byKey.y06).toMatchObject({ label: "06年-11年", from: 1606, to: 1611 });
     expect(byKey.y60).toMatchObject({ label: "60年以降", from: 1660, to: null });
     expect(byKey.all).toMatchObject({ from: null, to: null });
+  });
+});
+
+/**
+ * ホーム画面用の柔軟な戦闘行ビルダー。
+ * 注目側の兵種・相手の特性（タイプ）を差し替えられるようにする。
+ */
+function homeLine(opts: {
+  year: number;
+  time: string; // "MM/DD HH:mm"
+  self: string;
+  selfUnit: string;
+  opponent: string;
+  oppType: string;
+  result: string; // "<名前>の勝利" など
+}): string {
+  const { year, time, self, selfUnit, opponent, oppType, result } = opts;
+  return `【1戦目】 ${year}年4月 ${time} 京都 織田 ${self} 織田家 武特 ${selfUnit} 騎兵 槍 鎧 V.S. 武田 ${opponent} 某家 ${oppType} 騎馬隊 騎兵 馬 旗 ${result} 12`;
+}
+
+describe("selfUnitStats（兵種別の習熟度）", () => {
+  const log: BattleRecord[] = [
+    rec(homeLine({ year: 1600, time: "04/10 10:00", self: "信長", selfUnit: "鉄砲隊", opponent: "勝頼", oppType: "統特", result: "信長の勝利" }), 1),
+    rec(homeLine({ year: 1601, time: "04/11 11:00", self: "信長", selfUnit: "鉄砲隊", opponent: "謙信", oppType: "統特", result: "信長の勝利" }), 2),
+    rec(homeLine({ year: 1602, time: "04/12 12:00", self: "信長", selfUnit: "鉄砲隊", opponent: "元就", oppType: "統特", result: "元就の勝利" }), 3),
+    rec(homeLine({ year: 1603, time: "04/13 13:00", self: "信長", selfUnit: "騎馬隊", opponent: "氏康", oppType: "統特", result: "信長の勝利" }), 4),
+    rec(homeLine({ year: 1604, time: "04/14 14:00", self: "信長", selfUnit: "騎馬隊", opponent: "義元", oppType: "統特", result: "義元の勝利" }), 5),
+  ];
+
+  it("使用兵種ごとに勝率を集計し、戦闘数の多い順に並べる", () => {
+    const outcomes = collectWarlordBattles(log, "信長");
+    const stats = selfUnitStats(outcomes);
+    expect(stats.map((s) => s.unit)).toEqual(["鉄砲隊", "騎馬隊"]);
+
+    const tepo = stats[0];
+    expect(tepo).toMatchObject({ battles: 3, wins: 2, losses: 1, decided: 3 });
+    expect(tepo.winRate).toBeCloseTo(2 / 3);
+
+    const kiba = stats[1];
+    expect(kiba).toMatchObject({ battles: 2, wins: 1, losses: 1, decided: 2 });
+    expect(kiba.winRate).toBeCloseTo(0.5);
+  });
+
+  it("空配列なら空を返す", () => {
+    expect(selfUnitStats([])).toEqual([]);
+  });
+});
+
+describe("opponentTraitStats（相手特性別の勝率）", () => {
+  const log: BattleRecord[] = [
+    rec(homeLine({ year: 1600, time: "04/10 10:00", self: "信長", selfUnit: "鉄砲隊", opponent: "勝頼", oppType: "統特", result: "信長の勝利" }), 1),
+    rec(homeLine({ year: 1601, time: "04/11 11:00", self: "信長", selfUnit: "鉄砲隊", opponent: "謙信", oppType: "統特", result: "信長の勝利" }), 2),
+    rec(homeLine({ year: 1602, time: "04/12 12:00", self: "信長", selfUnit: "鉄砲隊", opponent: "元就", oppType: "統特", result: "元就の勝利" }), 3),
+    rec(homeLine({ year: 1603, time: "04/13 13:00", self: "信長", selfUnit: "鉄砲隊", opponent: "氏康", oppType: "知特", result: "氏康の勝利" }), 4),
+    rec(homeLine({ year: 1604, time: "04/14 14:00", self: "信長", selfUnit: "鉄砲隊", opponent: "義元", oppType: "知特", result: "義元の勝利" }), 5),
+  ];
+
+  it("相手の特性ごとに勝率を集計し、戦闘数の多い順に並べる", () => {
+    const outcomes = collectWarlordBattles(log, "信長");
+    const stats = opponentTraitStats(outcomes);
+    expect(stats.map((s) => s.trait)).toEqual(["統特", "知特"]);
+
+    const tou = stats[0];
+    expect(tou).toMatchObject({ battles: 3, wins: 2, losses: 1, decided: 3 });
+    expect(tou.winRate).toBeCloseTo(2 / 3);
+
+    const chi = stats[1];
+    expect(chi).toMatchObject({ battles: 2, wins: 0, losses: 2, decided: 2 });
+    expect(chi.winRate).toBe(0);
+  });
+
+  it("空配列なら空を返す", () => {
+    expect(opponentTraitStats([])).toEqual([]);
   });
 });
 

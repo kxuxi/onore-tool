@@ -321,6 +321,74 @@ export function branchStats(outcomes: BattleOutcome[]): BranchStat[] {
   return arr.sort((a, b) => b.battles - a.battles);
 }
 
+/* ---------- 兵種別の習熟度・相手特性別の勝率（ホーム用） ---------- */
+
+/** 注目側が使った兵種ごとの戦績（習熟度の指標。戦闘数の多い順）。 */
+export interface SelfUnitStat {
+  unit: string;
+  battles: number;
+  wins: number;
+  losses: number;
+  decided: number;
+  winRate: number;
+}
+
+/** 注目側が出陣した兵種ごとに勝率を集計する（戦闘数の多い順）。 */
+export function selfUnitStats(outcomes: BattleOutcome[]): SelfUnitStat[] {
+  const map = new Map<string, SelfUnitStat>();
+  for (const o of outcomes) {
+    const unit = o.self.unit ? normalizeDisplayToken(o.self.unit) : "不明";
+    let s = map.get(unit);
+    if (!s) {
+      s = { unit, battles: 0, wins: 0, losses: 0, decided: 0, winRate: 0 };
+      map.set(unit, s);
+    }
+    s.battles++;
+    if (o.result === "win") s.wins++;
+    else if (o.result === "loss") s.losses++;
+  }
+  const arr = Array.from(map.values());
+  for (const s of arr) {
+    s.decided = s.wins + s.losses;
+    s.winRate = s.decided > 0 ? s.wins / s.decided : 0;
+  }
+  return arr.sort((a, b) => b.battles - a.battles);
+}
+
+/** 相手の特性（タイプ）ごとの注目側戦績（戦闘数の多い順）。 */
+export interface OpponentTraitStat {
+  trait: string;
+  battles: number;
+  wins: number;
+  losses: number;
+  decided: number;
+  winRate: number;
+}
+
+/** 相手の特性（タイプ）ごとに注目側の勝率を集計する（戦闘数の多い順）。 */
+export function opponentTraitStats(
+  outcomes: BattleOutcome[]
+): OpponentTraitStat[] {
+  const map = new Map<string, OpponentTraitStat>();
+  for (const o of outcomes) {
+    const trait = o.opponent.type?.trim() || "不明";
+    let s = map.get(trait);
+    if (!s) {
+      s = { trait, battles: 0, wins: 0, losses: 0, decided: 0, winRate: 0 };
+      map.set(trait, s);
+    }
+    s.battles++;
+    if (o.result === "win") s.wins++;
+    else if (o.result === "loss") s.losses++;
+  }
+  const arr = Array.from(map.values());
+  for (const s of arr) {
+    s.decided = s.wins + s.losses;
+    s.winRate = s.decided > 0 ? s.wins / s.decided : 0;
+  }
+  return arr.sort((a, b) => b.battles - a.battles);
+}
+
 /* ---------- 時間帯・曜日別の勝率ヒートマップ ---------- */
 
 /** 曜日ラベル（getDay() の 0..6 に対応）。 */
