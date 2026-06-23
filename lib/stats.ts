@@ -321,6 +321,129 @@ export function branchStats(outcomes: BattleOutcome[]): BranchStat[] {
   return arr.sort((a, b) => b.battles - a.battles);
 }
 
+/* ---------- 兵種別の習熟度・相手特性別の勝率（ホーム用） ---------- */
+
+/** 注目側が使った兵種ごとの戦績（習熟度の指標。戦闘数の多い順）。 */
+export interface SelfUnitStat {
+  unit: string;
+  battles: number;
+  wins: number;
+  losses: number;
+  decided: number;
+  winRate: number;
+}
+
+/** 注目側が出陣した兵種ごとに勝率を集計する（戦闘数の多い順）。 */
+export function selfUnitStats(outcomes: BattleOutcome[]): SelfUnitStat[] {
+  const map = new Map<string, SelfUnitStat>();
+  for (const o of outcomes) {
+    const unit = o.self.unit ? normalizeDisplayToken(o.self.unit) : "不明";
+    let s = map.get(unit);
+    if (!s) {
+      s = { unit, battles: 0, wins: 0, losses: 0, decided: 0, winRate: 0 };
+      map.set(unit, s);
+    }
+    s.battles++;
+    if (o.result === "win") s.wins++;
+    else if (o.result === "loss") s.losses++;
+  }
+  const arr = Array.from(map.values());
+  for (const s of arr) {
+    s.decided = s.wins + s.losses;
+    s.winRate = s.decided > 0 ? s.wins / s.decided : 0;
+  }
+  return arr.sort((a, b) => b.battles - a.battles);
+}
+
+/** 相手の特性（タイプ）ごとの注目側戦績（戦闘数の多い順）。 */
+export interface OpponentTraitStat {
+  trait: string;
+  battles: number;
+  wins: number;
+  losses: number;
+  decided: number;
+  winRate: number;
+}
+
+/** 相手の特性（タイプ）ごとに注目側の勝率を集計する（戦闘数の多い順）。 */
+export function opponentTraitStats(
+  outcomes: BattleOutcome[]
+): OpponentTraitStat[] {
+  const map = new Map<string, OpponentTraitStat>();
+  for (const o of outcomes) {
+    const trait = o.opponent.type?.trim() || "不明";
+    let s = map.get(trait);
+    if (!s) {
+      s = { trait, battles: 0, wins: 0, losses: 0, decided: 0, winRate: 0 };
+      map.set(trait, s);
+    }
+    s.battles++;
+    if (o.result === "win") s.wins++;
+    else if (o.result === "loss") s.losses++;
+  }
+  const arr = Array.from(map.values());
+  for (const s of arr) {
+    s.decided = s.wins + s.losses;
+    s.winRate = s.decided > 0 ? s.wins / s.decided : 0;
+  }
+  return arr.sort((a, b) => b.battles - a.battles);
+}
+
+/* ---------- 先週比の勝率トレンド（ホーム用） ---------- */
+
+/** 「先週比」の勝率トレンド。 */
+export interface WeeklyTrend {
+  /** 今週（基準日からさかのぼって 7 日間）の勝率 0..1 */
+  thisRate: number;
+  /** 今週の勝敗確定数 */
+  thisDecided: number;
+  /** 先週（基準日の 7〜14 日前）の勝率 0..1 */
+  lastRate: number;
+  /** 先週の勝敗確定数 */
+  lastDecided: number;
+  /** 今週 − 先週 の勝率差（0..1 単位）。両週とも確定戦が無いと null。 */
+  delta: number | null;
+}
+
+/**
+ * 「先週比」の勝率トレンドを算出する。
+ * 直近の戦闘日時 (record.time) を基準（アンカー）に、過去 7 日間（今週）と
+ * その前の 7 日間（先週）の勝率を比較する。実日時が無い戦闘は対象外。
+ */
+export function weeklyWinRateTrend(
+  outcomes: BattleOutcome[],
+  now: Date = new Date()
+): WeeklyTrend {
+  const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+  const dated: { o: BattleOutcome; t: number }[] = [];
+  for (const o of outcomes) {
+    const d = parseActionDate(o.record.time, now);
+    if (d) dated.push({ o, t: d.getTime() });
+  }
+  if (dated.length === 0) {
+    return { thisRate: 0, thisDecided: 0, lastRate: 0, lastDecided: 0, delta: null };
+  }
+  const anchor = Math.max(...dated.map((x) => x.t));
+  const thisStart = anchor - WEEK_MS;
+  const lastStart = anchor - 2 * WEEK_MS;
+  const thisWeek: BattleOutcome[] = [];
+  const lastWeek: BattleOutcome[] = [];
+  for (const { o, t } of dated) {
+    if (t > thisStart) thisWeek.push(o);
+    else if (t > lastStart) lastWeek.push(o);
+  }
+  const a = summarize(thisWeek);
+  const b = summarize(lastWeek);
+  const delta = a.decided > 0 && b.decided > 0 ? a.winRate - b.winRate : null;
+  return {
+    thisRate: a.winRate,
+    thisDecided: a.decided,
+    lastRate: b.winRate,
+    lastDecided: b.decided,
+    delta,
+  };
+}
+
 /* ---------- 時間帯・曜日別の勝率ヒートマップ ---------- */
 
 /** 曜日ラベル（getDay() の 0..6 に対応）。 */

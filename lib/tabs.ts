@@ -7,6 +7,7 @@ import type { TabKey } from "./types";
 
 /** サイドバーのグループキー（似た画面をまとめた単位）。 */
 export type TabGroupKey =
+  | "home"
   | "history"
   | "warlords"
   | "ranking"
@@ -17,6 +18,7 @@ export type TabGroupKey =
 
 /** タブ（リーフ）ごとの短いラベル。ページ内サブタブの見出し・タイトルに使う。 */
 export const TAB_LABELS: Record<TabKey, string> = {
+  home: "ホーム",
   history: "戦闘履歴",
   scout: "偵察検索",
   damage: "被弾表",
@@ -47,6 +49,7 @@ export interface TabGroup {
  * グループはページ内のサブタブ（セグメント）で切り替える。
  */
 export const TAB_GROUPS: TabGroup[] = [
+  { key: "home", label: "ホーム", tabs: ["home"] },
   { key: "history", label: "戦闘履歴", tabs: ["history"] },
   { key: "warlords", label: "武将", tabs: ["scout", "damage", "db"] },
   { key: "ranking", label: "ランキング", tabs: ["swi", "unitrank", "weaponrank", "itemrank"] },
@@ -73,6 +76,7 @@ export const ALL_TAB_KEYS: TabKey[] = TAB_GROUPS.flatMap((g) => g.tabs);
  * 戦闘履歴・ランキング・メタ分析・図鑑・国を公開し、残りは管理者専用にする。
  */
 export const PUBLIC_TAB_GROUPS: TabGroupKey[] = [
+  "home",
   "history",
   "ranking",
   "meta",

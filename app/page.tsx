@@ -23,6 +23,7 @@ import {
   SunIcon,
   MoonIcon,
   HistoryIcon,
+  HomeIcon,
   SearchIcon,
   ShieldIcon,
   TrophyIcon,
@@ -42,6 +43,9 @@ import {
 import type { BattleRecord, TabKey, WarlordMap } from "@/lib/types";
 import { normalizationMap } from "@/lib/storage";
 
+const HomeTab = dynamic(
+  () => import("@/components/tabs/HomeTab").then((m) => m.HomeTab)
+);
 const HistoryTab = dynamic(
   () => import("@/components/tabs/HistoryTab").then((m) => m.HistoryTab)
 );
@@ -94,6 +98,7 @@ const FactionDetail = dynamic(
 
 /** タブ（リーフ）ごとのアイコン。サイドバーのグループ単独表示とページ内サブタブで共用。 */
 const TAB_ICONS: Record<TabKey, ReactNode> = {
+  home: <HomeIcon />,
   history: <HistoryIcon />,
   scout: <SearchIcon />,
   damage: <ShieldIcon />,
@@ -114,6 +119,7 @@ const TAB_ICONS: Record<TabKey, ReactNode> = {
 
 /** サイドバーのグループごとのアイコン（JSX なので描画側に置く）。 */
 const GROUP_ICONS: Record<TabGroupKey, ReactNode> = {
+  home: <HomeIcon />,
   history: <HistoryIcon />,
   warlords: <UsersIcon />,
   ranking: <TrophyIcon />,
@@ -492,6 +498,17 @@ export default function HomePage() {
 
   const content = useMemo(() => {
     switch (tab) {
+      case "home":
+        return (
+          <HomeTab
+            log={filteredBattleLog}
+            db={db}
+            colors={factionColors}
+            onSelectWarlord={selectWarlordNormalized}
+            onSelectUnit={selectUnit}
+            onSelectFaction={selectFaction}
+          />
+        );
       case "history":
         return (
           <HistoryTab
@@ -713,8 +730,8 @@ export default function HomePage() {
             <button
               type="button"
               className="brand-btn"
-              onClick={() => selectTab("history")}
-              title="ホーム（戦闘履歴）へ"
+              onClick={() => selectTab("home")}
+              title="ホームへ"
             >
               ONORE ANALYTICS
             </button>
