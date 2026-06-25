@@ -135,6 +135,9 @@ const FALLBACK_TERM = 145;
 /** サイドバーの「新期」で追加した期番号の保存キー。 */
 const TERM_OPTIONS_STORAGE_KEY = "onore-tool:term-options:v1";
 
+/** 直近に選択した「対象の期」の保存キー。 */
+const TERM_SELECTED_STORAGE_KEY = "onore-tool:selected-term:v1";
+
 /** 共有DBを最後に取得した時刻を HH:MM 表記にする。 */
 function formatClock(ts: number): string {
   return new Date(ts).toLocaleTimeString("ja-JP", {
@@ -256,13 +259,42 @@ export default function HomePage() {
     return Array.from(set).sort((a, b) => b - a);
   }, [battleLog, manualTerms]);
 
-  // 基本は最新の期を既定選択にする（初回のみ）。
+  // 起動時は「直近に選択した期」を復元し、無ければ最新の期を既定選択にする（初回のみ）。
   const latestTerm = termOptions[0] ?? FALLBACK_TERM;
   useEffect(() => {
     if (didAutoSelectLatestTerm) return;
-    setSelectedTerm(latestTerm);
+    let restored = false;
+    try {
+      const raw = window.localStorage.getItem(TERM_SELECTED_STORAGE_KEY);
+      if (raw === "all") {
+        setSelectedTerm("all");
+        restored = true;
+      } else if (raw !== null) {
+        const n = Number(raw);
+        if (Number.isInteger(n) && n > 0) {
+          setSelectedTerm(n);
+          restored = true;
+        }
+      }
+    } catch {
+      // 壊れた保存データは無視して既定（最新の期）で続行する。
+    }
+    if (!restored) setSelectedTerm(latestTerm);
     setDidAutoSelectLatestTerm(true);
   }, [didAutoSelectLatestTerm, latestTerm]);
+
+  // 選択した期を保存し、次回起動時に復元できるようにする。
+  useEffect(() => {
+    if (!didAutoSelectLatestTerm) return;
+    try {
+      window.localStorage.setItem(
+        TERM_SELECTED_STORAGE_KEY,
+        selectedTerm === "all" ? "all" : String(selectedTerm)
+      );
+    } catch {
+      // 保存に失敗しても選択は継続する。
+    }
+  }, [selectedTerm, didAutoSelectLatestTerm]);
 
   // ドロップダウンに表示する期の一覧。
   // 選択中の期がデータに存在しない場合（新期入力直後など）でも選択肢に残す。
