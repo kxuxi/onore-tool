@@ -161,7 +161,7 @@ export function HomeTab({
   );
   const meta = useMemo(() => metaOverview(log), [log]);
 
-  // 先週比の勝率トレンド（現在時刻を基準に今週 vs 先週）。
+  // 先週比の勝率トレンド（最新の戦闘日時を基準に今週 vs 先週）。
   const weekly = useMemo(() => weeklyWinRateTrend(outcomes), [outcomes]);
 
   const trend = useMemo(
