@@ -1451,19 +1451,19 @@ describe("opponentTraitStats（相手特性別の勝率）", () => {
 });
 
 describe("weeklyWinRateTrend（先週比の勝率）", () => {
-  // 基準日 = 2026-06-23。アンカーは直近戦闘 06/20。
-  // 今週 = (06/13, 06/20]、先週 = (06/06, 06/13]。
+  // 基準 = 現在時刻 now（2026-06-23 12:00）。直近戦闘ではなく now を起点にする。
+  // 今週 = (06/16 12:00, 06/23 12:00]、先週 = (06/09 12:00, 06/16 12:00]。
   const now = new Date(2026, 5, 23, 12, 0, 0);
   const log: BattleRecord[] = [
     // 今週（2勝1敗 → 勝率 2/3）
-    rec(homeLine({ year: 1600, time: "06/20 10:00", self: "信長", selfUnit: "鉄砲隊", opponent: "勝頼", oppType: "統特", result: "信長の勝利" }), 6),
-    rec(homeLine({ year: 1600, time: "06/18 11:00", self: "信長", selfUnit: "鉄砲隊", opponent: "謙信", oppType: "統特", result: "信長の勝利" }), 5),
-    rec(homeLine({ year: 1600, time: "06/16 12:00", self: "信長", selfUnit: "鉄砲隊", opponent: "元就", oppType: "統特", result: "元就の勝利" }), 4),
+    rec(homeLine({ year: 1600, time: "06/22 10:00", self: "信長", selfUnit: "鉄砲隊", opponent: "勝頼", oppType: "統特", result: "信長の勝利" }), 6),
+    rec(homeLine({ year: 1600, time: "06/20 11:00", self: "信長", selfUnit: "鉄砲隊", opponent: "謙信", oppType: "統特", result: "信長の勝利" }), 5),
+    rec(homeLine({ year: 1600, time: "06/18 12:00", self: "信長", selfUnit: "鉄砲隊", opponent: "元就", oppType: "統特", result: "元就の勝利" }), 4),
     // 先週（1勝1敗 → 勝率 0.5）
-    rec(homeLine({ year: 1600, time: "06/12 13:00", self: "信長", selfUnit: "鉄砲隊", opponent: "氏康", oppType: "統特", result: "信長の勝利" }), 3),
-    rec(homeLine({ year: 1600, time: "06/10 14:00", self: "信長", selfUnit: "鉄砲隊", opponent: "義元", oppType: "統特", result: "義元の勝利" }), 2),
+    rec(homeLine({ year: 1600, time: "06/14 13:00", self: "信長", selfUnit: "鉄砲隊", opponent: "氏康", oppType: "統特", result: "信長の勝利" }), 3),
+    rec(homeLine({ year: 1600, time: "06/11 14:00", self: "信長", selfUnit: "鉄砲隊", opponent: "義元", oppType: "統特", result: "義元の勝利" }), 2),
     // 先々週（対象外）
-    rec(homeLine({ year: 1600, time: "06/01 15:00", self: "信長", selfUnit: "鉄砲隊", opponent: "幸村", oppType: "統特", result: "信長の勝利" }), 1),
+    rec(homeLine({ year: 1600, time: "06/05 15:00", self: "信長", selfUnit: "鉄砲隊", opponent: "幸村", oppType: "統特", result: "信長の勝利" }), 1),
   ];
 
   it("今週と先週の勝率を比較し、差分を返す", () => {

@@ -407,8 +407,8 @@ export interface WeeklyTrend {
 
 /**
  * 「先週比」の勝率トレンドを算出する。
- * 直近の戦闘日時 (record.time) を基準（アンカー）に、過去 7 日間（今週）と
- * その前の 7 日間（先週）の勝率を比較する。実日時が無い戦闘は対象外。
+ * 現在時刻 (now) を基準（アンカー）に、直近 7 日間（今週）とその前の
+ * 7 日間（先週）の勝率を比較する。実日時が無い戦闘は対象外。
  */
 export function weeklyWinRateTrend(
   outcomes: BattleOutcome[],
@@ -420,10 +420,8 @@ export function weeklyWinRateTrend(
     const d = parseActionDate(o.record.time, now);
     if (d) dated.push({ o, t: d.getTime() });
   }
-  if (dated.length === 0) {
-    return { thisRate: 0, thisDecided: 0, lastRate: 0, lastDecided: 0, delta: null };
-  }
-  const anchor = Math.max(...dated.map((x) => x.t));
+  // 基準は「今日の現時点」。直近戦闘ではなく now を起点に今週／先週を区切る。
+  const anchor = now.getTime();
   const thisStart = anchor - WEEK_MS;
   const lastStart = anchor - 2 * WEEK_MS;
   const thisWeek: BattleOutcome[] = [];
