@@ -31,6 +31,11 @@ import {
   metaTier,
   META_PERIODS,
   formatWinRate,
+  parseGameYear,
+  yearBucketFor,
+  yearBucketWinRankings,
+  warlordYearRankTags,
+  YEAR_BUCKETS,
 } from "./stats";
 import type { BattleRecord, WarlordMap } from "./types";
 
@@ -1493,7 +1498,145 @@ describe("weeklyWinRateTrend（先週比の勝率）", () => {
   });
 });
 
+describe("年代別の勝率ランキング（yearBucketWinRankings）", () => {
+  // 在ゲーム年と勝敗を直接指定する戦闘行。左右で別武将を立てられる。
+  function yrLine(opts: {
+    year: number;
+    leftName: string;
+    rightName: string;
+    winner: "left" | "right";
+    battleNo: number;
+  }): string {
+    const { year, leftName, rightName, winner, battleNo } = opts;
+    const result = winner === "left" ? `${leftName}の勝利` : `${rightName}の勝利`;
+    // 時刻(MM/DD)は重複しても battleNo で別戦闘として扱われる。
+    return `【${battleNo}戦目】 ${year}年4月 06/15 10:00 京都 自国 ${leftName} 某家 武特 騎馬隊 騎兵 槍 鎧 V.S. 敵国 ${rightName} 敵家 統特 騎馬隊 騎兵 馬 旗 ${result} 12`;
+  }
 
+  /** 注目武将を左、毎回ユニークな相手を右に置いた n 戦を生成する（相手は閾値未満で除外される）。 */
+  function battlesFor(
+    name: string,
+    wins: number,
+    losses: number,
+    year: number,
+    startNo: number
+  ): BattleRecord[] {
+    const out: BattleRecord[] = [];
+    let no = startNo;
+    for (let i = 0; i < wins; i++) {
+      out.push(rec(yrLine({ year, leftName: name, rightName: `敵${no}`, winner: "left", battleNo: no }), no));
+      no++;
+    }
+    for (let i = 0; i < losses; i++) {
+      out.push(rec(yrLine({ year, leftName: name, rightName: `敵${no}`, winner: "right", battleNo: no }), no));
+      no++;
+    }
+    return out;
+  }
+
+  it("parseGameYear / yearBucketFor が在ゲーム年とバケットを判定する", () => {
+    expect(parseGameYear("1706年2月 06/18 12:36")).toBe(1706);
+    expect(parseGameYear("1760年4月 04/01 09:00")).toBe(1760);
+    expect(parseGameYear(undefined)).toBeNull();
+    expect(parseGameYear("日時なし")).toBeNull();
+
+    expect(yearBucketFor(1706)?.key).toBe("06-11");
+    expect(yearBucketFor(1759)?.key).toBe("48-59");
+    expect(yearBucketFor(1760)?.key).toBe("60+");
+    expect(yearBucketFor(1799)?.key).toBe("60+");
+    // 下2桁 00〜05 はどのバケットにも属さない。
+    expect(yearBucketFor(1700)).toBeNull();
+    expect(yearBucketFor(1705)).toBeNull();
+  });
+
+  it("各バケットで勝率上位3名を順位付けし、最低決着戦数未満は除外する", () => {
+    const log: BattleRecord[] = [
+      ...battlesFor("強", 9, 3, 1706, 100), // 勝率 0.75（決着12）
+      ...battlesFor("中", 6, 4, 1707, 200), // 勝率 0.6（決着10）
+      ...battlesFor("弱", 3, 7, 1708, 300), // 勝率 0.3（決着10）
+      ...battlesFor("少", 4, 0, 1709, 400), // 勝率 1.0 だが決着4 < 10 で除外
+    ];
+    const rankings = yearBucketWinRankings(log);
+    const b = rankings.find((r) => r.bucket.key === "06-11");
+    expect(b).toBeDefined();
+    expect(b!.entries.map((e) => e.name)).toEqual(["強", "中", "弱"]);
+    expect(b!.entries[0].rank).toBe(1);
+    expect(b!.entries[0].winRate).toBeCloseTo(0.75);
+    expect(b!.entries[0].decided).toBe(12);
+    expect(b!.entries[1].rank).toBe(2);
+    expect(b!.entries[2].rank).toBe(3);
+    // 閾値未満（少）と相手（敵N）は載らない。
+    expect(b!.entries.some((e) => e.name === "少")).toBe(false);
+    expect(b!.entries.some((e) => e.name.startsWith("敵"))).toBe(false);
+    // 戦闘が無い他バケットは空。
+    expect(rankings.find((r) => r.bucket.key === "60+")!.entries).toHaveLength(0);
+  });
+
+  it("年代が違えば別バケットに分かれて集計される", () => {
+    const log: BattleRecord[] = [
+      ...battlesFor("武将X", 10, 2, 1706, 100), // 06-11
+      ...battlesFor("武将X", 2, 10, 1750, 500), // 48-59（負け越し）
+    ];
+    const rankings = yearBucketWinRankings(log);
+    const early = rankings.find((r) => r.bucket.key === "06-11")!;
+    const late = rankings.find((r) => r.bucket.key === "48-59")!;
+    expect(early.entries[0].name).toBe("武将X");
+    expect(early.entries[0].winRate).toBeCloseTo(10 / 12);
+    expect(late.entries[0].name).toBe("武将X");
+    expect(late.entries[0].winRate).toBeCloseTo(2 / 12);
+  });
+
+  it("warlordYearRankTags は入賞バケットのタグだけを返す", () => {
+    const log: BattleRecord[] = [
+      ...battlesFor("強", 9, 3, 1706, 100),
+      ...battlesFor("中", 6, 4, 1707, 200),
+      ...battlesFor("弱", 3, 7, 1708, 300),
+    ];
+    const rankings = yearBucketWinRankings(log);
+    const tags = warlordYearRankTags(rankings, "強");
+    expect(tags).toHaveLength(1);
+    expect(tags[0].bucketKey).toBe("06-11");
+    expect(tags[0].label).toBe("06年-11年");
+    expect(tags[0].rank).toBe(1);
+    // 入賞していない相手・空文字は空配列。
+    expect(warlordYearRankTags(rankings, "敵100")).toHaveLength(0);
+    expect(warlordYearRankTags(rankings, "")).toHaveLength(0);
+  });
+
+  it("家督が同じ別名は代表名に統合して順位付けする", () => {
+    const db: WarlordMap = {
+      古名: { name: "古名", type: "武特", branch: "騎兵", household: "H", updatedAt: 1 },
+      新名: { name: "新名", type: "武特", branch: "騎兵", household: "H", updatedAt: 2 },
+    };
+    const log: BattleRecord[] = [
+      ...battlesFor("古名", 5, 1, 1706, 100),
+      ...battlesFor("新名", 5, 1, 1706, 200),
+    ];
+    const rankings = yearBucketWinRankings(log, db);
+    const b = rankings.find((r) => r.bucket.key === "06-11")!;
+    // 代表名（updatedAt が新しい「新名」）に統合され、決着12・10勝2敗。
+    expect(b.entries).toHaveLength(1);
+    expect(b.entries[0].name).toBe("新名");
+    expect(b.entries[0].decided).toBe(12);
+    expect(b.entries[0].winRate).toBeCloseTo(10 / 12);
+    expect(b.entries.some((e) => e.name === "古名")).toBe(false);
+
+    // タグ参照も代表名で引ける。
+    expect(warlordYearRankTags(rankings, "新名")[0].rank).toBe(1);
+  });
+
+  it("YEAR_BUCKETS はユーザー指定の年代区分を網羅している", () => {
+    expect(YEAR_BUCKETS.map((b) => b.label)).toEqual([
+      "06年-11年",
+      "12年-17年",
+      "18年-23年",
+      "24年-35年",
+      "36年-47年",
+      "48年-59年",
+      "60年以降",
+    ]);
+  });
+});
 
 
 

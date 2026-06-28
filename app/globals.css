@@ -30,7 +30,17 @@
   --label-warn-bg: #2a1818;
   --label-warn-border: #5a2a2a;
 
-  /* トースト（通知）の面色。ライトでは文字が読めるよう明色に切替。 */
+  /* 年代別ランキングの入賞タグ（金/銀/銅）。 */
+  --medal-gold-fg: #ffdc6b;
+  --medal-gold-bg: #2e2710;
+  --medal-gold-border: #5c4a1c;
+  --medal-silver-fg: #d8dee8;
+  --medal-silver-bg: #23262d;
+  --medal-silver-border: #454c58;
+  --medal-bronze-fg: #e6a878;
+  --medal-bronze-bg: #2a1f16;
+  --medal-bronze-border: #5a3f2a;
+
   --toast-bg: #2a2f3a;
   --toast-success-bg: #173025;
   --toast-success-border: #2b5b3d;
@@ -74,7 +84,17 @@
   --label-warn-bg: #fde4e3;
   --label-warn-border: #f3c0bd;
 
-  --toast-bg: #ffffff;
+  /* 年代別ランキングの入賞タグ（金/銀/銅）。ライトは淡い背景＋濃い文字。 */
+  --medal-gold-fg: #8a6500;
+  --medal-gold-bg: #fcf2cf;
+  --medal-gold-border: #ecd79a;
+  --medal-silver-fg: #5a6473;
+  --medal-silver-bg: #eceff4;
+  --medal-silver-border: #cdd4de;
+  --medal-bronze-fg: #8a4f24;
+  --medal-bronze-bg: #f7e6d6;
+  --medal-bronze-border: #e6c3a3;
+
   --toast-success-bg: #e8f6ee;
   --toast-success-border: #9bd6ad;
   --toast-error-bg: #fdeceb;
@@ -1879,6 +1899,12 @@ mark.hl {
   border-color: var(--danger-strong);
   background: var(--danger-strong);
 }
+
+/* 年代別勝率ランキングの入賞タグ。順位で金/銀/銅に色分けする。 */
+.tag.year-rank { gap: 3px; }
+.tag.year-rank.rank-1 { color: var(--medal-gold-fg); background: var(--medal-gold-bg); border-color: var(--medal-gold-border); }
+.tag.year-rank.rank-2 { color: var(--medal-silver-fg); background: var(--medal-silver-bg); border-color: var(--medal-silver-border); }
+.tag.year-rank.rank-3 { color: var(--medal-bronze-fg); background: var(--medal-bronze-bg); border-color: var(--medal-bronze-border); }
 
 /* クリック可能な国タグ（ボタン）。色は .tag.faction を継承する。 */
 button.tag.faction-link {

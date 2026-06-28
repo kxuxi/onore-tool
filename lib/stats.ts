@@ -447,6 +447,204 @@ export function weeklyWinRateTrend(
   };
 }
 
+/* ---------- 年代別（在ゲーム年）の勝率ランキング ---------- */
+
+/** 年代バケット（在ゲーム年の下2桁で区切る）。 */
+export interface YearBucket {
+  /** 内部キー（例: "06-11"）。 */
+  key: string;
+  /** 表示ラベル（例: "06年-11年"）。 */
+  label: string;
+  /** 下2桁の下限（含む）。 */
+  min: number;
+  /** 下2桁の上限（含む）。 */
+  max: number;
+}
+
+/**
+ * 在ゲーム年の下2桁で区切った年代バケット。
+ * 06〜59 は固定幅、60 以上は「60年以降」で1つにまとめる。
+ */
+export const YEAR_BUCKETS: YearBucket[] = [
+  { key: "06-11", label: "06年-11年", min: 6, max: 11 },
+  { key: "12-17", label: "12年-17年", min: 12, max: 17 },
+  { key: "18-23", label: "18年-23年", min: 18, max: 23 },
+  { key: "24-35", label: "24年-35年", min: 24, max: 35 },
+  { key: "36-47", label: "36年-47年", min: 36, max: 47 },
+  { key: "48-59", label: "48年-59年", min: 48, max: 59 },
+  { key: "60+", label: "60年以降", min: 60, max: 99 },
+];
+
+/** ランキングに載せる最低決着戦数（勝敗が確定した戦闘数）。 */
+export const YEAR_RANK_MIN_DECIDED = 10;
+/** 各バケットで何位まで表彰するか。 */
+export const YEAR_RANK_TOP_N = 3;
+
+/**
+ * "1706年2月 06/18 12:36" などの戦闘時刻から在ゲーム年（西暦）を取り出す。
+ * 年が含まれない／パースできない場合は null。
+ */
+export function parseGameYear(time: string | undefined): number | null {
+  if (!time) return null;
+  const m = time.match(/(\d+)\s*年/);
+  if (!m) return null;
+  const y = Number(m[1]);
+  return Number.isFinite(y) ? y : null;
+}
+
+/** 在ゲーム年（西暦）が属する年代バケットを返す（下2桁で判定）。該当なしは null。 */
+export function yearBucketFor(year: number): YearBucket | null {
+  const yy = ((year % 100) + 100) % 100;
+  return YEAR_BUCKETS.find((b) => yy >= b.min && yy <= b.max) ?? null;
+}
+
+/** 年代別ランキングの 1 エントリ（武将 1 人ぶん）。 */
+export interface WarlordYearRankEntry {
+  /** 代表名（家督統合後）。 */
+  name: string;
+  /** バケット内の順位（1..N）。 */
+  rank: number;
+  /** バケット内の関与戦闘数。 */
+  battles: number;
+  wins: number;
+  losses: number;
+  /** 勝敗が確定した戦闘数（wins + losses）。 */
+  decided: number;
+  /** 勝率 0..1。 */
+  winRate: number;
+}
+
+/** 1 バケットぶんのランキング。 */
+export interface YearBucketRanking {
+  bucket: YearBucket;
+  /** 勝率の高い順（最大 topN 件）。 */
+  entries: WarlordYearRankEntry[];
+}
+
+/**
+ * 在ゲーム年の年代ごとに、武将を勝率（総合＝攻撃＋守備）で順位付けする。
+ * 各バケットで決着戦数が minDecided 以上の武将のみを対象に上位 topN を返す。
+ *
+ * @param log 戦闘ログ（期で絞らず全期間を渡す想定）。
+ * @param db 武将DB。渡すと同じ household の別名を代表名へ統合して集計する。
+ */
+export function yearBucketWinRankings(
+  log: BattleRecord[],
+  db?: WarlordMap,
+  opts?: { minDecided?: number; topN?: number }
+): YearBucketRanking[] {
+  const minDecided = opts?.minDecided ?? YEAR_RANK_MIN_DECIDED;
+  const topN = opts?.topN ?? YEAR_RANK_TOP_N;
+  const normMap = db ? normalizationMap(db) : null;
+  const norm = (n: string | undefined): string | null => {
+    const k = n?.trim();
+    if (!k) return null;
+    return (normMap && normMap[k]) || k;
+  };
+
+  interface Tally {
+    battles: number;
+    wins: number;
+    losses: number;
+  }
+  // バケットキー -> 代表名 -> 集計。
+  const byBucket = new Map<string, Map<string, Tally>>();
+  for (const b of YEAR_BUCKETS) byBucket.set(b.key, new Map());
+
+  for (const { record, card } of dedupedCards(log)) {
+    const year = parseGameYear(record.time ?? card.battleAt);
+    if (year === null) continue;
+    const bucket = yearBucketFor(year);
+    if (!bucket) continue;
+    const table = byBucket.get(bucket.key)!;
+
+    const leftRep = norm(card.left.name);
+    const rightRep = norm(card.right.name);
+    // 通常は別人。同一人物に正規化される稀なケースは片側のみ計上する。
+    const sides: { rep: string; side: SideKey }[] = [];
+    if (leftRep) sides.push({ rep: leftRep, side: "left" });
+    if (rightRep && rightRep !== leftRep)
+      sides.push({ rep: rightRep, side: "right" });
+
+    for (const { rep, side } of sides) {
+      const t = table.get(rep) ?? { battles: 0, wins: 0, losses: 0 };
+      t.battles += 1;
+      const r = outcomeForSide(card.winner, side);
+      if (r === "win") t.wins += 1;
+      else if (r === "loss") t.losses += 1;
+      table.set(rep, t);
+    }
+  }
+
+  return YEAR_BUCKETS.map((bucket) => {
+    const table = byBucket.get(bucket.key)!;
+    const entries: WarlordYearRankEntry[] = [];
+    for (const [name, t] of table) {
+      const decided = t.wins + t.losses;
+      if (decided < minDecided) continue;
+      entries.push({
+        name,
+        rank: 0,
+        battles: t.battles,
+        wins: t.wins,
+        losses: t.losses,
+        decided,
+        winRate: decided > 0 ? t.wins / decided : 0,
+      });
+    }
+    entries.sort(
+      (a, b) =>
+        b.winRate - a.winRate ||
+        b.decided - a.decided ||
+        a.name.localeCompare(b.name, "ja")
+    );
+    const top = entries.slice(0, topN);
+    top.forEach((e, i) => (e.rank = i + 1));
+    return { bucket, entries: top };
+  });
+}
+
+/** 武将ページに付ける年代別ランキングのタグ。 */
+export interface YearRankTag {
+  /** バケットキー（例: "06-11"）。 */
+  bucketKey: string;
+  /** 表示ラベル（例: "06年-11年"）。 */
+  label: string;
+  /** 順位（1..N）。 */
+  rank: number;
+  wins: number;
+  losses: number;
+  decided: number;
+  winRate: number;
+}
+
+/**
+ * 指定した代表名の武将が入賞している年代バケットのタグ一覧を返す。
+ * バケットは YEAR_BUCKETS の並び順（古い年代→新しい年代）。
+ */
+export function warlordYearRankTags(
+  rankings: YearBucketRanking[],
+  repName: string
+): YearRankTag[] {
+  const key = repName.trim();
+  if (!key) return [];
+  const out: YearRankTag[] = [];
+  for (const { bucket, entries } of rankings) {
+    const e = entries.find((x) => x.name === key);
+    if (!e) continue;
+    out.push({
+      bucketKey: bucket.key,
+      label: bucket.label,
+      rank: e.rank,
+      wins: e.wins,
+      losses: e.losses,
+      decided: e.decided,
+      winRate: e.winRate,
+    });
+  }
+  return out;
+}
+
 /* ---------- 時間帯・曜日別の勝率ヒートマップ ---------- */
 
 /** 曜日ラベル（getDay() の 0..6 に対応）。 */

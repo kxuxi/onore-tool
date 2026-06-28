@@ -106,7 +106,6 @@ export function parseBattleLine(line: string): Warlord[] {
 
   const now = Date.now();
   const result: Warlord[] = [];
-  // 攻撃側（V.S. の左側）のみ「行動時刻」を紐づける。
   if (attacker)
     result.push({
       ...attacker,
@@ -115,7 +114,14 @@ export function parseBattleLine(line: string): Warlord[] {
       actions: actionAt ? [actionAt] : undefined,
       updatedAt: now,
     });
-  if (defender) result.push({ ...defender, battleAt, updatedAt: now });
+  if (defender)
+    result.push({
+      ...defender,
+      battleAt,
+      lastActionAt: actionAt,
+      actions: actionAt ? [actionAt] : undefined,
+      updatedAt: now,
+    });
   return result;
 }
 
