@@ -42,6 +42,7 @@ import {
 } from "@/components/icons";
 import type { BattleRecord, TabKey, WarlordMap } from "@/lib/types";
 import { normalizationMap } from "@/lib/storage";
+import { yearBucketWinRankings, warlordYearRankTags } from "@/lib/stats";
 
 const HomeTab = dynamic(
   () => import("@/components/tabs/HomeTab").then((m) => m.HomeTab)
@@ -319,6 +320,15 @@ export default function HomePage() {
 
   // filteredDb 内の household 正規化マップ（同じ household → 最新の代表名）。
   const householdNormMap = useMemo(() => normalizationMap(filteredDb), [filteredDb]);
+
+  // 年代別（在ゲーム年）の勝率ランキング。武将ページの入賞タグは「称号」的な
+  // 性質のため、期フィルタを無視して全期間の戦闘・全DBで集計する。
+  const yearRankings = useMemo(
+    () => yearBucketWinRankings(battleLog, db),
+    [battleLog, db]
+  );
+  // 全DBでの代表名解決（入賞タグの引き当てをランキングと同じ正規化で行う）。
+  const fullNormMap = useMemo(() => normalizationMap(db), [db]);
 
   // 武将詳細ページへの遷移。household がある場合は代表名（最新名）にリダイレクト。
   const selectWarlordNormalized = useCallback(
@@ -690,6 +700,8 @@ export default function HomePage() {
   let detailView: React.ReactNode = null;
   if (detail) {
     if (detail.kind === "warlord") {
+      // ランキングと同じ正規化で代表名を解決し、入賞タグを引き当てる。
+      const repName = fullNormMap[detail.name] ?? detail.name;
       detailView = (
         <WarlordDetail
           name={detail.name}
@@ -697,6 +709,7 @@ export default function HomePage() {
           log={filteredBattleLog}
           colors={factionColors}
           canComment={isAdmin}
+          yearRankTags={warlordYearRankTags(yearRankings, repName)}
           onSelectWarlord={selectWarlordNormalized}
           onSelectUnit={selectUnit}
           onSelectFaction={selectFaction}
