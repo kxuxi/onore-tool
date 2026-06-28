@@ -26,8 +26,8 @@ export function mergeWarlords(
         ? actions[actions.length - 1]
         : pickLatestAction(prev?.lastActionAt, w.lastActionAt);
 
-    // 属性（国・タイプ・兵科・兵種）は戦闘時刻が新しい方を採用する。
-    // prev が無い、または w の戦闘時刻が prev 以上に新しければ w を採用。
+    // 属性（国・タイプ・兵科・兵種・装備）は「在ゲームで新しい戦闘」の方を採用する。
+    // 攻撃・守備のどちらで観測したかは問わず、最新の戦闘で見えたプロフィールを反映する。
     const base = isNewerBattle(w, prev, now) ? w : prev ?? w;
 
     map[w.name] = {
@@ -53,9 +53,17 @@ export function mergeWarlords(
 }
 
 /**
- * 武将 w の戦闘時刻が prev より新しい（または同じ）かを判定する。
- * 戦闘時刻は battleAt の実時刻部分（MM/DD HH:mm）で比較する。
- * prev が無い、または prev に比較可能な時刻が無い場合は true。
+ * 武将 w の戦闘が prev より新しい（または同じ）かを判定する。
+ *
+ * 新旧は「在ゲーム年月」（battleAt 先頭の "1706年1月" 等）を最優先で比較する。
+ * 実時刻（MM/DD HH:mm）は登録時の now に依存して年跨ぎ補正が変わるため、
+ * 過去ログの一括登録や再登録の際に古い戦闘が新しい戦闘を上書きしてしまい、
+ * 攻撃のみならず守備で観測した最新プロフィールが反映されない原因になる。
+ * 在ゲーム年月は戦闘が実際に行われた順序そのものなので、攻守を問わず
+ * 「在ゲームで最新の戦闘」のプロフィール（兵種・装備など）を採用できる。
+ *
+ * 在ゲーム年月が同じ、または取得できない場合のみ従来どおり実時刻で比較する。
+ * prev が無い、または比較可能な情報が無い場合は true。
  */
 function isNewerBattle(
   w: Warlord,
@@ -63,11 +71,30 @@ function isNewerBattle(
   now: Date
 ): boolean {
   if (!prev) return true;
+  // 1) 在ゲーム年月で比較（登録順・登録時刻に依存しない安定した基準）。
+  const wg = gameOrderOf(w.battleAt);
+  const pg = gameOrderOf(prev.battleAt);
+  if (wg != null && pg != null && wg !== pg) return wg > pg;
+  // 2) 同じ在ゲーム年月、または年月が取れない場合は実時刻で決める。
   const wd = parseActionDate(extractTime(w.battleAt), now);
   const pd = parseActionDate(extractTime(prev.battleAt), now);
   if (!pd) return true;
   if (!wd) return false;
   return wd.getTime() >= pd.getTime();
+}
+
+/**
+ * battleAt 先頭の在ゲーム年月（"1706年1月" など）を順序値 year*12+month に変換する。
+ * 年月を取り出せない場合は null。
+ */
+function gameOrderOf(s: string | undefined): number | null {
+  if (!s) return null;
+  const m = s.match(/(\d+)\s*年\s*(\d+)\s*月/);
+  if (!m) return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  if (!Number.isFinite(year) || !Number.isFinite(month)) return null;
+  return year * 12 + month;
 }
 
 /** "1687年5月 06/15 09:30" などから "06/15 09:30" を取り出す。 */
