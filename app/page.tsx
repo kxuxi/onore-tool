@@ -554,7 +554,7 @@ export default function HomePage() {
       case "history":
         return (
           <HistoryTab
-            canRegister={!authReady || isAdmin}
+            canRegister={(!authReady || isAdmin) && (selectedTerm === "all" || selectedTerm === latestTerm)}
             canDelete={isAdmin}
             onRegister={handleRegister}
             log={filteredBattleLog}
