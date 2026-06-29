@@ -8,7 +8,7 @@ import type { Warlord } from "./types";
 export function splitBattleSegments(text: string): string[] {
   return text
     .replace(/\r/g, "")
-    .split(/(?=【[^】]*戦目】)/)
+    .split(/(?=【(?:[^】]*戦目|壁戦)】)/)
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
 }
@@ -79,8 +79,8 @@ export function parseBattleLine(line: string): Warlord[] {
     .map((t) => t.trim())
     .filter((t) => t.length > 0);
 
-  // 【N戦目】 で始まる行のみ対象
-  if (tokens.length === 0 || !/^【.*戦目】/.test(tokens[0])) {
+  // 【N戦目】または【壁戦】で始まる行のみ対象
+  if (tokens.length === 0 || !/^【(?:[^】]*戦目|壁戦)】/.test(tokens[0])) {
     return [];
   }
 
@@ -154,6 +154,8 @@ function sliceWarlord(
   if (block.length !== 8) return null;
   const [faction, name, household, type, unit, branch] = block;
   if (!name || !type || !branch) return null;
+  // 壁戦闘の守備側（タイプ「壁」）は武将 DB に登録しない。
+  if (type === "壁") return null;
   return {
     name: name.trim(),
     household: household?.trim() || undefined,
@@ -220,14 +222,14 @@ export interface BattleParseResult {
   rejected: RejectedBattle[];
 }
 
-/** セグメントが戦闘エントリの体裁（【N戦目】で始まる）かどうか。 */
+/** セグメントが戦闘エントリの体裁（【N戦目】または【壁戦】で始まる）かどうか。 */
 function looksLikeBattleSegment(seg: string): boolean {
-  return /^【[^】]*戦目】/.test(seg.trim());
+  return /^【(?:[^】]*戦目|壁戦)】/.test(seg.trim());
 }
 
-/** 【N戦目】 から戦目番号（例: "1戦目"）を取り出す。 */
+/** 【N戦目】または【壁戦】から戦目識別子（例: "1戦目" / "壁戦"）を取り出す。 */
 function battleNoOf(seg: string): string | undefined {
-  const m = seg.trim().match(/^【([^】]*戦目)】/);
+  const m = seg.trim().match(/^【([^】]*(?:戦目|壁戦))】/);
   return m ? m[1] : undefined;
 }
 
@@ -441,23 +443,38 @@ function computeBattleCard(line: string): BattleCard | null {
     .map((t) => t.trim())
     .filter((t) => t.length > 0);
 
-  if (tokens.length === 0 || !/^【.*戦目】/.test(tokens[0])) return null;
+  if (tokens.length === 0 || !/^【(?:[^】]*戦目|壁戦)】/.test(tokens[0])) return null;
 
   const vsIndex = tokens.findIndex((t) => /^v\.?s\.?$/i.test(t));
   if (vsIndex < 8) return null;
-  if (tokens.length < vsIndex + 9) return null;
 
   const leftBlock = tokens.slice(vsIndex - 8, vsIndex);
-  const rightBlockRaw = tokens.slice(vsIndex + 1, vsIndex + 9);
   const leftName = leftBlock[1]?.trim() ?? "";
-  const rightName = rightBlockRaw[1]?.trim() ?? "";
-  // 防衛側の装備2に勝敗が連結している場合は切り離す（スマホ貼り付け対策）。
-  const { rightBlock, resultRaw, turns } = splitGluedResult(
-    tokens,
-    vsIndex,
-    leftName,
-    rightName
-  );
+
+  let rightBlock: string[];
+  let resultRaw: string;
+  let turns: string | undefined;
+
+  if (tokens[0] === "【壁戦】") {
+    // 壁戦闘: 防衛側は6トークン（勢力名なし・兵科なし）。
+    // [名前, 拠点名, 兵種, 壁, なし, なし] の後に勝敗・ターン数が続く。
+    if (tokens.length < vsIndex + 8) return null;
+    rightBlock = tokens.slice(vsIndex + 1, vsIndex + 7);
+    resultRaw = tokens[vsIndex + 7] ?? "";
+    const turnsRaw = tokens[vsIndex + 8];
+    turns = turnsRaw && /^\d+$/.test(turnsRaw) ? turnsRaw : undefined;
+  } else {
+    if (tokens.length < vsIndex + 9) return null;
+    const rightBlockRaw = tokens.slice(vsIndex + 1, vsIndex + 9);
+    const rightName = rightBlockRaw[1]?.trim() ?? "";
+    // 防衛側の装備2に勝敗が連結している場合は切り離す（スマホ貼り付け対策）。
+    ({ rightBlock, resultRaw, turns } = splitGluedResult(
+      tokens,
+      vsIndex,
+      leftName,
+      rightName
+    ));
+  }
 
   const left = sideFromBlock(leftBlock);
   const right = sideFromBlock(rightBlock);

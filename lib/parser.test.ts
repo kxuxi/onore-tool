@@ -320,3 +320,46 @@ describe("parseBattleEntriesChecked（項目の過不足の検出）", () => {
     expect(rejected).toHaveLength(0);
   });
 });
+
+// 壁戦闘: 防衛側が城壁兵（6トークン形式）の戦闘
+const LINE_WALL =
+  "【壁戦】 1618年1月 06/29 20:13 温品 XYZ ダイキリ ダイキリ家 統特 丸木弓足軽 弓兵 金の護符 攻城櫓 V.S. ケロロ軍曹 温品の守備隊 超精鋭城壁兵 壁 なし なし 温品の守備隊の勝利 16 ターン で終了";
+
+describe("壁戦闘（【壁戦】形式）", () => {
+  it("splitBattleSegments が【壁戦】を単独セグメントとして切り出す", () => {
+    const segs = splitBattleSegments(
+      "【1戦目】 1583年4月 04/10 10:23 京都 織田 信長 織田家 武特 騎馬隊 騎兵 槍 鎧 V.S. 武田 勝頼 武田家 統特 騎馬隊 騎兵 馬 旗 信長の勝利 12\n" +
+      LINE_WALL
+    );
+    expect(segs).toHaveLength(2);
+    expect(segs[1].startsWith("【壁戦】")).toBe(true);
+  });
+
+  it("parseBattleLine が攻撃側の行動時刻を登録する", () => {
+    const warlords = parseBattleLine(LINE_WALL);
+    expect(warlords).toHaveLength(1);
+    expect(warlords[0].name).toBe("ダイキリ");
+    expect(warlords[0].lastActionAt).toBe("06/29 20:13");
+    expect(warlords[0].actions).toContain("06/29 20:13");
+  });
+
+  it("parseBattleLine が城壁兵（type=壁）を武将 DB に登録しない", () => {
+    const warlords = parseBattleLine(LINE_WALL);
+    expect(warlords.every((w) => w.type !== "壁")).toBe(true);
+  });
+
+  it("parseBattleEntriesChecked が壁戦闘を rejected に入れない", () => {
+    const { entries, rejected } = parseBattleEntriesChecked(LINE_WALL);
+    expect(rejected).toHaveLength(0);
+    expect(entries).toHaveLength(1);
+  });
+
+  it("parseBattleCard が壁戦闘のカードを正しく解析する", () => {
+    const card = parseBattleCard(LINE_WALL);
+    expect(card).not.toBeNull();
+    expect(card!.battleNo).toBe("壁戦");
+    expect(card!.left.name).toBe("ダイキリ");
+    expect(card!.right.name).toBe("温品の守備隊");
+    expect(card!.winner).toBe("right");
+  });
+});
