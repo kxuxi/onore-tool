@@ -114,18 +114,29 @@ export function ScoutTab({ db, colors, onSelectWarlord }: Props) {
 
   // 国へ敵の守備の並びを報告するためのテキスト。
   // 兵種を含める場合は「名前［タイプ｜兵種］」、外す場合は「名前［タイプ］」を入力順に連結する。
-  const reportText = useMemo(
-    () =>
-      rows
-        .map((r) => {
-          if (!r.found) return `${r.name}［？］`;
-          if (!includeUnit) return `${r.name}［${shortType(r.type)}］`;
-          const unit = r.unit ? shortUnit(normalizeDisplayToken(r.unit)) : "？";
-          return `${r.name}［${shortType(r.type)}｜${unit}］`;
-        })
-        .join(", "),
-    [includeUnit, rows]
-  );
+  // 全角150文字（300 Byte）以内に収まる要素だけを含める。
+  const reportParts = useMemo(() => {
+    const SEP = ", ";
+    const LIMIT = 150;
+    const parts: string[] = [];
+    let len = 0;
+    for (const r of rows) {
+      const displayName = r.name.length > 6 ? r.name.slice(0, 6) : r.name;
+      const el = (() => {
+        if (!r.found) return `${displayName}［？］`;
+        if (!includeUnit) return `${displayName}［${shortType(r.type)}］`;
+        const unit = r.unit ? shortUnit(normalizeDisplayToken(r.unit)) : "？";
+        return `${displayName}［${shortType(r.type)}｜${unit}］`;
+      })();
+      const needed = parts.length === 0 ? el.length : SEP.length + el.length;
+      if (len + needed > LIMIT) break;
+      parts.push(el);
+      len += needed;
+    }
+    return parts;
+  }, [includeUnit, rows]);
+
+  const reportText = reportParts.join(", ");
 
   const handleCopyReport = async () => {
     if (!reportText) return;
@@ -181,7 +192,11 @@ export function ScoutTab({ db, colors, onSelectWarlord }: Props) {
             <div className="scout-report-head">
               <span className="scout-report-title">
                 報告用テキスト（{includeUnit ? "タイプ｜兵種" : "タイプのみ"}）
-                <span className="scout-report-count">{rows.length}件</span>
+                <span className="scout-report-count">
+                  {reportParts.length < rows.length
+                    ? `${reportParts.length}/${rows.length}件`
+                    : `${rows.length}件`}
+                </span>
               </span>
               <label className="scout-toggle">
                 <input
