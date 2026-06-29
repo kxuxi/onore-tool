@@ -39,6 +39,7 @@ function splitNames(text: string): string[] {
 function shortType(type: string | undefined): string {
   if (!type) return "？";
   if (type === "政治家") return "政";
+  if (type === "戦闘狂") return "狂";
   if (type.length === 2 && type.endsWith("特")) return type[0];
   return type;
 }

@@ -2125,6 +2125,15 @@ button.tag.faction-link:focus-visible {
   letter-spacing: 0.02em;
 }
 
+/* 守備でのみ観測された武将に付くバッジ（攻撃履歴なし）。 */
+.status.defense-only {
+  color: var(--label-branch-fg);
+  background: var(--label-branch-bg);
+  border-color: var(--label-branch-border);
+  border-style: dashed;
+  margin-left: 4px;
+}
+
 /* 被弾表の状況セル。メインの行動状況と固定バッジ（末尾固定／休養なし／固定分）を
    縦に積み、バッジ幅をそろえて左右端をきれいに整列する。内側ラッパーに flex を当て、
    セル自体は通常のテーブルセルのまま（列幅計算を壊さない）。 */

@@ -19,12 +19,14 @@ export function mergeWarlords(
     if (prev) updated++;
     else added++;
 
-    // 行動時刻の履歴をマージ（昇順・重複なし・直近20件まで保持）。
+    // actions は攻撃時刻のみを保持（守備は lastActionAt に反映、固定バッジ対象外）。
     const actions = mergeActions(prev?.actions, w.actions);
-    const lastActionAt =
-      actions.length > 0
-        ? actions[actions.length - 1]
-        : pickLatestAction(prev?.lastActionAt, w.lastActionAt);
+    // lastActionAt は攻撃・守備どちらの時刻も取り込む。
+    // actions の末尾と w.lastActionAt を独立して比較し、新しい方を採用する。
+    const lastActionAt = pickLatestAction(
+      actions.length > 0 ? actions[actions.length - 1] : prev?.lastActionAt,
+      w.lastActionAt
+    );
 
     // 属性（国・タイプ・兵科・兵種・装備）は「より新しい戦闘」の方を採用する。
     // 新旧は 期 → 在ゲーム年月 → 実時刻 の順で判定し（isNewerBattle 参照）、
