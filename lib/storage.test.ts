@@ -52,6 +52,25 @@ describe("mergeWarlords", () => {
     mergeWarlords(existing, [wl({ name: "B", updatedAt: 100 })]);
     expect(existing["B"]).toBeUndefined();
   });
+
+  it("守備の lastActionAt が攻撃 actions より新しければ lastActionAt を更新する", () => {
+    // 既存: 攻撃時刻 10:00 が actions に記録済み
+    const existing: WarlordMap = {
+      A: wl({
+        name: "A",
+        actions: ["06/15 10:00"],
+        lastActionAt: "06/15 10:00",
+        updatedAt: 100,
+      }),
+    };
+    // 新規: 守備（actions なし）で lastActionAt だけ 11:00
+    const { map } = mergeWarlords(existing, [
+      wl({ name: "A", lastActionAt: "06/15 11:00", updatedAt: 200 }),
+    ]);
+    expect(map["A"].lastActionAt).toBe("06/15 11:00");
+    // actions（攻撃履歴）はそのまま保持される
+    expect(map["A"].actions).toEqual(["06/15 10:00"]);
+  });
 });
 
 describe("mergeWarlords のプロフィール採用（在ゲーム年月での新旧判定）", () => {
