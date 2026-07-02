@@ -78,6 +78,28 @@ export async function registerState(
   return res.json();
 }
 
+/** 武将のプロフィールフィールドを直接更新する（管理者のみ）。 */
+export async function updateWarlordProfile(patch: {
+  name: string;
+  faction?: string;
+  type?: string;
+  branch?: string;
+  unit?: string;
+  household?: string;
+}): Promise<WarlordMap> {
+  const res = await fetch("/api/warlords", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new Error(data?.error ?? "更新に失敗しました");
+  }
+  const { db } = await res.json();
+  return db as WarlordMap;
+}
+
 /** 戦闘履歴を削除（管理者のみ）。 */
 export async function deleteBattleRecord(id: number): Promise<void> {
   const res = await fetch(`/api/battle-records/${id}`, {

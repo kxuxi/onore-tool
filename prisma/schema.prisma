@@ -34,8 +34,9 @@ model Warlord {
   branch       String   @default("") // 兵科
   unit         String?  // 兵種
   battleAt     String?  // 戦闘時刻 (元テキスト)
-  lastActionAt String?  // 最終行動時刻
-  actions      String[] @default([]) // 行動履歴
+  lastActionAt  String?  // 最終行動時刻（攻撃・守備の最新）
+  lastDefenseAt String?  // 最終守備時刻
+  actions       String[] @default([]) // 行動履歴（攻撃のみ）
   term         Int      @default(145) // 最後に登録された期番号
   updatedAt    BigInt   @default(0)
   // ランキング取り込みで反映する能力値（武力〜計略）と自己PR。すべて任意。

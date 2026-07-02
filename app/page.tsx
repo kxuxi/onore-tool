@@ -709,6 +709,8 @@ export default function HomePage() {
           log={filteredBattleLog}
           colors={factionColors}
           canComment={isAdmin}
+          canEdit={isAdmin}
+          onProfileUpdate={(updatedDb) => setDb(updatedDb)}
           yearRankTags={warlordYearRankTags(yearRankings, repName)}
           onSelectWarlord={selectWarlordNormalized}
           onSelectUnit={selectUnit}
@@ -1009,8 +1011,10 @@ export default function HomePage() {
               </div>
             </div>
           ) : (
-            detailView ?? (
-              <>
+            <>
+              {/* タブコンテンツは常にマウントしたまま、詳細表示中だけ非表示にする。
+                  アンマウントするとフィルター等の状態がリセットされるため。 */}
+              <div style={{ display: detail ? "none" : undefined }}>
                 {hasSubtabs && (
                   <div
                     role="tablist"
@@ -1043,8 +1047,9 @@ export default function HomePage() {
                   </div>
                 )}
                 {content}
-              </>
-            )
+              </div>
+              {detailView}
+            </>
           )}
         </main>
       </div>

@@ -12,7 +12,6 @@ const MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 
 /**
  * クッキー文字列から指定キーの生値を取り出す（純粋関数・テスト可能）。
- * document に依存しないため、パース部分を単体で検証できる。
  */
 export function readCookieValue(cookie: string, key: string): string | null {
   for (const part of cookie.split(";")) {

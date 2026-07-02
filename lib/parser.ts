@@ -93,9 +93,17 @@ export function parseBattleLine(line: string): Warlord[] {
   if (vsIndex < 8) return [];
   const attacker = sliceWarlord(tokens.slice(vsIndex - 8, vsIndex));
 
-  // 防衛側: V.S. の直後 8 トークン（以降に 勝敗 / ターン数 が続く）
-  if (tokens.length < vsIndex + 9) return [];
-  const defender = sliceWarlord(tokens.slice(vsIndex + 1, vsIndex + 9));
+  // 防衛側: 壁戦は結果トークンの位置が可変なので動的に探す。
+  // 通常戦は V.S. の直後 8 トークン固定（以降に勝敗・ターン数が続く）。
+  let defender: ReturnType<typeof sliceWarlord>;
+  if (tokens[0] === "【壁戦】") {
+    const resultIdx = findResultTokenIndex(tokens, vsIndex + 1);
+    if (resultIdx < 0) return [];
+    defender = sliceWarlord(tokens.slice(vsIndex + 1, resultIdx));
+  } else {
+    if (tokens.length < vsIndex + 9) return [];
+    defender = sliceWarlord(tokens.slice(vsIndex + 1, vsIndex + 9));
+  }
 
   // 戦闘日時: 先頭の【N戦目】と攻撃側ブロックの間にあるメタ情報のうち
   // 末尾（場所）を除いたもの（年月 月日 時刻）を最終戦闘時刻として扱う。
@@ -108,10 +116,11 @@ export function parseBattleLine(line: string): Warlord[] {
   const shared = { battleAt, lastActionAt: actionAt, updatedAt: now } as const;
   const result: Warlord[] = [];
   // 攻撃側のみ actions を付ける。固定バッジは攻撃の連続行動パターンにのみ適用する。
-  // 守備側は lastActionAt のみ記録し、被弾表には表示されるがバッジは付かない。
+  // 守備側は lastActionAt と lastDefenseAt を記録し、被弾表には表示されるがバッジは付かない。
   if (attacker)
     result.push({ ...attacker, ...shared, actions: actionAt ? [actionAt] : undefined });
-  if (defender) result.push({ ...defender, ...shared });
+  if (defender)
+    result.push({ ...defender, ...shared, lastDefenseAt: actionAt || undefined });
   return result;
 }
 
@@ -143,6 +152,18 @@ function splitMeta(meta: string[]): { place?: string; battleAt: string } {
     return { place: meta[meta.length - 1], battleAt: meta.slice(0, -1).join(" ") };
   }
   return { battleAt: meta.join(" ") };
+}
+
+/**
+ * V.S. の直後 startIdx から勝敗を表すトークン（の勝利/撤退/引分/敗北 で終わる）の
+ * インデックスを返す。見つからなければ -1。
+ * 壁戦は防衛側のトークン数が可変なので、この関数で境界を動的に検出する。
+ */
+function findResultTokenIndex(tokens: string[], startIdx: number): number {
+  for (let i = startIdx; i < tokens.length; i++) {
+    if (/(?:の勝利|撤退|引分|敗北)$/.test(tokens[i])) return i;
+  }
+  return -1;
 }
 
 /**
@@ -247,7 +268,12 @@ function battleRejectReason(seg: string): string {
   const vsIndex = tokens.findIndex((t) => /^v\.?s\.?$/i.test(t));
   if (vsIndex < 0) return "「V.S.」の区切りが見つかりません";
   if (vsIndex < 8) return "攻撃側の項目数が不足しています";
-  if (tokens.length < vsIndex + 9) return "防衛側の項目数が不足しています";
+  if (tokens[0] === "【壁戦】") {
+    const resultIdx = findResultTokenIndex(tokens, vsIndex + 1);
+    if (resultIdx < 0) return "勝敗情報（の勝利・撤退・引分・敗北）が見つかりません";
+  } else {
+    if (tokens.length < vsIndex + 9) return "防衛側の項目数が不足しています";
+  }
   return "必須項目（武将名・タイプ・兵科）が空です";
 }
 
@@ -456,12 +482,12 @@ function computeBattleCard(line: string): BattleCard | null {
   let turns: string | undefined;
 
   if (tokens[0] === "【壁戦】") {
-    // 壁戦闘: 防衛側は6トークン（勢力名なし・兵科なし）。
-    // [名前, 拠点名, 兵種, 壁, なし, なし] の後に勝敗・ターン数が続く。
-    if (tokens.length < vsIndex + 8) return null;
-    rightBlock = tokens.slice(vsIndex + 1, vsIndex + 7);
-    resultRaw = tokens[vsIndex + 7] ?? "";
-    const turnsRaw = tokens[vsIndex + 8];
+    // 壁戦: 防衛側トークン数が可変。勝敗トークンの位置を動的に検出する。
+    const resultIdx = findResultTokenIndex(tokens, vsIndex + 1);
+    if (resultIdx < 0) return null;
+    rightBlock = tokens.slice(vsIndex + 1, resultIdx);
+    resultRaw = tokens[resultIdx] ?? "";
+    const turnsRaw = tokens[resultIdx + 1];
     turns = turnsRaw && /^\d+$/.test(turnsRaw) ? turnsRaw : undefined;
   } else {
     if (tokens.length < vsIndex + 9) return null;

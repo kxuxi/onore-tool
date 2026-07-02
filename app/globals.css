@@ -5027,4 +5027,45 @@ button.tag.faction-link:focus-visible {
   }
 }
 
+/* ---------- 武将プロフィール編集フォーム ---------- */
+.profile-editor {
+  margin: 0 0 12px;
+}
+.profile-editor-toggle {
+  font-size: 13px;
+}
+.profile-editor-form {
+  margin-top: 10px;
+  padding: 14px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.profile-editor-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+}
+.profile-editor-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.profile-editor-field .input {
+  font-size: 13px;
+}
+.required {
+  color: var(--danger);
+  font-weight: 700;
+}
+.profile-editor-msg {
+  font-size: 13px;
+  font-weight: 600;
+  align-self: center;
+}
+.profile-editor-msg.ok  { color: var(--success); }
+.profile-editor-msg.error { color: var(--danger); }
+
 

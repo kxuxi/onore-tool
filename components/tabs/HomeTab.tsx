@@ -220,7 +220,7 @@ export function HomeTab({
         <div className="home-picker">
           <h2 className="home-picker-title">自分の武将を選ぶ</h2>
           <p className="muted">
-            ホームに成績サマリを表示する武将を選びます。選択はこのブラウザ（クッキー）に保存されます。
+            自分の武将を登録してください。サマリが表示され、戦績やその推移を確認することができます。
           </p>
           <SearchBox
             value={query}

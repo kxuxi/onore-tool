@@ -17,6 +17,7 @@ type WarlordRow = {
   unit: string | null;
   battleAt: string | null;
   lastActionAt: string | null;
+  lastDefenseAt: string | null;
   actions: string[];
   term: number;
   updatedAt: bigint;
@@ -39,6 +40,7 @@ function rowToWarlord(r: WarlordRow): Warlord {
     unit: r.unit ?? undefined,
     battleAt: r.battleAt ?? undefined,
     lastActionAt: r.lastActionAt ?? undefined,
+    lastDefenseAt: r.lastDefenseAt ?? undefined,
     actions: r.actions.length > 0 ? r.actions : undefined,
     term: r.term,
     updatedAt: Number(r.updatedAt),
@@ -62,6 +64,7 @@ function warlordToRow(w: Warlord) {
     unit: w.unit ?? null,
     battleAt: w.battleAt ?? null,
     lastActionAt: w.lastActionAt ?? null,
+    lastDefenseAt: w.lastDefenseAt ?? null,
     actions: w.actions ?? [],
     term: w.term ?? 145,
     updatedAt: BigInt(w.updatedAt),

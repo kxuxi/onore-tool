@@ -12,6 +12,7 @@ import {
   STATUS_ORDER,
   type ActionStatus,
 } from "@/lib/action";
+import { copyText } from "@/lib/clipboard";
 
 interface Props {
   db: WarlordMap;
@@ -36,6 +37,7 @@ export function DamageTab({ db, colors, onSelectWarlord }: Props) {
   const [roleFilter, setRoleFilter] = useState<"" | "attack" | "defense-only">("");
   const [nameQuery, setNameQuery] = useState("");
   const [showFilter, setShowFilter] = useState(false);
+  const [reportCopied, setReportCopied] = useState<"idle" | "ok" | "fail">("idle");
 
   // 経過時間をリアルタイム表示するため 30 秒ごとに現在時刻を更新。
   // タブが非表示の間はインターバルを止め、再表示時に即時更新して再開する。
@@ -113,6 +115,24 @@ export function DamageTab({ db, colors, onSelectWarlord }: Props) {
     }
     return c;
   }, [rows]);
+
+  // 表示中の行を「名前N分」形式で連結した報告用テキスト。
+  const reportText = useMemo(
+    () =>
+      rows
+        .map(({ w, info }) =>
+          info.minutes != null ? `${w.name}${info.minutes}分` : w.name
+        )
+        .join(" "),
+    [rows]
+  );
+
+  const handleCopyReport = async () => {
+    if (!reportText) return;
+    const ok = await copyText(reportText);
+    setReportCopied(ok ? "ok" : "fail");
+    window.setTimeout(() => setReportCopied("idle"), 1800);
+  };
 
   // 検索ボックスとは別にトグルするドロップダウン系の絞り込み。
   const hasDropdownFilter = !!(statusFilter || factionFilter || roleFilter);
@@ -263,6 +283,36 @@ export function DamageTab({ db, colors, onSelectWarlord }: Props) {
         </div>
       )}
 
+      {rows.length > 0 && (
+        <div className="scout-report">
+          <div className="scout-report-head">
+            <span className="scout-report-title">
+              報告用テキスト（名前＋経過分）
+              <span className="scout-report-count">{rows.length}件</span>
+            </span>
+            <button
+              type="button"
+              className="btn"
+              onClick={handleCopyReport}
+              disabled={!reportText}
+            >
+              {reportCopied === "ok"
+                ? "コピーしました"
+                : reportCopied === "fail"
+                  ? "コピーできませんでした"
+                  : "コピー"}
+            </button>
+          </div>
+          <textarea
+            className="scout-report-text"
+            readOnly
+            value={reportText}
+            rows={3}
+            onFocus={(e) => e.currentTarget.select()}
+          />
+        </div>
+      )}
+
       <div className="table-wrap">
         {rows.length === 0 ? (
           <div className="empty">
@@ -284,6 +334,7 @@ export function DamageTab({ db, colors, onSelectWarlord }: Props) {
                 <th>兵科</th>
                 <th>兵種</th>
                 <th>行動時刻</th>
+                <th>守備時刻</th>
                 <th>経過</th>
               </tr>
             </thead>
@@ -356,6 +407,9 @@ export function DamageTab({ db, colors, onSelectWarlord }: Props) {
                   </td>
                   <td className="muted" data-label="行動時刻" style={{ fontSize: 12 }}>
                     {w.lastActionAt ?? "-"}
+                  </td>
+                  <td className="muted" data-label="守備時刻" style={{ fontSize: 12 }}>
+                    {w.lastDefenseAt ?? "-"}
                   </td>
                   <td className="muted" data-label="経過" style={{ fontSize: 12 }}>
                     {formatElapsed(info.minutes)}

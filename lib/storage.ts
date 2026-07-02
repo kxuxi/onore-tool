@@ -27,6 +27,8 @@ export function mergeWarlords(
       actions.length > 0 ? actions[actions.length - 1] : prev?.lastActionAt,
       w.lastActionAt
     );
+    // lastDefenseAt は守備登場時刻のみを独立して追跡する。
+    const lastDefenseAt = pickLatestAction(prev?.lastDefenseAt, w.lastDefenseAt);
 
     // 属性（国・タイプ・兵科・兵種・装備）は「より新しい戦闘」の方を採用する。
     // 新旧は 期 → 在ゲーム年月 → 実時刻 の順で判定し（isNewerBattle 参照）、
@@ -37,6 +39,7 @@ export function mergeWarlords(
       ...base,
       // 行動履歴・登録時刻は常に最新へ更新
       lastActionAt,
+      lastDefenseAt: lastDefenseAt || undefined,
       actions: actions.length > 0 ? actions : undefined,
       // 期番号は採用した戦闘（base）に追従させる。
       // ここを常に w.term にすると、より古い期の戦闘を後から処理したとき
@@ -162,25 +165,27 @@ export function lookup(map: WarlordMap, name: string): Warlord | undefined {
  * household が空の武将は、名前をそのまま返す。
  */
 export function normalizationMap(map: WarlordMap): Record<string, string> {
-  const byHousehold = new Map<string | undefined, { name: string; updatedAt: number }[]>();
+  const byHousehold = new Map<string, { name: string; updatedAt: number }[]>();
+  const result: Record<string, string> = {};
 
-  // household でグループ化
   for (const w of Object.values(map)) {
-    const key = w.household || undefined;
-    if (!byHousehold.has(key)) {
-      byHousehold.set(key, []);
+    if (!w.household) {
+      // 家督なし → 自分自身が代表（他の無家督武将とは統合しない）
+      result[w.name] = w.name;
+    } else {
+      if (!byHousehold.has(w.household)) byHousehold.set(w.household, []);
+      byHousehold.get(w.household)!.push({ name: w.name, updatedAt: w.updatedAt });
     }
-    byHousehold.get(key)!.push({ name: w.name, updatedAt: w.updatedAt });
   }
 
-  // 各グループで最新の代表を決定
-  const result: Record<string, string> = {};
-  for (const [household, warlords] of byHousehold) {
+  // 同じ家督を持つグループ → updatedAt が最新の代表へ統合
+  for (const warlords of byHousehold.values()) {
     const latest = warlords.reduce((a, b) => (a.updatedAt >= b.updatedAt ? a : b));
     for (const w of warlords) {
       result[w.name] = latest.name;
     }
   }
+
   return result;
 }
 

@@ -321,9 +321,13 @@ describe("parseBattleEntriesChecked（項目の過不足の検出）", () => {
   });
 });
 
-// 壁戦闘: 防衛側が城壁兵（6トークン形式）の戦闘
+// 壁戦闘: 防衛側が城壁兵（トークン数可変）の戦闘
 const LINE_WALL =
   "【壁戦】 1618年1月 06/29 20:13 温品 XYZ ダイキリ ダイキリ家 統特 丸木弓足軽 弓兵 金の護符 攻城櫓 V.S. ケロロ軍曹 温品の守備隊 超精鋭城壁兵 壁 なし なし 温品の守備隊の勝利 16 ターン で終了";
+
+// ターン数なしの壁戦闘（勝敗のみで終わる形式の変形）
+const LINE_WALL_NO_TURNS =
+  "【壁戦】 1618年1月 06/29 20:13 温品 XYZ ダイキリ ダイキリ家 統特 丸木弓足軽 弓兵 金の護符 攻城櫓 V.S. ケロロ軍曹 温品の守備隊 超精鋭城壁兵 壁 なし なし 温品の守備隊の勝利";
 
 describe("壁戦闘（【壁戦】形式）", () => {
   it("splitBattleSegments が【壁戦】を単独セグメントとして切り出す", () => {
@@ -361,5 +365,26 @@ describe("壁戦闘（【壁戦】形式）", () => {
     expect(card!.left.name).toBe("ダイキリ");
     expect(card!.right.name).toBe("温品の守備隊");
     expect(card!.winner).toBe("right");
+    expect(card!.turns).toBe("16");
+  });
+
+  it("ターン数なしの壁戦闘でも攻撃側を登録できる", () => {
+    const warlords = parseBattleLine(LINE_WALL_NO_TURNS);
+    expect(warlords).toHaveLength(1);
+    expect(warlords[0].name).toBe("ダイキリ");
+    expect(warlords[0].lastActionAt).toBe("06/29 20:13");
+  });
+
+  it("ターン数なしの壁戦闘カードを解析する（turns は undefined）", () => {
+    const card = parseBattleCard(LINE_WALL_NO_TURNS);
+    expect(card).not.toBeNull();
+    expect(card!.winner).toBe("right");
+    expect(card!.turns).toBeUndefined();
+  });
+
+  it("parseBattleEntriesChecked がターン数なし壁戦闘を rejected に入れない", () => {
+    const { entries, rejected } = parseBattleEntriesChecked(LINE_WALL_NO_TURNS);
+    expect(rejected).toHaveLength(0);
+    expect(entries).toHaveLength(1);
   });
 });

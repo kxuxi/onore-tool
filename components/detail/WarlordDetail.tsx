@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { WarlordMap } from "@/lib/types";
-import type { BattleRecord } from "@/lib/types";
+import type { BattleRecord, Warlord } from "@/lib/types";
+import { updateWarlordProfile } from "@/lib/api";
 import { lookup, householdAliases } from "@/lib/storage";
 import { factionBadgeStyle, type FactionColorMap } from "@/lib/factionColors";
 import {
@@ -40,6 +41,10 @@ interface Props {
   colors: FactionColorMap;
   /** コメント欄（一言コメント）を表示するか。未ログインでは非表示。 */
   canComment: boolean;
+  /** プロフィール編集フォームを表示するか（管理者のみ）。 */
+  canEdit?: boolean;
+  /** プロフィール更新後に呼ばれる（更新後の全 DB を受け取る）。 */
+  onProfileUpdate?: (db: WarlordMap) => void;
   /** 年代別勝率ランキングでの入賞タグ（全期間集計）。 */
   yearRankTags?: YearRankTag[];
   onSelectWarlord: (name: string) => void;
@@ -54,6 +59,8 @@ export function WarlordDetail({
   log,
   colors,
   canComment,
+  canEdit,
+  onProfileUpdate,
   yearRankTags,
   onSelectWarlord,
   onSelectUnit,
@@ -124,6 +131,14 @@ export function WarlordDetail({
       <DetailHeader kind="武将" title={name} tags={tags} onBack={onBack} />
 
       <AbilityStats warlord={dbInfo} />
+
+      {canEdit && (
+        <WarlordProfileEditor
+          name={name}
+          current={dbInfo ?? null}
+          onSaved={(updatedDb) => onProfileUpdate?.(updatedDb)}
+        />
+      )}
 
       {outcomes.length === 0 ? (
         !dbInfo ? (
@@ -209,5 +224,148 @@ export function WarlordDetail({
         </>
       )}
     </section>
+  );
+}
+
+/* ---------- プロフィール編集フォーム（管理者のみ） ---------- */
+
+const TYPE_OPTIONS = ["武特", "統特", "知特", "武統", "統知", "知武", "政治家", "戦闘狂", "謎"];
+const BRANCH_OPTIONS = ["騎兵", "歩兵", "弓兵", "万能", "妖怪", "砲兵", "水軍"];
+
+function WarlordProfileEditor({
+  name,
+  current,
+  onSaved,
+}: {
+  name: string;
+  current: Warlord | null;
+  onSaved: (db: WarlordMap) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [faction, setFaction] = useState(current?.faction ?? "");
+  const [type, setType] = useState(current?.type ?? "");
+  const [branch, setBranch] = useState(current?.branch ?? "");
+  const [unit, setUnit] = useState(current?.unit ?? "");
+  const [household, setHousehold] = useState(current?.household ?? "");
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<"idle" | "ok" | "error">("idle");
+
+  const handleSave = async () => {
+    if (!type.trim() || !branch.trim()) return;
+    setBusy(true);
+    setResult("idle");
+    try {
+      const db = await updateWarlordProfile({
+        name,
+        faction: faction.trim() || undefined,
+        type: type.trim(),
+        branch: branch.trim(),
+        unit: unit.trim() || undefined,
+        household: household.trim() || undefined,
+      });
+      onSaved(db);
+      setResult("ok");
+      window.setTimeout(() => setResult("idle"), 2000);
+    } catch {
+      setResult("error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="profile-editor">
+      <button
+        type="button"
+        className={"btn profile-editor-toggle" + (open ? " active" : "")}
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        {open ? "編集を閉じる" : "プロフィールを編集"}
+      </button>
+      {open && (
+        <div className="profile-editor-form">
+          <div className="profile-editor-grid">
+            <label className="profile-editor-field">
+              <span>国</span>
+              <input
+                type="text"
+                className="input"
+                value={faction}
+                onChange={(e) => setFaction(e.target.value)}
+                placeholder="例: 織田"
+              />
+            </label>
+            <label className="profile-editor-field">
+              <span>タイプ <span className="required">*</span></span>
+              <input
+                type="text"
+                className="input"
+                list="profile-type-list"
+                value={type}
+                onChange={(e) => setType(e.target.value)}
+                placeholder="例: 武特"
+              />
+              <datalist id="profile-type-list">
+                {TYPE_OPTIONS.map((v) => <option key={v} value={v} />)}
+              </datalist>
+            </label>
+            <label className="profile-editor-field">
+              <span>兵科 <span className="required">*</span></span>
+              <input
+                type="text"
+                className="input"
+                list="profile-branch-list"
+                value={branch}
+                onChange={(e) => setBranch(e.target.value)}
+                placeholder="例: 騎兵"
+              />
+              <datalist id="profile-branch-list">
+                {BRANCH_OPTIONS.map((v) => <option key={v} value={v} />)}
+              </datalist>
+            </label>
+            <label className="profile-editor-field">
+              <span>兵種</span>
+              <input
+                type="text"
+                className="input"
+                value={unit}
+                onChange={(e) => setUnit(e.target.value)}
+                placeholder="例: 重騎兵"
+              />
+            </label>
+            <label className="profile-editor-field">
+              <span>家督名</span>
+              <input
+                type="text"
+                className="input"
+                value={household}
+                onChange={(e) => setHousehold(e.target.value)}
+                placeholder="例: 織田家"
+              />
+            </label>
+          </div>
+          <div className="row" style={{ marginTop: 8 }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={handleSave}
+              disabled={busy || !type.trim() || !branch.trim()}
+            >
+              {busy ? "保存中…" : "保存する"}
+            </button>
+            {result === "ok" && (
+              <span className="profile-editor-msg ok">保存しました</span>
+            )}
+            {result === "error" && (
+              <span className="profile-editor-msg error">保存に失敗しました</span>
+            )}
+          </div>
+          <p className="muted" style={{ margin: "4px 0 0", fontSize: 12 }}>
+            ＊ タイプと兵科は必須です。戦闘履歴より優先して反映されます。
+          </p>
+        </div>
+      )}
+    </div>
   );
 }
